@@ -1,0 +1,1479 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>👑 Nikki 猫大王</title>
+<style>
+  /* ============ 全局重置与变量 ============ */
+  :root {
+    --cell-size: 56px;
+    --board-cols: 8;
+    --board-rows: 8;
+    --bg-1: #1a1230;
+    --bg-2: #2d1b4e;
+    --board-bg: rgba(255,255,255,0.06);
+    --cell-bg: rgba(255,255,255,0.10);
+    --accent: #ffd93d;
+    --accent-2: #ff6ec7;
+    --good: #6ee7a8;
+    --text: #fff;
+    --muted: #c5b8e0;
+    --gap: 4px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    color: var(--text);
+    background: radial-gradient(1200px 800px at 20% 0%, var(--bg-2) 0%, var(--bg-1) 60%) fixed;
+    min-height: 100dvh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow-x: hidden;
+    user-select: none;
+  }
+  /* 背景漂浮的猫爪 */
+  body::before {
+    content: "🐾 🐾 🐾 🐾 🐾 🐾 🐾 🐾 🐾 🐾";
+    position: fixed; inset: 0;
+    color: rgba(255,255,255,0.035);
+    font-size: 40px; line-height: 90px;
+    pointer-events: none; z-index: 0;
+    animation: drift 30s linear infinite;
+    word-spacing: 60px;
+  }
+  @keyframes drift { from { transform: translateY(-100px);} to { transform: translateY(100px);} }
+
+  /* ============ 布局容器 ============ */
+  .app {
+    position: relative; z-index: 1;
+    display: flex; flex-direction: column;
+    align-items: center; gap: 14px;
+    padding: 16px;
+    width: 100%;
+    max-width: 560px;
+  }
+  .title {
+    font-size: 26px; font-weight: 800; letter-spacing: 1px;
+    background: linear-gradient(90deg, var(--accent), var(--accent-2));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    text-shadow: 0 4px 20px rgba(255,110,199,0.3);
+  }
+  .subtitle { font-size: 12px; color: var(--muted); margin-top: -8px; }
+
+  /* ============ HUD ============ */
+  .hud {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    width: 100%;
+  }
+  .hud-card {
+    background: var(--board-bg);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 14px;
+    padding: 8px 6px;
+    text-align: center;
+    backdrop-filter: blur(8px);
+  }
+  .hud-label { font-size: 10px; color: var(--muted); letter-spacing: 1px; }
+  .hud-value { font-size: 20px; font-weight: 800; margin-top: 2px; }
+  .hud-value.warn { color: #ff7a7a; animation: pulse 0.6s ease-in-out infinite alternate; }
+  @keyframes pulse { to { transform: scale(1.12);} }
+
+  /* 目标进度条 */
+  .progress-wrap {
+    width: 100%; height: 10px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 99px; overflow: hidden;
+    border: 1px solid rgba(255,255,255,0.06);
+  }
+  .progress-bar {
+    height: 100%; width: 0%;
+    background: linear-gradient(90deg, var(--good), var(--accent));
+    border-radius: 99px;
+    transition: width 0.5s cubic-bezier(.2,.8,.2,1);
+    box-shadow: 0 0 12px rgba(110,231,168,0.6);
+  }
+
+  /* ============ 棋盘 ============ */
+  .board-frame {
+    position: relative;
+    padding: 10px;
+    background: var(--board-bg);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 20px;
+    backdrop-filter: blur(8px);
+    box-shadow: 0 20px 60px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.08);
+  }
+  .board {
+    position: relative;
+    width: calc(var(--cell-size) * var(--board-cols) + var(--gap) * (var(--board-cols) - 1));
+    height: calc(var(--cell-size) * var(--board-rows) + var(--gap) * (var(--board-rows) - 1));
+  }
+  .cell {
+    position: absolute;
+    width: var(--cell-size);
+    height: var(--cell-size);
+    border-radius: 12px;
+    background: var(--cell-bg);
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.04);
+  }
+
+  /* 猫咪方块 */
+  .cat {
+    position: absolute;
+    width: var(--cell-size);
+    height: var(--cell-size);
+    display: flex; align-items: center; justify-content: center;
+    font-size: calc(var(--cell-size) * 0.72);
+    cursor: pointer;
+    transition: left 0.32s cubic-bezier(.34,1.56,.64,1), top 0.34s cubic-bezier(.34,1.2,.64,1), transform 0.15s;
+    will-change: top, left, transform;
+    filter: drop-shadow(0 4px 6px rgba(0,0,0,0.4));
+    z-index: 2;
+  }
+  .cat:hover { transform: scale(1.06); }
+  .cat.selected {
+    transform: scale(1.18);
+    z-index: 5;
+    filter: drop-shadow(0 0 14px var(--accent)) drop-shadow(0 4px 6px rgba(0,0,0,0.4));
+  }
+  .cat.selected::after {
+    content: "";
+    position: absolute; inset: -4px;
+    border: 3px solid var(--accent);
+    border-radius: 14px;
+    animation: ring 0.8s ease-in-out infinite alternate;
+  }
+  @keyframes ring { to { box-shadow: 0 0 18px var(--accent);} }
+
+  /* 猫咪背景色块(增强区分度) */
+  .cat-bg {
+    position: absolute; inset: 4px;
+    border-radius: 10px;
+    opacity: 0.85;
+    z-index: -1;
+  }
+  .cat .emoji { position: relative; z-index: 1; }
+
+  /* 猫咪头像图片 */
+  .cat-img {
+    position: absolute; inset: 4px;
+    border-radius: 10px;
+    width: calc(100% - 8px); height: calc(100% - 8px);
+    object-fit: cover;
+    z-index: 0;
+    background: var(--cell-bg);
+  }
+  /* 图片加载失败时的兜底:显示名字 */
+  .cat-fallback {
+    position: absolute; inset: 4px;
+    border-radius: 10px;
+    display: none; /* 默认隐藏,img 加载失败时显示 */
+    align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 700;
+    color: rgba(0,0,0,0.75);
+    text-align: center; line-height: 1.1;
+    padding: 2px;
+    z-index: 1;
+  }
+  .cat.no-img .cat-img { display: none; }
+  .cat.no-img .cat-fallback { display: flex; }
+  .cat.no-img .cat-bg { opacity: 1; }
+
+  /* 特殊道具:脉冲光圈 */
+  .cat.special .cat-bg { animation: specialGlow 1.4s ease-in-out infinite alternate; }
+  @keyframes specialGlow { to { box-shadow: 0 0 18px #fff, 0 0 30px var(--accent); filter: brightness(1.3);} }
+
+  /* 消除动画 */
+  .cat.popping { animation: pop 0.34s ease-in forwards; pointer-events: none; }
+  @keyframes pop {
+    0% { transform: scale(1) rotate(0);}
+    40% { transform: scale(1.3) rotate(12deg);}
+    100% { transform: scale(0) rotate(180deg); opacity: 0;}
+  }
+  /* 出生动画(下落到位) */
+  .cat.spawning { animation: spawn 0.3s ease-out; }
+  @keyframes spawn { from { transform: scale(0.6); opacity: 0;} to { transform: scale(1); opacity: 1;} }
+
+  /* ============ 粒子 & 飘字 ============ */
+  .particle {
+    position: absolute; pointer-events: none;
+    width: 8px; height: 8px; border-radius: 50%;
+    z-index: 10;
+  }
+  .float-score {
+    position: absolute; pointer-events: none; z-index: 12;
+    font-weight: 800; font-size: 18px;
+    color: var(--accent);
+    text-shadow: 0 2px 6px rgba(0,0,0,0.6);
+    animation: floatUp 0.9s ease-out forwards;
+  }
+  @keyframes floatUp {
+    0% { transform: translate(-50%, 0) scale(0.6); opacity: 0;}
+    20% { transform: translate(-50%, -10px) scale(1.1); opacity: 1;}
+    100% { transform: translate(-50%, -50px) scale(1); opacity: 0;}
+  }
+
+  /* 大连击文字 */
+  .combo-text {
+    position: absolute; top: 40%; left: 50%;
+    transform: translate(-50%, -50%) scale(0);
+    font-size: 40px; font-weight: 900;
+    background: linear-gradient(90deg, var(--accent), var(--accent-2));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    z-index: 20; pointer-events: none;
+    text-shadow: 0 4px 20px rgba(0,0,0,0.5);
+  }
+  .combo-text.show { animation: comboShow 0.9s ease-out forwards; }
+  @keyframes comboShow {
+    0% { transform: translate(-50%, -50%) scale(0) rotate(-15deg);}
+    40% { transform: translate(-50%, -50%) scale(1.2) rotate(5deg);}
+    70% { transform: translate(-50%, -50%) scale(1) rotate(0);}
+    100% { transform: translate(-50%, -80%) scale(0.9); opacity: 0;}
+  }
+
+  /* ============ 底部按钮 ============ */
+  .controls {
+    display: flex; gap: 10px; width: 100%;
+    justify-content: center;
+  }
+  .btn {
+    flex: 1; max-width: 160px;
+    padding: 11px 16px;
+    border: none; border-radius: 14px;
+    font-size: 14px; font-weight: 700;
+    color: var(--text);
+    background: linear-gradient(135deg, var(--accent-2), #8b5cf6);
+    cursor: pointer;
+    transition: transform 0.12s, box-shadow 0.2s;
+    box-shadow: 0 6px 18px rgba(139,92,246,0.4);
+  }
+  .btn:hover { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(139,92,246,0.5); }
+  .btn:active { transform: translateY(0); }
+  .btn.secondary {
+    background: rgba(255,255,255,0.1);
+    box-shadow: none;
+    border: 1px solid rgba(255,255,255,0.12);
+  }
+  .btn.secondary.on { background: var(--accent); color: #2d1b4e; }
+
+  /* 额度徽章 */
+  .btn .quota {
+    display: inline-block;
+    min-width: 18px;
+    padding: 0 5px;
+    margin-left: 2px;
+    font-size: 12px;
+    font-weight: 800;
+    color: #2d1b4e;
+    background: var(--accent);
+    border-radius: 99px;
+    line-height: 1.5;
+  }
+  .btn .quota.zero {
+    color: #fff;
+    background: #ff5a5a;
+    animation: pulse 0.8s ease-in-out infinite alternate;
+  }
+
+  /* ============ 弹窗 ============ */
+  .overlay {
+    position: fixed; inset: 0; z-index: 100;
+    background: rgba(10,5,25,0.7);
+    backdrop-filter: blur(8px);
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.3s;
+  }
+  .overlay.show { opacity: 1; pointer-events: auto; }
+  .modal {
+    background: linear-gradient(160deg, #3a2566, #1f1442);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 24px;
+    padding: 32px 28px;
+    width: 88%; max-width: 360px;
+    text-align: center;
+    box-shadow: 0 30px 80px rgba(0,0,0,0.6);
+    transform: scale(0.85);
+    transition: transform 0.35s cubic-bezier(.34,1.56,.64,1);
+  }
+  .overlay.show .modal { transform: scale(1); }
+  .modal-emoji { font-size: 56px; }
+  .modal h2 { font-size: 24px; margin: 8px 0 4px; }
+  .modal p { color: var(--muted); font-size: 14px; margin-bottom: 18px; line-height: 1.6; }
+  .modal .stat { font-size: 15px; color: var(--accent); font-weight: 700; margin: 6px 0 16px; }
+
+  /* ============ 重排弹窗:二维码 + 密码 ============ */
+  .shuffle-modal { padding: 24px 22px; }
+  .qr-img {
+    width: 170px; height: 170px; object-fit: cover;
+    border-radius: 14px; margin: 4px auto 6px;
+    display: block;
+    background: #fff; padding: 6px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  }
+  .qr-hint { font-size: 12px; color: var(--muted); margin-bottom: 10px; }
+
+  /* 4 位密码输入框 */
+  .pwd-row {
+    display: flex; gap: 10px; justify-content: center;
+    margin: 4px 0 6px;
+  }
+  .pwd-box {
+    width: 48px; height: 56px;
+    text-align: center;
+    font-size: 26px; font-weight: 800;
+    color: var(--text);
+    background: rgba(255,255,255,0.08);
+    border: 2px solid rgba(255,255,255,0.15);
+    border-radius: 12px;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .pwd-box:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(255,217,61,0.25);
+    background: rgba(255,217,61,0.08);
+  }
+  .pwd-box.filled { border-color: var(--accent-2); }
+  .pwd-box.error-shake { animation: shake 0.4s; border-color: #ff5a5a; }
+  @keyframes shake {
+    0%,100% { transform: translateX(0); }
+    25% { transform: translateX(-6px); }
+    75% { transform: translateX(6px); }
+  }
+  .pwd-error {
+    font-size: 13px; color: #ff7a7a; font-weight: 600;
+    min-height: 18px; margin: 2px 0 8px;
+  }
+  .shuffle-modal-btns {
+    display: flex; gap: 10px;
+  }
+  .shuffle-modal-btns .btn { flex: 1; }
+
+  /* ============ 帮助图鉴弹窗 ============ */
+  .help-modal {
+    text-align: left;
+    max-width: 400px;
+    max-height: 85vh;
+    overflow-y: auto;
+    padding: 24px 22px;
+  }
+  .help-modal .modal-emoji,
+  .help-modal h2,
+  .help-modal .help-intro { text-align: center; }
+  .help-intro {
+    font-size: 13px; color: var(--muted);
+    margin: 4px 0 14px;
+  }
+  .help-section { margin-bottom: 14px; }
+  .help-section-title {
+    font-size: 13px; font-weight: 800; color: var(--accent);
+    margin-bottom: 8px; letter-spacing: 0.5px;
+  }
+  .help-item {
+    display: flex; align-items: center; gap: 12px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 12px;
+    padding: 9px 12px;
+    margin-bottom: 6px;
+  }
+  .help-icon {
+    flex-shrink: 0;
+    width: 40px; height: 40px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 26px;
+    background: linear-gradient(135deg, rgba(255,217,61,0.2), rgba(255,110,199,0.2));
+    border-radius: 10px;
+  }
+  .help-icon.small { font-size: 20px; }
+  .help-text { flex: 1; min-width: 0; }
+  .help-name {
+    font-size: 14px; font-weight: 700; color: var(--text);
+    display: flex; align-items: center; gap: 6px;
+  }
+  .help-tag {
+    font-size: 10px; font-weight: 600;
+    background: rgba(110,231,168,0.2);
+    color: var(--good);
+    padding: 1px 7px; border-radius: 99px;
+  }
+  .help-desc {
+    font-size: 12px; color: var(--muted);
+    margin-top: 2px; line-height: 1.4;
+  }
+  .help-modal .btn { margin-top: 10px; width: 100%; }
+
+  /* ============ 响应式 ============ */
+  @media (max-width: 480px) {
+    :root { --cell-size: 42px; }
+    .title { font-size: 22px; }
+    .hud-value { font-size: 17px; }
+    .combo-text { font-size: 32px; }
+  }
+  @media (max-width: 380px) {
+    :root { --cell-size: 38px; --gap: 3px; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="title">👑 Nikki 猫大王</div>
+  <div class="subtitle">Nikki the Cat King — 消除三只相同的猫咪</div>
+
+  <!-- HUD -->
+  <div class="hud">
+    <div class="hud-card"><div class="hud-label">关卡</div><div class="hud-value" id="hud-level">1</div></div>
+    <div class="hud-card"><div class="hud-label">分数</div><div class="hud-value" id="hud-score">0</div></div>
+    <div class="hud-card"><div class="hud-label">目标</div><div class="hud-value" id="hud-target">1000</div></div>
+    <div class="hud-card"><div class="hud-label">步数</div><div class="hud-value" id="hud-moves">20</div></div>
+  </div>
+  <div class="progress-wrap"><div class="progress-bar" id="progress"></div></div>
+
+  <!-- 棋盘 -->
+  <div class="board-frame">
+    <div class="board" id="board"></div>
+    <div class="combo-text" id="combo-text"></div>
+  </div>
+
+  <!-- 按钮 -->
+  <div class="controls">
+    <button class="btn" id="btn-hint">💡 提示 <span class="quota">5</span></button>
+    <button class="btn" id="btn-shuffle">🔀 重排 <span class="quota">2</span></button>
+    <button class="btn secondary" id="btn-help">❓ 帮助</button>
+    <button class="btn secondary" id="btn-sound">🔊 音效</button>
+    <button class="btn secondary" id="btn-restart">🔄 重开</button>
+  </div>
+</div>
+
+<!-- 弹窗:过关/失败 -->
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <div class="modal-emoji" id="modal-emoji">🎉</div>
+    <h2 id="modal-title">过关!</h2>
+    <p id="modal-desc">你成功收集了所有猫咪!</p>
+    <div class="stat" id="modal-stat"></div>
+    <button class="btn" id="modal-btn">下一关</button>
+  </div>
+</div>
+
+<!-- 弹窗:V我50 重排密码 -->
+<!-- 弹窗:扫码解锁(提示/重排共用) -->
+<div class="overlay" id="unlock-overlay">
+  <div class="modal shuffle-modal">
+    <div class="modal-emoji">💸</div>
+    <h2 id="unlock-title">解锁</h2>
+    <p id="unlock-desc">扫码 V 我 50,获得密码助力通关 😼</p>
+    <img class="qr-img" src="assets/cats/erweima.jpg" alt="收款二维码">
+    <p class="qr-hint">👇 扫码后请输入 4 位密码</p>
+    <div class="pwd-row" id="pwd-row">
+      <input class="pwd-box" type="text" maxlength="1" inputmode="numeric" data-idx="0">
+      <input class="pwd-box" type="text" maxlength="1" inputmode="numeric" data-idx="1">
+      <input class="pwd-box" type="text" maxlength="1" inputmode="numeric" data-idx="2">
+      <input class="pwd-box" type="text" maxlength="1" inputmode="numeric" data-idx="3">
+    </div>
+    <p class="pwd-error" id="pwd-error"></p>
+    <div class="shuffle-modal-btns">
+      <button class="btn secondary" id="unlock-cancel">取消</button>
+      <button class="btn" id="unlock-confirm">确认</button>
+    </div>
+  </div>
+</div>
+
+<!-- 弹窗:帮助 / 道具图鉴 -->
+<div class="overlay" id="help-overlay">
+  <div class="modal help-modal">
+    <div class="modal-emoji">📖</div>
+    <h2>玩法 & 道具图鉴</h2>
+    <p class="help-intro">交换相邻猫咪,三只相同即可消除!</p>
+
+    <div class="help-section">
+      <div class="help-section-title">✨ 特殊道具</div>
+      <div class="help-item">
+        <div class="help-icon">⚡</div>
+        <div class="help-text">
+          <div class="help-name">条纹猫 <span class="help-tag">4 连生成</span></div>
+          <div class="help-desc">把它消掉,横扫整行或纵扫整列</div>
+        </div>
+      </div>
+      <div class="help-item">
+        <div class="help-icon">🌈</div>
+        <div class="help-text">
+          <div class="help-name">彩虹猫 <span class="help-tag">5 连生成</span></div>
+          <div class="help-desc">与任意猫交换,清除该色全部猫咪</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="help-section">
+      <div class="help-section-title">🎮 操作按钮</div>
+      <div class="help-item">
+        <div class="help-icon small">💡</div>
+        <div class="help-text">
+          <div class="help-name">提示</div>
+          <div class="help-desc">高亮一步可消除的交换</div>
+        </div>
+      </div>
+      <div class="help-item">
+        <div class="help-icon small">🔀</div>
+        <div class="help-text">
+          <div class="help-name">重排</div>
+          <div class="help-desc">打乱棋盘(需 V50 密码,每码限用一次)</div>
+        </div>
+      </div>
+      <div class="help-item">
+        <div class="help-icon small">🔄</div>
+        <div class="help-text">
+          <div class="help-name">重开</div>
+          <div class="help-desc">从第 1 关重新开始</div>
+        </div>
+      </div>
+    </div>
+
+    <button class="btn" id="help-close">明白了!</button>
+  </div>
+</div>
+
+<script>
+"use strict";
+
+/* ============================================================
+   猫咪消消乐 — 核心逻辑
+   ============================================================ */
+
+const COLS = 8, ROWS = 8, GAP = 4;
+// 8 只猫咪:名字 + 拼音文件名 + 配色底块
+const CAT_TYPES = [
+  { name: "陈皮", file: "chenpi",   color: "#ff9a9e" }, // 0
+  { name: "包子", file: "baozi",    color: "#a18cd1" }, // 1
+  { name: "年年", file: "niannian", color: "#fbc2eb" }, // 2
+  { name: "松露", file: "songlu",   color: "#84fab0" }, // 3
+  { name: "大儿", file: "daer",     color: "#fda085" }, // 4
+  { name: "警长", file: "jinzhang", color: "#a1c4fd" }, // 5
+  { name: "有鱼", file: "youyu",    color: "#ffd93d" }, // 6
+  { name: "阿狸", file: "ali",      color: "#ff6ec7" }, // 7
+];
+const IMG_EXT = "png"; // 图片格式,支持改 jpg/webp
+
+const boardEl   = document.getElementById("board");
+const comboEl   = document.getElementById("combo-text");
+const overlay   = document.getElementById("overlay");
+const $ = id => document.getElementById(id);
+
+/* ---- 游戏状态 ---- */
+let grid = [];                 // grid[r][c] = {type, special} | null
+let catEls = [];               // catEls[r][c] = DOM 元素 | null
+let score = 0, level = 1, moves = 20, target = 1000;
+let selected = null;           // {r, c}
+let busy = false;              // 动画锁
+// 每关免费额度:提示 5 次,重排 2 次;用完后需扫码解锁
+const FREE_QUOTA = { hint: 5, shuffle: 2 };
+let hintLeft = FREE_QUOTA.hint;
+let shuffleLeft = FREE_QUOTA.shuffle;
+let usedPasswords = new Set(); // 本关已使用过的密码(防止复用)
+// 当前正在解锁的动作:'hint' | 'shuffle'
+let unlockAction = null;
+let soundOn = true;
+let audioCtx = null;
+
+/* ============================================================
+   音效(Web Audio 合成,无需外部文件)
+   ============================================================ */
+function ensureAudio() {
+  if (!audioCtx) {
+    try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+    catch (e) { audioCtx = null; }
+  }
+  if (audioCtx && audioCtx.state === "suspended") audioCtx.resume();
+}
+function beep(freq, dur = 0.1, type = "sine", vol = 0.15) {
+  if (!soundOn || !audioCtx) return;
+  const o = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  o.type = type; o.frequency.value = freq;
+  g.gain.setValueAtTime(vol, audioCtx.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+  o.connect(g); g.connect(audioCtx.destination);
+  o.start(); o.stop(audioCtx.currentTime + dur);
+}
+const sfx = {
+  select: () => beep(660, 0.06, "square", 0.08),
+  swap:   () => beep(880, 0.08, "sine", 0.12),
+  bad:    () => beep(180, 0.15, "sawtooth", 0.1),
+  match:  (combo) => beep(440 + combo * 120, 0.12, "triangle", 0.15),
+  special:() => { beep(800,0.1,"square",0.12); setTimeout(()=>beep(1200,0.15,"square",0.12),80); },
+  win:    () => { [523,659,784,1047].forEach((f,i)=>setTimeout(()=>beep(f,0.2,"triangle",0.15),i*120)); },
+  lose:   () => { [400,300,200].forEach((f,i)=>setTimeout(()=>beep(f,0.25,"sawtooth",0.12),i*150)); },
+};
+
+/* ============================================================
+   坐标 & 元素定位
+   ============================================================ */
+function posOf(r, c) {
+  return { left: c * (CELL + GAP), top: r * (CELL + GAP) };
+}
+let CELL = 56; // 会从 CSS 读取实际值
+
+function readCellSize() {
+  const v = getComputedStyle(document.documentElement).getPropertyValue("--cell-size");
+  CELL = parseInt(v) || 56;
+}
+
+/* 创建格子背景 */
+function buildCells() {
+  boardEl.innerHTML = "";
+  for (let r = 0; r < ROWS; r++)
+    for (let c = 0; c < COLS; c++) {
+      const cell = document.createElement("div");
+      cell.className = "cell";
+      const p = posOf(r, c);
+      cell.style.left = p.left + "px";
+      cell.style.top  = p.top + "px";
+      boardEl.appendChild(cell);
+    }
+}
+
+/* 创建猫咪 DOM */
+function makeCatEl(r, c, data) {
+  const el = document.createElement("div");
+  el.className = "cat";
+  if (data.special) el.classList.add("special");
+  const p = posOf(r, c);
+  el.style.left = p.left + "px";
+  el.style.top  = p.top + "px";
+
+  // 底色块(图片透明边缘 / 兜底时可见)
+  const bg = document.createElement("div");
+  bg.className = "cat-bg";
+  bg.style.background = CAT_TYPES[data.type].color;
+  el.appendChild(bg);
+
+  // 猫咪头像图片
+  const img = document.createElement("img");
+  img.className = "cat-img";
+  img.src = `assets/cats/${CAT_TYPES[data.type].file}.${IMG_EXT}`;
+  img.alt = CAT_TYPES[data.type].name;
+  img.draggable = false;
+  img.loading = "lazy";
+  // 加载失败 → 切换到名字兜底
+  img.addEventListener("error", () => el.classList.add("no-img"));
+  el.appendChild(img);
+
+  // 兜底:显示猫咪名字(图片没放时)
+  const fb = document.createElement("div");
+  fb.className = "cat-fallback";
+  fb.textContent = CAT_TYPES[data.type].name;
+  el.appendChild(fb);
+
+  // 特殊道具叠加符号
+  if (data.special === "stripe-h" || data.special === "stripe-v") {
+    const tag = document.createElement("span");
+    tag.className = "emoji";
+    tag.textContent = "⚡";
+    tag.style.cssText = "position:absolute;z-index:2;font-size:1.2em;top:-2px;right:0;text-shadow:0 0 6px #fff,0 0 10px #ffd93d;pointer-events:none;";
+    el.appendChild(tag);
+  } else if (data.special === "rainbow") {
+    const tag = document.createElement("span");
+    tag.className = "emoji";
+    tag.textContent = "🌈";
+    tag.style.cssText = "position:absolute;z-index:2;font-size:1.1em;top:-4px;right:-2px;text-shadow:0 0 6px #fff;pointer-events:none;";
+    el.appendChild(tag);
+  }
+
+  // 注意:不再把坐标写死进闭包。点击时从 dataset 实时读取,
+  // 这样下落后 data-r/data-c 会被同步更新,不会漂移。
+  el.dataset.r = r;
+  el.dataset.c = c;
+  el.addEventListener("click", (ev) => {
+    const cr = +el.dataset.r, cc = +el.dataset.c;
+    onCatClick(cr, cc);
+  });
+  return el;
+}
+
+/* 同步更新某格猫咪元素的坐标标签(下落/交换后调用) */
+function syncCatPos(r, c) {
+  const el = catEls[r] && catEls[r][c];
+  if (!el) return;
+  el.dataset.r = r;
+  el.dataset.c = c;
+}
+
+/* 根据 grid 重建所有猫咪元素 */
+function renderAll() {
+  // 清除现有 .cat(保留 .cell)
+  boardEl.querySelectorAll(".cat").forEach(e => e.remove());
+  catEls = Array.from({length: ROWS}, () => Array(COLS).fill(null));
+  for (let r = 0; r < ROWS; r++)
+    for (let c = 0; c < COLS; c++)
+      if (grid[r][c]) {
+        const el = makeCatEl(r, c, grid[r][c]);
+        boardEl.appendChild(el);
+        catEls[r][c] = el;
+      }
+}
+
+/* ============================================================
+   初始化棋盘(避免开局就有三连)
+   ============================================================ */
+function randomType(exclude = []) {
+  let t;
+  do { t = Math.floor(Math.random() * CAT_TYPES.length); }
+  while (exclude.includes(t));
+  return t;
+}
+function initBoard() {
+  grid = Array.from({length: ROWS}, () => Array(COLS).fill(null));
+  for (let r = 0; r < ROWS; r++)
+    for (let c = 0; c < COLS; c++) {
+      const exclude = [];
+      if (c >= 2 && grid[r][c-1]?.type === grid[r][c-2]?.type && grid[r][c-1])
+        exclude.push(grid[r][c-1].type);
+      if (r >= 2 && grid[r-1][c]?.type === grid[r-2][c]?.type && grid[r-1][c])
+        exclude.push(grid[r-1][c].type);
+      grid[r][c] = { type: randomType(exclude), special: null };
+    }
+  // 确保至少有一步可行,否则重排
+  if (!hasPossibleMove()) initBoard();
+}
+
+/* ============================================================
+   匹配检测
+   ============================================================ */
+// 找出所有三连及以上的位置,返回需要消除的格子集合 Set<"r,c">
+function findMatches() {
+  const matched = new Set();
+
+  // 横向
+  for (let r = 0; r < ROWS; r++) {
+    let runStart = 0;
+    for (let c = 1; c <= COLS; c++) {
+      const same = c < COLS && grid[r][c] && grid[r][runStart] &&
+                   grid[r][c].type === grid[r][runStart].type;
+      if (!same) {
+        if (c - runStart >= 3)
+          for (let k = runStart; k < c; k++) matched.add(`${r},${k}`);
+        runStart = c;
+      }
+    }
+  }
+  // 纵向
+  for (let c = 0; c < COLS; c++) {
+    let runStart = 0;
+    for (let r = 1; r <= ROWS; r++) {
+      const same = r < ROWS && grid[r][c] && grid[runStart][c] &&
+                   grid[r][c].type === grid[runStart][c].type;
+      if (!same) {
+        if (r - runStart >= 3)
+          for (let k = runStart; k < r; k++) matched.add(`${k},${c}`);
+        runStart = r;
+      }
+    }
+  }
+  return matched;
+}
+
+// 判断是否存在可行的消除交换
+function hasPossibleMove() {
+  for (let r = 0; r < ROWS; r++)
+    for (let c = 0; c < COLS; c++) {
+      // 尝试与右、下交换
+      if (c + 1 < COLS) {
+        swapData(r, c, r, c + 1);
+        if (findMatches().size > 0) { swapData(r, c, r, c + 1); return true; }
+        swapData(r, c, r, c + 1);
+      }
+      if (r + 1 < ROWS) {
+        swapData(r, c, r + 1, c);
+        if (findMatches().size > 0) { swapData(r, c, r + 1, c); return true; }
+        swapData(r, c, r + 1, c);
+      }
+    }
+  return false;
+}
+function swapData(r1, c1, r2, c2) {
+  const t = grid[r1][c1]; grid[r1][c1] = grid[r2][c2]; grid[r2][c2] = t;
+}
+
+/* ============================================================
+   交互:点击选中 & 交换
+   ============================================================ */
+function onCatClick(r, c) {
+  if (busy || !grid[r][c]) return;
+  ensureAudio();
+  if (!selected) {
+    selected = { r, c };
+    catEls[r][c]?.classList.add("selected");
+    sfx.select();
+    return;
+  }
+  // 点到同一个:取消
+  if (selected.r === r && selected.c === c) {
+    catEls[r][c]?.classList.remove("selected");
+    selected = null; return;
+  }
+  // 判断是否相邻
+  const dr = Math.abs(selected.r - r), dc = Math.abs(selected.c - c);
+  if (dr + dc !== 1) {
+    // 重新选中
+    catEls[selected.r]?.[selected.c]?.classList.remove("selected");
+    selected = { r, c };
+    catEls[r][c]?.classList.add("selected");
+    sfx.select();
+    return;
+  }
+  // 相邻:尝试交换
+  const from = selected;
+  catEls[from.r]?.[from.c]?.classList.remove("selected");
+  selected = null;
+  attemptSwap(from.r, from.c, r, c);
+}
+
+async function attemptSwap(r1, c1, r2, c2) {
+  busy = true;
+  sfx.swap();
+  // 处理特殊道具:彩虹猫与任意猫交换,清除该色所有
+  const a = grid[r1][c1], b = grid[r2][c2];
+  if (a?.special === "rainbow" || b?.special === "rainbow") {
+    await animateMove(r1, c1, r2, c2);
+    swapData(r1, c1, r2, c2); swapEls(r1, c1, r2, c2);
+    const rainbowAt = grid[r1][c1]?.special === "rainbow" ? {r:r1,c:c1} : {r:r2,c:c2};
+    const otherAt   = rainbowAt.r === r1 ? {r:r2,c:c2} : {r:r1,c:c1};
+    const targetType = grid[otherAt.r][otherAt.c].type;
+    const toClear = new Set([`${rainbowAt.r},${rainbowAt.c}`]);
+    for (let r = 0; r < ROWS; r++)
+      for (let c = 0; c < COLS; c++)
+        if (grid[r][c] && grid[r][c].type === targetType)
+          toClear.add(`${r},${c}`);
+    sfx.special();
+    await resolveCascades(toClear, 1);
+    afterMove();
+    busy = false;
+    return;
+  }
+
+  await animateMove(r1, c1, r2, c2);
+  swapData(r1, c1, r2, c2);
+  swapEls(r1, c1, r2, c2);
+  const matches = findMatches();
+  if (matches.size === 0) {
+    // 无效交换,换回去
+    await sleep(120);
+    sfx.bad();
+    await animateMove(r1, c1, r2, c2);
+    swapData(r1, c1, r2, c2);
+    swapEls(r1, c1, r2, c2);
+    busy = false;
+    return;
+  }
+  // 有效:扣步数,连锁消除
+  moves--;
+  updateHUD();
+  await resolveCascades(matches, 1);
+  afterMove();
+  busy = false;
+}
+
+/* 移动两个格子的元素到对方位置(仅视觉),不动数据 */
+function animateMove(r1, c1, r2, c2) {
+  const e1 = catEls[r1][c1], e2 = catEls[r2][c2];
+  const p1 = posOf(r1, c1), p2 = posOf(r2, c2);
+  if (e1) { e1.style.left = p2.left + "px"; e1.style.top = p2.top + "px"; }
+  if (e2) { e2.style.left = p1.left + "px"; e2.style.top = p1.top + "px"; }
+  return sleep(330);
+}
+function swapEls(r1, c1, r2, c2) {
+  const t = catEls[r1][c1]; catEls[r1][c1] = catEls[r2][c2]; catEls[r2][c2] = t;
+  // 交换后同步两个元素的坐标标签
+  if (catEls[r1][c1]) { catEls[r1][c1].dataset.r = r1; catEls[r1][c1].dataset.c = c1; }
+  if (catEls[r2][c2]) { catEls[r2][c2].dataset.r = r2; catEls[r2][c2].dataset.c = c2; }
+}
+
+/* ============================================================
+   连锁消除主循环
+   matched: 本次需要清除的 Set<"r,c">;combo: 第几连
+   ============================================================ */
+async function resolveCascades(matched, combo) {
+  while (matched.size > 0) {
+    // 大连击提示
+    if (combo >= 2) showCombo(combo);
+    sfx.match(combo);
+
+    // 1. 生成特殊道具(仅 combo==1 即首次命中且匹配数为4/5)
+    const specialsToPlace = combo === 1 ? detectSpecials(matched) : [];
+
+    // 2. 计分 & 粒子 & 消除动画
+    const gained = matched.size * 60 * combo;
+    addScore(gained);
+    floatScoreAt(matched, gained);
+
+    // 触发特殊道具的连锁清除(条纹猫清整行/列)
+    const extra = expandSpecials(matched);
+
+    // 标记要消除的元素
+    for (const key of matched) {
+      const [r, c] = key.split(",").map(Number);
+      const el = catEls[r][c];
+      if (el) {
+        spawnParticles(el);
+        el.classList.add("popping");
+      }
+    }
+    await sleep(340);
+
+    // 3. 真正删除数据 & 元素
+    for (const key of matched) {
+      const [r, c] = key.split(",").map(Number);
+      grid[r][c] = null;
+      catEls[r][c]?.remove();
+      catEls[r][c] = null;
+    }
+
+    // 4. 放置生成的特殊道具
+    for (const sp of specialsToPlace) {
+      grid[sp.r][sp.c] = { type: sp.type, special: sp.kind };
+      const el = makeCatEl(sp.r, sp.c, grid[sp.r][sp.c]);
+      el.classList.add("spawning");
+      boardEl.appendChild(el);
+      catEls[sp.r][sp.c] = el;
+    }
+
+    // 5. 下落
+    await dropAndFill();
+
+    // 6. 检查新的匹配
+    combo++;
+    matched = findMatches();
+  }
+}
+
+/* 检测4连/5连,返回要放置的特殊道具列表
+   只在同一坐标同时属于横/纵 4+ 连时才生成,避免重复/泛滥 */
+function detectSpecials(matched) {
+  const result = [];
+  const used = new Set(); // 已经放置道具的格子,避免一格放多个
+
+  // 把 matched 按行/列分组
+  const byRow = {}; // r -> Set<c>
+  const byCol = {}; // c -> Set<r>
+  for (const key of matched) {
+    const [r, c] = key.split(",").map(Number);
+    (byRow[r] = byRow[r] || new Set()).add(c);
+    (byCol[c] = byCol[c] || new Set()).add(r);
+  }
+
+  // 从一个排序数组中提取连续段(长度>=minLen),返回 [[start, end]...]
+  function runs(arr, minLen) {
+    const out = [];
+    const s = [...arr].sort((a,b)=>a-b);
+    let start = s[0], prev = s[0];
+    for (let i = 1; i <= s.length; i++) {
+      if (i < s.length && s[i] === prev + 1) { prev = s[i]; }
+      else {
+        const len = prev - start + 1;
+        if (len >= minLen) out.push([start, prev, len]);
+        if (i < s.length) { start = s[i]; prev = s[i]; }
+      }
+    }
+    return out;
+  }
+
+  // 横向段(5连→彩虹,4连→横向条纹)
+  for (const r in byRow) {
+    for (const [cStart, cEnd, len] of runs(byRow[r], 4)) {
+      const mid = Math.floor((cStart + cEnd) / 2);
+      const key = `${r},${mid}`;
+      if (used.has(key)) continue;
+      const type = grid[r][mid]?.type ?? 0;
+      if (len >= 5) {
+        result.push({ r: +r, c: mid, type, kind: "rainbow" });
+        used.add(key);
+      } else {
+        result.push({ r: +r, c: mid, type, kind: "stripe-h" });
+        used.add(key);
+      }
+    }
+  }
+  // 纵向段(5连→彩虹,4连→纵向条纹)
+  for (const c in byCol) {
+    for (const [rStart, rEnd, len] of runs(byCol[c], 4)) {
+      const mid = Math.floor((rStart + rEnd) / 2);
+      const key = `${mid},${c}`;
+      if (used.has(key)) continue;
+      const type = grid[mid][c]?.type ?? 0;
+      if (len >= 5) {
+        result.push({ r: mid, c: +c, type, kind: "rainbow" });
+        used.add(key);
+      } else {
+        result.push({ r: mid, c: +c, type, kind: "stripe-v" });
+        used.add(key);
+      }
+    }
+  }
+  return result;
+}
+
+/* 处理被消除格子中的特殊道具,扩展清除范围(条纹清行列),返回无(直接加入matched) */
+function expandSpecials(matched) {
+  const toAdd = new Set();
+  for (const key of matched) {
+    const [r, c] = key.split(",").map(Number);
+    const cell = grid[r][c];
+    if (!cell || !cell.special) continue;
+    sfx.special();
+    if (cell.special === "stripe-h") {
+      for (let cc = 0; cc < COLS; cc++) if (!matched.has(`${r},${cc}`)) toAdd.add(`${r},${cc}`);
+    } else if (cell.special === "stripe-v") {
+      for (let rr = 0; rr < ROWS; rr++) if (!matched.has(`${rr},${c}`)) toAdd.add(`${rr},${c}`);
+    } else if (cell.special === "rainbow") {
+      // 彩虹被消除时随机清一种颜色
+      const types = CAT_TYPES.map((_,i)=>i);
+      const t = types[Math.floor(Math.random()*types.length)];
+      for (let rr = 0; rr < ROWS; rr++)
+        for (let cc = 0; cc < COLS; cc++)
+          if (grid[rr][cc] && grid[rr][cc].type === t && !matched.has(`${rr},${cc}`))
+            toAdd.add(`${rr},${cc}`);
+    }
+  }
+  for (const k of toAdd) matched.add(k);
+}
+
+/* ============================================================
+   下落 & 填充新猫
+   ============================================================ */
+async function dropAndFill() {
+  // 每一列:收集非空,沉底
+  for (let c = 0; c < COLS; c++) {
+    let writeRow = ROWS - 1;
+    for (let r = ROWS - 1; r >= 0; r--) {
+      if (grid[r][c]) {
+        if (r !== writeRow) {
+          grid[writeRow][c] = grid[r][c];
+          grid[r][c] = null;
+          catEls[writeRow][c] = catEls[r][c];
+          catEls[r][c] = null;
+          const el = catEls[writeRow][c];
+          if (el) {
+            const p = posOf(writeRow, c);
+            el.style.top = p.top + "px";
+            // 更新坐标标签,点击才不会漂移
+            el.dataset.r = writeRow;
+            el.dataset.c = c;
+          }
+        }
+        writeRow--;
+      }
+    }
+    // 顶部填充新猫
+    for (let r = writeRow; r >= 0; r--) {
+      const data = { type: Math.floor(Math.random() * CAT_TYPES.length), special: null };
+      grid[r][c] = data;
+      const el = makeCatEl(r, c, data);
+      // 从屏幕上方落入
+      const startTop = -(writeRow - r + 1) * (CELL + GAP);
+      el.style.top = startTop + "px";
+      boardEl.appendChild(el);
+      catEls[r][c] = el;
+      // 触发回流后下落到目标位置
+      requestAnimationFrame(() => {
+        const p = posOf(r, c);
+        el.style.top = p.top + "px";
+      });
+    }
+  }
+  await sleep(380);
+}
+
+/* ============================================================
+   视觉效果:粒子 / 飘字 / 大连击
+   ============================================================ */
+function spawnParticles(el) {
+  const rect = el.getBoundingClientRect();
+  const boardRect = boardEl.getBoundingClientRect();
+  const cx = rect.left - boardRect.left + rect.width / 2;
+  const cy = rect.top - boardRect.top + rect.height / 2;
+  const color = getComputedStyle(el.querySelector(".cat-bg")).backgroundColor;
+  for (let i = 0; i < 8; i++) {
+    const p = document.createElement("div");
+    p.className = "particle";
+    p.style.left = cx + "px";
+    p.style.top = cy + "px";
+    p.style.background = color;
+    const ang = (Math.PI * 2 * i) / 8;
+    const dist = 30 + Math.random() * 20;
+    p.style.transition = "transform 0.5s ease-out, opacity 0.5s";
+    boardEl.appendChild(p);
+    requestAnimationFrame(() => {
+      p.style.transform = `translate(${Math.cos(ang)*dist}px, ${Math.sin(ang)*dist}px) scale(0)`;
+      p.style.opacity = "0";
+    });
+    setTimeout(() => p.remove(), 520);
+  }
+}
+
+function floatScoreAt(matched, total) {
+  // 在 matched 的中心位置显示得分
+  let sumR = 0, sumC = 0, n = 0;
+  for (const key of matched) {
+    const [r, c] = key.split(",").map(Number);
+    sumR += r; sumC += c; n++;
+  }
+  if (n === 0) return;
+  const cr = sumR / n, cc = sumC / n;
+  const p = posOf(cr, cc);
+  const el = document.createElement("div");
+  el.className = "float-score";
+  el.textContent = "+" + total;
+  el.style.left = (p.left + CELL/2) + "px";
+  el.style.top = p.top + "px";
+  boardEl.appendChild(el);
+  setTimeout(() => el.remove(), 950);
+}
+
+let comboTimer = null;
+function showCombo(combo) {
+  const labels = ["", "", "GOOD! 🐾", "GREAT! ✨", "AMAZING! 🔥", "PURR-FECT! 🌟"];
+  comboEl.textContent = labels[Math.min(combo, labels.length-1)] || `COMBO x${combo}`;
+  comboEl.classList.remove("show");
+  void comboEl.offsetWidth; // 重启动画
+  comboEl.classList.add("show");
+  clearTimeout(comboTimer);
+  comboTimer = setTimeout(() => { comboEl.classList.remove("show"); comboEl.textContent = ""; }, 950);
+}
+
+/* ============================================================
+   计分 & HUD & 关卡管理
+   ============================================================ */
+function addScore(n) {
+  score += n;
+  updateHUD();
+}
+function updateHUD() {
+  $("hud-score").textContent = score;
+  $("hud-level").textContent = level;
+  $("hud-target").textContent = target;
+  const m = $("hud-moves");
+  m.textContent = moves;
+  m.classList.toggle("warn", moves <= 5);
+  const pct = Math.min(100, (score / target) * 100);
+  $("progress").style.width = pct + "%";
+  // 更新提示/重排按钮上的剩余次数徽章
+  updateQuota("btn-hint", hintLeft);
+  updateQuota("btn-shuffle", shuffleLeft);
+}
+function updateQuota(btnId, left) {
+  const btn = $(btnId);
+  const span = btn.querySelector(".quota");
+  if (!span) return;
+  span.textContent = left;
+  span.classList.toggle("zero", left <= 0);
+}
+
+function afterMove() {
+  // 检查死局
+  if (!hasPossibleMove()) {
+    showToast("😵 没有可消除的步了,自动重排!");
+    setTimeout(() => shuffleBoard(false), 600);
+  }
+  // 判定胜负
+  if (score >= target) {
+    setTimeout(() => endLevel(true), 400);
+  } else if (moves <= 0) {
+    setTimeout(() => endLevel(false), 400);
+  }
+}
+
+function endLevel(win) {
+  if (win) sfx.win(); else sfx.lose();
+  $("modal-emoji").textContent = win ? "🎉" : "😿";
+  $("modal-title").textContent = win ? `第 ${level} 关通过!` : "挑战失败";
+  $("modal-desc").textContent = win
+    ? "你成功收集了足够多的猫咪!"
+    : `差一点就成功了,目标 ${target} 分。`;
+  $("modal-stat").textContent = `本局得分:${score}`;
+  $("modal-btn").textContent = win ? "下一关 ➜" : "重新挑战";
+  $("modal-btn").onclick = () => {
+    overlay.classList.remove("show");
+    if (win) {
+      level++;
+      startLevel();
+    } else {
+      startLevel(); // 同关重来
+    }
+  };
+  overlay.classList.add("show");
+}
+
+function startLevel() {
+  // 难度递增
+  target = 1000 + (level - 1) * 600;
+  moves  = Math.max(12, 22 - Math.floor((level - 1) / 2));
+  score  = 0;
+  selected = null;
+  usedPasswords.clear();   // 新关重置已用密码记录
+  hintLeft = FREE_QUOTA.hint;      // 重置提示额度
+  shuffleLeft = FREE_QUOTA.shuffle; // 重置重排额度
+  initBoard();
+  buildCells();
+  renderAll();
+  updateHUD();
+}
+
+/* ============================================================
+   按钮:提示 / 重排 / 音效 / 重开
+   ============================================================ */
+function findHint() {
+  for (let r = 0; r < ROWS; r++)
+    for (let c = 0; c < COLS; c++) {
+      if (c + 1 < COLS) {
+        swapData(r, c, r, c + 1);
+        if (findMatches().size > 0) {
+          swapData(r, c, r, c + 1);
+          return [{r,c},{r,c:c+1}];
+        }
+        swapData(r, c, r, c + 1);
+      }
+      if (r + 1 < ROWS) {
+        swapData(r, c, r + 1, c);
+        if (findMatches().size > 0) {
+          swapData(r, c, r + 1, c);
+          return [{r,c},{r:r+1,c}];
+        }
+        swapData(r, c, r + 1, c);
+      }
+    }
+  return null;
+}
+
+function showHint() {
+  if (busy) return;
+  if (hintLeft <= 0) {
+    // 免费次数用完,弹扫码解锁
+    openUnlockModal("hint");
+    return;
+  }
+  const hint = findHint();
+  if (!hint) { showToast("没有可消除的步啦!"); return; }
+  hintLeft--;
+  showToast(`💡 提示已用,剩余 ${hintLeft} 次`);
+  hint.forEach(({r,c}) => {
+    const el = catEls[r][c];
+    if (el) {
+      el.style.animation = "ring 0.4s ease-in-out 3";
+      setTimeout(() => el.style.animation = "", 1300);
+    }
+  });
+}
+
+/* ============================================================
+   扫码解锁弹窗(提示/重排共用)
+   规则:4 位数字 + 含 2 + 含 8 + 本关未用过
+   ============================================================ */
+const unlockOverlay = $("unlock-overlay");
+const pwdBoxes = document.querySelectorAll(".pwd-box");
+const pwdError = $("pwd-error");
+
+// 各动作的文案配置
+const UNLOCK_TEXT = {
+  hint: {
+    title: "提示次数已用完",
+    desc:  "本关免费提示已用完,扫码 V 我 50 继续获取提示 😼",
+    btn:   "确认解锁提示",
+  },
+  shuffle: {
+    title: "重排次数已用完",
+    desc:  "本关免费重排已用完,扫码 V 我 50 获得重排密码助力通关 😼",
+    btn:   "确认解锁重排",
+  },
+};
+
+function openUnlockModal(action) {
+  if (busy) return;
+  unlockAction = action;
+  const t = UNLOCK_TEXT[action];
+  $("unlock-title").textContent  = t.title;
+  $("unlock-desc").textContent   = t.desc;
+  $("unlock-confirm").textContent = t.btn;
+  pwdBoxes.forEach(b => { b.value = ""; b.classList.remove("filled","error-shake"); });
+  pwdError.textContent = "";
+  unlockOverlay.classList.add("show");
+  setTimeout(() => pwdBoxes[0].focus(), 320);
+}
+
+function closeUnlockModal() {
+  unlockOverlay.classList.remove("show");
+  unlockAction = null;
+}
+
+// 校验密码:4位数字 + 含 2 + 含 8 + 本关未使用过
+function checkUnlockPwd() {
+  const code = Array.from(pwdBoxes).map(b => b.value).join("");
+  if (!/^\d{4}$/.test(code)) {
+    pwdError.textContent = "请输入完整的 4 位密码";
+    shakePwd(); sfx.bad(); return false;
+  }
+  if (!code.includes("2") || !code.includes("8")) {
+    pwdError.textContent = "密码不正确,记得扫码 V50 哦 😼";
+    shakePwd(); sfx.bad(); return false;
+  }
+  if (usedPasswords.has(code)) {
+    pwdError.textContent = "这个密码已经用过了,请换一个 😼";
+    shakePwd(); sfx.bad(); return false;
+  }
+  return true;
+}
+
+function shakePwd() {
+  pwdBoxes.forEach(b => {
+    b.classList.add("error-shake");
+    setTimeout(() => b.classList.remove("error-shake"), 420);
+  });
+}
+
+// 密码框:只允许数字 + 自动跳转 + 回车确认
+pwdBoxes.forEach((box, i) => {
+  box.addEventListener("input", (e) => {
+    e.target.value = e.target.value.replace(/\D/g, "").slice(0, 1);
+    if (e.target.value) {
+      e.target.classList.add("filled");
+      if (i < pwdBoxes.length - 1) pwdBoxes[i + 1].focus();
+    } else {
+      e.target.classList.remove("filled");
+    }
+    pwdError.textContent = "";
+  });
+  box.addEventListener("keydown", (e) => {
+    if (e.key === "Backspace" && !box.value && i > 0) {
+      pwdBoxes[i - 1].focus();
+    } else if (e.key === "Enter") {
+      $("unlock-confirm").click();
+    }
+  });
+});
+
+// 确认按钮:验证密码 → 记录已用 → 执行对应动作
+$("unlock-confirm").onclick = () => {
+  if (!checkUnlockPwd()) return;
+  const code = Array.from(pwdBoxes).map(b => b.value).join("");
+  usedPasswords.add(code);   // 标记本关已使用
+  const action = unlockAction;
+  closeUnlockModal();
+  sfx.special();
+  if (action === "hint") {
+    // 解锁后执行一次提示(不消耗免费额度)
+    const hint = findHint();
+    if (!hint) { showToast("没有可消除的步啦!"); return; }
+    showToast("✨ 解锁成功,已为你提示!");
+    hint.forEach(({r,c}) => {
+      const el = catEls[r][c];
+      if (el) {
+        el.style.animation = "ring 0.4s ease-in-out 3";
+        setTimeout(() => el.style.animation = "", 1300);
+      }
+    });
+  } else if (action === "shuffle") {
+    showToast("✨ 解锁成功,已重排!");
+    shuffleBoard(true);
+  }
+};
+// 取消按钮
+$("unlock-cancel").onclick = () => { closeUnlockModal(); sfx.select(); };
+
+/* 用户主动点击重排按钮:先检查免费额度 */
+function requestShuffle() {
+  if (busy) return;
+  if (shuffleLeft <= 0) { openUnlockModal("shuffle"); return; }
+  shuffleLeft--;
+  showToast(`🔀 重排已用,剩余 ${shuffleLeft} 次`);
+  shuffleBoard(true);
+}
+
+function shuffleBoard(userTriggered = true) {
+  if (busy) return;
+  // 收集所有猫咪类型,重新随机分布
+  const types = [];
+  for (let r = 0; r < ROWS; r++)
+    for (let c = 0; c < COLS; c++)
+      if (grid[r][c]) types.push(grid[r][c]);
+  // Fisher-Yates
+  for (let i = types.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [types[i], types[j]] = [types[j], types[i]];
+  }
+  let idx = 0;
+  for (let r = 0; r < ROWS; r++)
+    for (let c = 0; c < COLS; c++)
+      if (grid[r][c]) grid[r][c] = { ...types[idx++], special: null };
+
+  // 重排后可能开局有三连,顺便消除一波(不扣步数)
+  renderAll();
+  if (userTriggered) showToast("🔀 已重排!");
+  setTimeout(async () => {
+    const m = findMatches();
+    if (m.size > 0) { busy = true; await resolveCascades(m, 1); busy = false; }
+    afterMove();
+  }, 400);
+}
+
+/* Toast 提示(轻量) */
+function showToast(msg) {
+  let t = document.getElementById("toast");
+  if (!t) {
+    t = document.createElement("div");
+    t.id = "toast";
+    t.style.cssText = `position:fixed;left:50%;top:20%;transform:translateX(-50%);
+      background:rgba(0,0,0,0.8);color:#fff;padding:10px 18px;border-radius:12px;
+      font-size:14px;z-index:200;opacity:0;transition:opacity .3s;pointer-events:none;`;
+    document.body.appendChild(t);
+  }
+  t.textContent = msg;
+  t.style.opacity = "1";
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => t.style.opacity = "0", 1800);
+}
+
+/* ============================================================
+   工具
+   ============================================================ */
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+/* ============================================================
+   绑定事件 & 启动
+   ============================================================ */
+$("btn-hint").onclick = showHint;
+$("btn-shuffle").onclick = requestShuffle;
+$("btn-help").onclick = () => { $("help-overlay").classList.add("show"); sfx.select(); };
+$("help-close").onclick = () => { $("help-overlay").classList.remove("show"); sfx.select(); };
+// 点击图鉴弹窗外部背景也可关闭
+$("help-overlay").addEventListener("click", (e) => {
+  if (e.target.id === "help-overlay") $("help-overlay").classList.remove("show");
+});
+$("btn-sound").onclick = (e) => {
+  soundOn = !soundOn;
+  e.target.textContent = soundOn ? "🔊 音效" : "🔇 静音";
+  e.target.classList.toggle("on", !soundOn);
+  if (soundOn) ensureAudio();
+};
+$("btn-restart").onclick = () => { level = 1; startLevel(); };
+
+window.addEventListener("resize", () => {
+  readCellSize();
+  buildCells();
+  renderAll();
+});
+
+// 首次交互激活音频
+document.addEventListener("click", ensureAudio, { once: true });
+
+// 启动
+readCellSize();
+startLevel();
+
+</script>
+</body>
+</html>
