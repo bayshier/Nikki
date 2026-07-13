@@ -409,6 +409,72 @@
   }
   .help-modal .btn { margin-top: 10px; width: 100%; }
 
+  /* ============ 大儿倔强(生气)状态 ============ */
+  .cat.stubborn {
+    animation: angryShake 0.5s ease-in-out infinite alternate;
+    z-index: 6;
+  }
+  @keyframes angryShake {
+    from { transform: rotate(-4deg) scale(1.05); }
+    to   { transform: rotate(4deg) scale(1.08); }
+  }
+  .cat .stubborn-badge {
+    position: absolute;
+    top: -8px; right: -6px;
+    font-size: 20px;
+    z-index: 3;
+    pointer-events: none;
+    animation: badgePop 0.6s ease-out;
+    filter: drop-shadow(0 0 4px #ff5a5a);
+  }
+  @keyframes badgePop {
+    0% { transform: scale(0); }
+    60% { transform: scale(1.3); }
+    100% { transform: scale(1); }
+  }
+
+  /* ============ 大儿攻击特效 ============ */
+  .attack-flash {
+    position: fixed; inset: 0; z-index: 150;
+    background: radial-gradient(circle at center, rgba(255,40,40,0.55), rgba(180,0,0,0.3));
+    opacity: 0; pointer-events: none;
+    animation: flashRed 0.6s ease-out;
+  }
+  @keyframes flashRed {
+    0% { opacity: 0; }
+    15% { opacity: 1; }
+    100% { opacity: 0; }
+  }
+  .cat.attacking {
+    z-index: 8;
+    animation: attackPulse 0.5s ease-out;
+  }
+  @keyframes attackPulse {
+    0% { transform: scale(1); filter: brightness(1); }
+    30% { transform: scale(1.5) rotate(-10deg); filter: brightness(2) drop-shadow(0 0 16px #ff2020); }
+    60% { transform: scale(1.3) rotate(10deg); filter: brightness(1.8) drop-shadow(0 0 12px #ff5500); }
+    100% { transform: scale(1) rotate(0); filter: brightness(1); }
+  }
+  .float-damage {
+    position: absolute; pointer-events: none; z-index: 14;
+    font-weight: 900; font-size: 26px;
+    color: #ff3838;
+    text-shadow: 0 0 10px #ff0000, 0 2px 4px rgba(0,0,0,0.8);
+    animation: damageUp 1.1s ease-out forwards;
+  }
+  @keyframes damageUp {
+    0% { transform: translate(-50%, 0) scale(0.5); opacity: 0; }
+    15% { transform: translate(-50%, -8px) scale(1.3); opacity: 1; }
+    100% { transform: translate(-50%, -70px) scale(1); opacity: 0; }
+  }
+  /* HUD 分数受击抖动 */
+  .hud-value.damaged { animation: hudShake 0.4s; }
+  @keyframes hudShake {
+    0%,100% { transform: translateX(0); color: #fff; }
+    25% { transform: translateX(-5px); color: #ff3838; }
+    75% { transform: translateX(5px); color: #ff3838; }
+  }
+
   /* ============ 响应式 ============ */
   @media (max-width: 480px) {
     :root { --cell-size: 42px; }
@@ -578,6 +644,18 @@ let shuffleLeft = FREE_QUOTA.shuffle;
 let usedPasswords = new Set(); // 本关已使用过的密码(防止复用)
 // 当前正在解锁的动作:'hint' | 'shuffle'
 let unlockAction = null;
+// 大儿(调皮猫):空闲 5 秒后随机乱跑
+const NAUGHTY_TYPE = 4;        // 大儿在 CAT_TYPES 中的索引
+const IDLE_TIMEOUT = 5000;     // 空闲触发时长
+let idleTimer = null;          // 空闲计时器
+let naughtyLock = false;       // 大儿乱跑动画锁(独立于 busy)
+// 大儿(倔强猫):被消除时有概率拒绝消失;交换时拒绝移动
+const STUBBORN_RATE = 0.5;     // 倔强概率 50%
+let stubbornCats = new Set();  // 当前处于倔强(生气)状态的大儿位置 "r,c"
+// 大儿(攻击性):交换时有概率反击扣分
+const ATTACK_RATE = 0.3;       // 攻击概率 30%
+const ATTACK_MIN = 200;        // 单次攻击最少扣分
+const ATTACK_MAX = 500;        // 单次攻击最多扣分
 let soundOn = true;
 let audioCtx = null;
 
@@ -806,6 +884,7 @@ function swapData(r1, c1, r2, c2) {
 function onCatClick(r, c) {
   if (busy || !grid[r][c]) return;
   ensureAudio();
+  pokeIdle();  // 用户有操作,重置大儿空闲计时
   if (!selected) {
     selected = { r, c };
     catEls[r][c]?.classList.add("selected");
@@ -835,6 +914,25 @@ function onCatClick(r, c) {
 }
 
 async function attemptSwap(r1, c1, r2, c2) {
+  // 倔强大儿拒绝被移动:弹回 + 提示
+  const k1 = `${r1},${c1}`, k2 = `${r2},${c2}`;
+  if (stubbornCats.has(k1) || stubbornCats.has(k2)) {
+    sfx.bad();
+    showToast("😤 大儿不想动,别喷我!");
+    // 让倔强大儿抖一下
+    [k1, k2].forEach(k => {
+      if (!stubbornCats.has(k)) return;
+      const [rr, cc] = k.split(",").map(Number);
+      const el = catEls[rr][cc];
+      if (el) {
+        el.style.animation = "none";
+        void el.offsetWidth;
+        el.style.animation = "angryShake 0.3s ease-in-out 2";
+        setTimeout(() => { el.style.animation = ""; markStubborn(rr, cc); }, 700);
+      }
+    });
+    return;
+  }
   busy = true;
   sfx.swap();
   // 处理特殊道具:彩虹猫与任意猫交换,清除该色所有
@@ -872,6 +970,7 @@ async function attemptSwap(r1, c1, r2, c2) {
     return;
   }
   // 有效:扣步数,连锁消除
+  clearAllStubborn();  // 玩家有效操作,大儿消气了
   moves--;
   updateHUD();
   await resolveCascades(matches, 1);
@@ -903,6 +1002,9 @@ async function resolveCascades(matched, combo) {
     // 大连击提示
     if (combo >= 2) showCombo(combo);
     sfx.match(combo);
+
+    // 大儿倔强:本轮 matched 中的大儿有概率拒绝消除,从列表里摘出来
+    matched = handleStubborn(matched);
 
     // 1. 生成特殊道具(仅 combo==1 即首次命中且匹配数为4/5)
     const specialsToPlace = combo === 1 ? detectSpecials(matched) : [];
@@ -950,6 +1052,66 @@ async function resolveCascades(matched, combo) {
     combo++;
     matched = findMatches();
   }
+}
+
+/* ============================================================
+   大儿倔强(拒绝消除):matched 中的大儿有概率拒绝消失
+   摘出来加生气标记,并提示用户"别喷我"
+   ============================================================ */
+function handleStubborn(matched) {
+  const rescued = [];     // 倔强成功的大儿
+  const survivors = [];   // 普通大儿(这次没倔强)
+  for (const key of matched) {
+    const [r, c] = key.split(",").map(Number);
+    const cell = grid[r] && grid[r][c];
+    if (!cell || cell.type !== NAUGHTY_TYPE) continue;
+    // 特殊道具大儿(⚡/🌈)不倔强
+    if (cell.special) continue;
+    // 投骰子:倔强概率
+    if (Math.random() < STUBBORN_RATE) {
+      rescued.push({ r, c, key });
+    }
+  }
+  if (rescued.length > 0) {
+    // 从 matched 中移除倔强的大儿,它们不会被消除
+    for (const { r, c, key } of rescued) {
+      matched.delete(key);
+      stubbornCats.add(key);
+      markStubborn(r, c);
+    }
+    sfx.bad();
+    showToast("😤 大儿不想消失,别喷我!");
+  }
+  return matched;
+}
+
+/* 给某只大儿加生气标记(😤 角标 + 摇晃) */
+function markStubborn(r, c) {
+  const el = catEls[r] && catEls[r][c];
+  if (!el) return;
+  el.classList.add("stubborn");
+  // 添加 😤 角标(若尚未有)
+  if (!el.querySelector(".stubborn-badge")) {
+    const badge = document.createElement("span");
+    badge.className = "stubborn-badge";
+    badge.textContent = "😤";
+    el.appendChild(badge);
+  }
+}
+
+/* 清除所有大儿的倔强(生气)状态——有效操作后消气 */
+function clearAllStubborn() {
+  if (stubbornCats.size === 0) return;
+  for (const key of stubbornCats) {
+    const [r, c] = key.split(",").map(Number);
+    const el = catEls[r] && catEls[r][c];
+    if (el) {
+      el.classList.remove("stubborn");
+      const badge = el.querySelector(".stubborn-badge");
+      if (badge) badge.remove();
+    }
+  }
+  stubbornCats.clear();
 }
 
 /* 检测4连/5连,返回要放置的特殊道具列表
@@ -1189,6 +1351,7 @@ function afterMove() {
 }
 
 function endLevel(win) {
+  stopIdle();  // 关卡结束,停止大儿计时
   if (win) sfx.win(); else sfx.lose();
   $("modal-emoji").textContent = win ? "🎉" : "😿";
   $("modal-title").textContent = win ? `第 ${level} 关通过!` : "挑战失败";
@@ -1218,10 +1381,12 @@ function startLevel() {
   usedPasswords.clear();   // 新关重置已用密码记录
   hintLeft = FREE_QUOTA.hint;      // 重置提示额度
   shuffleLeft = FREE_QUOTA.shuffle; // 重置重排额度
+  stubbornCats.clear();    // 新关重置倔强状态
   initBoard();
   buildCells();
   renderAll();
   updateHUD();
+  pokeIdle();  // 启动大儿空闲计时
 }
 
 /* ============================================================
@@ -1252,6 +1417,7 @@ function findHint() {
 
 function showHint() {
   if (busy) return;
+  pokeIdle();  // 用户有操作,重置大儿空闲计时
   if (hintLeft <= 0) {
     // 免费次数用完,弹扫码解锁
     openUnlockModal("hint");
@@ -1260,6 +1426,7 @@ function showHint() {
   const hint = findHint();
   if (!hint) { showToast("没有可消除的步啦!"); return; }
   hintLeft--;
+  updateHUD();  // 同步刷新按钮上的剩余次数徽章
   showToast(`💡 提示已用,剩余 ${hintLeft} 次`);
   hint.forEach(({r,c}) => {
     const el = catEls[r][c];
@@ -1387,8 +1554,10 @@ $("unlock-cancel").onclick = () => { closeUnlockModal(); sfx.select(); };
 /* 用户主动点击重排按钮:先检查免费额度 */
 function requestShuffle() {
   if (busy) return;
+  pokeIdle();  // 用户有操作,重置大儿空闲计时
   if (shuffleLeft <= 0) { openUnlockModal("shuffle"); return; }
   shuffleLeft--;
+  updateHUD();  // 同步刷新按钮上的剩余次数徽章
   showToast(`🔀 重排已用,剩余 ${shuffleLeft} 次`);
   shuffleBoard(true);
 }
@@ -1441,6 +1610,96 @@ function showToast(msg) {
    工具
    ============================================================ */
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+/* ============================================================
+   大儿(调皮猫):空闲 5 秒后随机乱跑交换位置,不产生消除
+   ============================================================ */
+
+// 用户有操作时调用,重置空闲计时
+function pokeIdle() {
+  if (idleTimer) clearTimeout(idleTimer);
+  idleTimer = setTimeout(naughtyRun, IDLE_TIMEOUT);
+}
+
+// 停止大儿计时(换关/重开/弹窗时)
+function stopIdle() {
+  if (idleTimer) { clearTimeout(idleTimer); idleTimer = null; }
+}
+
+// 找出棋盘上所有大儿的位置
+function findNaughtyCats() {
+  const list = [];
+  for (let r = 0; r < ROWS; r++)
+    for (let c = 0; c < COLS; c++)
+      if (grid[r][c] && grid[r][c].type === NAUGHTY_TYPE && !grid[r][c].special)
+        list.push({ r, c });
+  return list;
+}
+
+// 大儿调皮乱跑:随机挑一只大儿,与一只非大儿邻居交换
+async function naughtyRun() {
+  // 游戏忙 / 弹窗打开 / 锁定中 → 稍后再试
+  if (busy || naughtyLock || overlay.classList.contains("show")
+      || unlockOverlay.classList.contains("show")
+      || $("help-overlay").classList.contains("show")) {
+    idleTimer = setTimeout(naughtyRun, IDLE_TIMEOUT);
+    return;
+  }
+  const naughties = findNaughtyCats();
+  if (naughties.length === 0) {
+    idleTimer = setTimeout(naughtyRun, IDLE_TIMEOUT);
+    return;
+  }
+  // 随机选一只大儿
+  const cat = naughties[Math.floor(Math.random() * naughties.length)];
+  // 收集它的上下左右邻居中"非大儿"的格子
+  const dirs = [[-1,0],[1,0],[0,-1],[0,1]];
+  const targets = [];
+  for (const [dr, dc] of dirs) {
+    const nr = cat.r + dr, nc = cat.c + dc;
+    if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS
+        && grid[nr][nc] && grid[nr][nc].type !== NAUGHTY_TYPE) {
+      targets.push({ r: nr, c: nc });
+    }
+  }
+  if (targets.length === 0) {
+    idleTimer = setTimeout(naughtyRun, IDLE_TIMEOUT);
+    return;
+  }
+  const target = targets[Math.floor(Math.random() * targets.length)];
+
+  // 执行交换(仅视觉+数据,不检测消除)
+  naughtyLock = true;
+  sfx.select();
+  // 两个元素互相移动
+  const e1 = catEls[cat.r][cat.c], e2 = catEls[target.r][target.c];
+  const p1 = posOf(cat.r, cat.c), p2 = posOf(target.r, target.c);
+  if (e1) {
+    e1.style.transition = "left 0.4s cubic-bezier(.34,1.56,.64,1), top 0.4s cubic-bezier(.34,1.2,.64,1), transform 0.3s";
+    e1.style.zIndex = "6";
+    e1.style.transform = "scale(1.15) rotate(8deg)";
+    e1.style.left = p2.left + "px";
+    e1.style.top  = p2.top + "px";
+  }
+  if (e2) {
+    e2.style.transition = "left 0.4s cubic-bezier(.34,1.56,.64,1), top 0.4s cubic-bezier(.34,1.2,.64,1)";
+    e2.style.left = p1.left + "px";
+    e2.style.top  = p1.top + "px";
+  }
+  await sleep(420);
+  // 恢复样式
+  if (e1) { e1.style.transform = ""; e1.style.zIndex = ""; e1.style.transition = ""; }
+  if (e2) { e2.style.transition = ""; }
+  // 交换数据 + 元素 + 坐标标签
+  swapData(cat.r, cat.c, target.r, target.c);
+  swapEls(cat.r, cat.c, target.r, target.c);
+  naughtyLock = false;
+
+  // 显示调皮提示
+  showToast("😼 大儿偷偷换了个位置!");
+  // 继续下一轮空闲计时
+  pokeIdle();
+}
 
 /* ============================================================
    绑定事件 & 启动
