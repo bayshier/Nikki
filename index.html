@@ -4,30 +4,50 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>👑 Nikki 猫大王</title>
+<!-- 引入圆润可爱字体: Fredoka(标题) + Nunito(正文) -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Nunito:wght@400;700;800&display=swap" rel="stylesheet">
 <style>
   /* ============ 全局重置与变量 ============ */
+  /* Hello Kitty 主题配色:
+     --hk-pink   樱花粉(主色,按钮/强调)
+     --hk-deep   草莓粉(深,渐变另一端)
+     --hk-light  婴儿粉(背景大面积)
+     --hk-cream  奶油白(卡片底)
+     --hk-red    蝴蝶结红(点缀,得分高亮)
+     --hk-text   深棕粉(文字,比纯黑柔和) */
   :root {
     --cell-size: 56px;
     --board-cols: 8;
     --board-rows: 8;
-    --bg-1: #1a1230;
-    --bg-2: #2d1b4e;
-    --board-bg: rgba(255,255,255,0.06);
-    --cell-bg: rgba(255,255,255,0.10);
-    --accent: #ffd93d;
-    --accent-2: #ff6ec7;
-    --good: #6ee7a8;
-    --text: #fff;
-    --muted: #c5b8e0;
+    --hk-pink:   #ff9ec4;   /* 樱花粉 主色 */
+    --hk-deep:   #ff6b9d;   /* 草莓粉 深色 */
+    --hk-light:  #ffeef4;   /* 婴儿粉 浅背景 */
+    --hk-cream:  #fff5f8;   /* 奶油白 */
+    --hk-red:    #e94560;   /* 蝴蝶结红 强调 */
+    --hk-yellow: #ffd56b;   /* 鹅黄点缀 */
+    --hk-text:   #8b4a5e;   /* 深棕粉 文字 */
+    --hk-muted:  #c98ba0;   /* 暗粉 次要文字 */
+    --good:      #6ee7a8;   /* 进度条绿 */
     --gap: 4px;
+    /* 兼容旧代码引用 */
+    --accent:   var(--hk-red);
+    --accent-2: var(--hk-deep);
+    --text:     var(--hk-text);
+    --muted:    var(--hk-muted);
+    --board-bg: rgba(255,255,255,0.7);
+    --cell-bg:  rgba(255,255,255,0.5);
   }
 
   * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body { height: 100%; }
   body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
-    color: var(--text);
-    background: radial-gradient(1200px 800px at 20% 0%, var(--bg-2) 0%, var(--bg-1) 60%) fixed;
+    /* 圆润字体:Nunito 正文,中文兜底 */
+    font-family: "Nunito", -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+    color: var(--hk-text);
+    /* 粉色渐变背景:从浅粉到白 */
+    background: linear-gradient(135deg, #ffd6e8 0%, var(--hk-light) 40%, #fff9fb 100%) fixed;
     min-height: 100dvh;
     display: flex;
     align-items: center;
@@ -35,17 +55,25 @@
     overflow-x: hidden;
     user-select: none;
   }
-  /* 背景漂浮的猫爪 */
+  /* 背景波点纹理(Hello Kitty 经典波点) */
   body::before {
-    content: "🐾 🐾 🐾 🐾 🐾 🐾 🐾 🐾 🐾 🐾";
+    content: "";
     position: fixed; inset: 0;
-    color: rgba(255,255,255,0.035);
-    font-size: 40px; line-height: 90px;
+    background-image: radial-gradient(circle, rgba(255,158,196,0.25) 2px, transparent 2.5px);
+    background-size: 28px 28px;
     pointer-events: none; z-index: 0;
-    animation: drift 30s linear infinite;
-    word-spacing: 60px;
   }
-  @keyframes drift { from { transform: translateY(-100px);} to { transform: translateY(100px);} }
+  /* 背景漂浮的蝴蝶结/爱心(替换原来猫爪) */
+  body::after {
+    content: "🎀 💕 ✨ 🌸 🎀 💕 ✨ 🌸 🎀 💕";
+    position: fixed; inset: 0;
+    color: rgba(255,158,196,0.12);
+    font-size: 36px; line-height: 100px;
+    pointer-events: none; z-index: 0;
+    animation: drift 35s linear infinite;
+    word-spacing: 80px;
+  }
+  @keyframes drift { from { transform: translateY(-120px);} to { transform: translateY(120px);} }
 
   /* ============ 布局容器 ============ */
   .app {
@@ -57,12 +85,15 @@
     max-width: 560px;
   }
   .title {
-    font-size: 26px; font-weight: 800; letter-spacing: 1px;
-    background: linear-gradient(90deg, var(--accent), var(--accent-2));
+    font-family: "Fredoka", "Nunito", sans-serif;  /* 圆润标题字体 */
+    font-size: 30px; font-weight: 700; letter-spacing: 1px;
+    background: linear-gradient(90deg, var(--hk-red), var(--hk-deep));
     -webkit-background-clip: text; background-clip: text; color: transparent;
-    text-shadow: 0 4px 20px rgba(255,110,199,0.3);
+    text-shadow: 0 2px 10px rgba(255,107,157,0.25);
+    display: flex; align-items: center; gap: 6px;
+    filter: drop-shadow(0 3px 6px rgba(255,158,196,0.4));
   }
-  .subtitle { font-size: 12px; color: var(--muted); margin-top: -8px; }
+  .subtitle { font-size: 13px; color: var(--hk-muted); margin-top: -10px; font-weight: 600; }
 
   /* ============ HUD ============ */
   .hud {
@@ -72,42 +103,45 @@
     width: 100%;
   }
   .hud-card {
-    background: var(--board-bg);
-    border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 14px;
+    /* 半透明白底卡片,粉色描边,圆润大圆角 */
+    background: rgba(255,255,255,0.85);
+    border: 2px solid rgba(255,158,196,0.4);
+    border-radius: 16px;
     padding: 8px 6px;
     text-align: center;
     backdrop-filter: blur(8px);
+    box-shadow: 0 4px 12px rgba(255,158,196,0.2);
   }
-  .hud-label { font-size: 10px; color: var(--muted); letter-spacing: 1px; }
-  .hud-value { font-size: 20px; font-weight: 800; margin-top: 2px; }
-  .hud-value.warn { color: #ff7a7a; animation: pulse 0.6s ease-in-out infinite alternate; }
+  .hud-label { font-size: 10px; color: var(--hk-muted); letter-spacing: 1px; font-weight: 700; }
+  .hud-value { font-size: 20px; font-weight: 800; margin-top: 2px; color: var(--hk-deep); }
+  .hud-value.warn { color: var(--hk-red); animation: pulse 0.6s ease-in-out infinite alternate; }
   @keyframes pulse { to { transform: scale(1.12);} }
 
   /* 目标进度条 */
   .progress-wrap {
-    width: 100%; height: 10px;
-    background: rgba(255,255,255,0.08);
+    width: 100%; height: 12px;
+    background: rgba(255,255,255,0.6);
     border-radius: 99px; overflow: hidden;
-    border: 1px solid rgba(255,255,255,0.06);
+    border: 2px solid rgba(255,158,196,0.35);
   }
   .progress-bar {
     height: 100%; width: 0%;
-    background: linear-gradient(90deg, var(--good), var(--accent));
+    /* 粉色渐变进度条 */
+    background: linear-gradient(90deg, var(--hk-pink), var(--hk-deep));
     border-radius: 99px;
     transition: width 0.5s cubic-bezier(.2,.8,.2,1);
-    box-shadow: 0 0 12px rgba(110,231,168,0.6);
+    box-shadow: 0 0 10px rgba(255,107,157,0.5);
   }
 
   /* ============ 棋盘 ============ */
   .board-frame {
     position: relative;
-    padding: 10px;
-    background: var(--board-bg);
-    border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 20px;
+    padding: 12px;
+    background: rgba(255,255,255,0.75);
+    border: 3px solid rgba(255,158,196,0.5);
+    border-radius: 24px;
     backdrop-filter: blur(8px);
-    box-shadow: 0 20px 60px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.08);
+    box-shadow: 0 12px 36px rgba(255,158,196,0.35), inset 0 1px 0 rgba(255,255,255,0.8);
   }
   .board {
     position: relative;
@@ -119,8 +153,8 @@
     width: var(--cell-size);
     height: var(--cell-size);
     border-radius: 12px;
-    background: var(--cell-bg);
-    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.04);
+    background: rgba(255,255,255,0.35);
+    box-shadow: inset 0 0 0 1px rgba(255,158,196,0.15);
   }
 
   /* 猫咪方块 */
@@ -133,23 +167,49 @@
     cursor: pointer;
     transition: left 0.32s cubic-bezier(.34,1.56,.64,1), top 0.34s cubic-bezier(.34,1.2,.64,1), transform 0.15s;
     will-change: top, left, transform;
-    filter: drop-shadow(0 4px 6px rgba(0,0,0,0.4));
+    filter: drop-shadow(0 3px 5px rgba(255,158,196,0.4));
     z-index: 2;
   }
   .cat:hover { transform: scale(1.06); }
   .cat.selected {
     transform: scale(1.18);
     z-index: 5;
-    filter: drop-shadow(0 0 14px var(--accent)) drop-shadow(0 4px 6px rgba(0,0,0,0.4));
+    /* 选中:粉色发光圈 */
+    filter: drop-shadow(0 0 12px var(--hk-deep)) drop-shadow(0 3px 5px rgba(255,158,196,0.4));
   }
   .cat.selected::after {
     content: "";
     position: absolute; inset: -4px;
-    border: 3px solid var(--accent);
+    border: 3px solid var(--hk-deep);
     border-radius: 14px;
     animation: ring 0.8s ease-in-out infinite alternate;
   }
-  @keyframes ring { to { box-shadow: 0 0 18px var(--accent);} }
+  @keyframes ring { to { box-shadow: 0 0 16px var(--hk-pink);} }
+
+  /* 提示高亮:醒目的弹跳放大 + 粉色描边发光 + 旋转 */
+  .cat.hint-glow {
+    z-index: 7;
+    animation: hintBounce 0.6s ease-in-out infinite alternate !important;
+  }
+  .cat.hint-glow::before {
+    content: "👆";
+    position: absolute;
+    top: -20px; left: 50%;
+    transform: translateX(-50%);
+    font-size: 20px;
+    z-index: 8;
+    animation: hintPoint 0.6s ease-in-out infinite alternate;
+    pointer-events: none;
+    filter: drop-shadow(0 0 4px var(--hk-red));
+  }
+  @keyframes hintBounce {
+    0% { transform: scale(1.1); filter: drop-shadow(0 0 8px var(--hk-deep)) drop-shadow(0 0 16px var(--hk-pink)); }
+    100% { transform: scale(1.25) rotate(-3deg); filter: drop-shadow(0 0 14px var(--hk-red)) drop-shadow(0 0 24px var(--hk-deep)); }
+  }
+  @keyframes hintPoint {
+    0% { transform: translateX(-50%) translateY(0); }
+    100% { transform: translateX(-50%) translateY(4px); }
+  }
 
   /* 猫咪背景色块(增强区分度) */
   .cat-bg {
@@ -209,8 +269,8 @@
   .float-score {
     position: absolute; pointer-events: none; z-index: 12;
     font-weight: 800; font-size: 18px;
-    color: var(--accent);
-    text-shadow: 0 2px 6px rgba(0,0,0,0.6);
+    color: var(--hk-red);
+    text-shadow: 0 2px 6px rgba(255,255,255,0.8);
     animation: floatUp 0.9s ease-out forwards;
   }
   @keyframes floatUp {
@@ -223,11 +283,12 @@
   .combo-text {
     position: absolute; top: 40%; left: 50%;
     transform: translate(-50%, -50%) scale(0);
-    font-size: 40px; font-weight: 900;
-    background: linear-gradient(90deg, var(--accent), var(--accent-2));
+    font-family: "Fredoka", sans-serif;
+    font-size: 40px; font-weight: 700;
+    background: linear-gradient(90deg, var(--hk-red), var(--hk-deep));
     -webkit-background-clip: text; background-clip: text; color: transparent;
     z-index: 20; pointer-events: none;
-    text-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    filter: drop-shadow(0 3px 8px rgba(255,158,196,0.6));
   }
   .combo-text.show { animation: comboShow 0.9s ease-out forwards; }
   @keyframes comboShow {
@@ -245,24 +306,30 @@
   .btn {
     flex: 1; max-width: 160px;
     padding: 11px 16px;
-    border: none; border-radius: 14px;
+    border: 2px solid rgba(255,255,255,0.7);
+    border-radius: 16px;
     font-size: 14px; font-weight: 700;
-    color: var(--text);
-    background: linear-gradient(135deg, var(--accent-2), #8b5cf6);
+    color: #fff;
+    /* 粉色渐变按钮 */
+    background: linear-gradient(135deg, var(--hk-deep), var(--hk-pink));
     cursor: pointer;
     transition: transform 0.12s, box-shadow 0.2s;
-    box-shadow: 0 6px 18px rgba(139,92,246,0.4);
+    box-shadow: 0 4px 14px rgba(255,107,157,0.4);
+    text-shadow: 0 1px 2px rgba(0,0,0,0.1);
   }
-  .btn:hover { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(139,92,246,0.5); }
+  .btn:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(255,107,157,0.5); }
   .btn:active { transform: translateY(0); }
   .btn.secondary {
-    background: rgba(255,255,255,0.1);
-    box-shadow: none;
-    border: 1px solid rgba(255,255,255,0.12);
+    /* 次要按钮:白底粉字 */
+    background: rgba(255,255,255,0.85);
+    color: var(--hk-deep);
+    box-shadow: 0 3px 10px rgba(255,158,196,0.25);
+    border: 2px solid rgba(255,158,196,0.4);
+    text-shadow: none;
   }
-  .btn.secondary.on { background: var(--accent); color: #2d1b4e; }
+  .btn.secondary.on { background: var(--hk-yellow); color: #fff; border-color: #fff; }
 
-  /* 额度徽章 */
+  /* 额度徽章:粉底白字小圆 */
   .btn .quota {
     display: inline-block;
     min-width: 18px;
@@ -270,21 +337,21 @@
     margin-left: 2px;
     font-size: 12px;
     font-weight: 800;
-    color: #2d1b4e;
-    background: var(--accent);
+    color: var(--hk-deep);
+    background: #fff;
     border-radius: 99px;
     line-height: 1.5;
   }
   .btn .quota.zero {
     color: #fff;
-    background: #ff5a5a;
+    background: var(--hk-red);
     animation: pulse 0.8s ease-in-out infinite alternate;
   }
 
   /* ============ 弹窗 ============ */
   .overlay {
     position: fixed; inset: 0; z-index: 100;
-    background: rgba(10,5,25,0.7);
+    background: rgba(255,158,196,0.35);   /* 粉色半透明遮罩 */
     backdrop-filter: blur(8px);
     display: flex; align-items: center; justify-content: center;
     opacity: 0; pointer-events: none;
@@ -292,32 +359,34 @@
   }
   .overlay.show { opacity: 1; pointer-events: auto; }
   .modal {
-    background: linear-gradient(160deg, #3a2566, #1f1442);
-    border: 1px solid rgba(255,255,255,0.12);
+    /* 奶油白底 + 粉色描边的可爱弹窗 */
+    background: linear-gradient(160deg, var(--hk-cream), #fff);
+    border: 3px solid rgba(255,158,196,0.5);
     border-radius: 24px;
     padding: 32px 28px;
     width: 88%; max-width: 360px;
     text-align: center;
-    box-shadow: 0 30px 80px rgba(0,0,0,0.6);
+    box-shadow: 0 16px 48px rgba(255,107,157,0.3);
     transform: scale(0.85);
     transition: transform 0.35s cubic-bezier(.34,1.56,.64,1);
   }
   .overlay.show .modal { transform: scale(1); }
   .modal-emoji { font-size: 56px; }
-  .modal h2 { font-size: 24px; margin: 8px 0 4px; }
-  .modal p { color: var(--muted); font-size: 14px; margin-bottom: 18px; line-height: 1.6; }
-  .modal .stat { font-size: 15px; color: var(--accent); font-weight: 700; margin: 6px 0 16px; }
+  .modal h2 { font-family: "Fredoka", sans-serif; font-size: 24px; margin: 8px 0 4px; color: var(--hk-deep); }
+  .modal p { color: var(--hk-muted); font-size: 14px; margin-bottom: 18px; line-height: 1.6; }
+  .modal .stat { font-size: 15px; color: var(--hk-red); font-weight: 800; margin: 6px 0 16px; }
 
   /* ============ 重排弹窗:二维码 + 密码 ============ */
   .shuffle-modal { padding: 24px 22px; }
   .qr-img {
     width: 170px; height: 170px; object-fit: cover;
-    border-radius: 14px; margin: 4px auto 6px;
+    border-radius: 18px; margin: 4px auto 6px;
     display: block;
     background: #fff; padding: 6px;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+    border: 2px solid rgba(255,158,196,0.4);
+    box-shadow: 0 6px 20px rgba(255,158,196,0.3);
   }
-  .qr-hint { font-size: 12px; color: var(--muted); margin-bottom: 10px; }
+  .qr-hint { font-size: 12px; color: var(--hk-muted); margin-bottom: 10px; font-weight: 700; }
 
   /* 4 位密码输入框 */
   .pwd-row {
@@ -327,28 +396,29 @@
   .pwd-box {
     width: 48px; height: 56px;
     text-align: center;
-    font-size: 26px; font-weight: 800;
-    color: var(--text);
-    background: rgba(255,255,255,0.08);
-    border: 2px solid rgba(255,255,255,0.15);
-    border-radius: 12px;
+    font-family: "Fredoka", sans-serif;
+    font-size: 26px; font-weight: 700;
+    color: var(--hk-deep);
+    background: rgba(255,255,255,0.9);
+    border: 2px solid rgba(255,158,196,0.4);
+    border-radius: 14px;
     outline: none;
     transition: border-color 0.2s, box-shadow 0.2s;
   }
   .pwd-box:focus {
-    border-color: var(--accent);
-    box-shadow: 0 0 0 3px rgba(255,217,61,0.25);
-    background: rgba(255,217,61,0.08);
+    border-color: var(--hk-deep);
+    box-shadow: 0 0 0 3px rgba(255,107,157,0.2);
+    background: #fff;
   }
-  .pwd-box.filled { border-color: var(--accent-2); }
-  .pwd-box.error-shake { animation: shake 0.4s; border-color: #ff5a5a; }
+  .pwd-box.filled { border-color: var(--hk-deep); background: var(--hk-light); }
+  .pwd-box.error-shake { animation: shake 0.4s; border-color: var(--hk-red); }
   @keyframes shake {
     0%,100% { transform: translateX(0); }
     25% { transform: translateX(-6px); }
     75% { transform: translateX(6px); }
   }
   .pwd-error {
-    font-size: 13px; color: #ff7a7a; font-weight: 600;
+    font-size: 13px; color: var(--hk-red); font-weight: 700;
     min-height: 18px; margin: 2px 0 8px;
   }
   .shuffle-modal-btns {
@@ -368,18 +438,20 @@
   .help-modal h2,
   .help-modal .help-intro { text-align: center; }
   .help-intro {
-    font-size: 13px; color: var(--muted);
+    font-size: 13px; color: var(--hk-muted);
     margin: 4px 0 14px;
   }
   .help-section { margin-bottom: 14px; }
   .help-section-title {
-    font-size: 13px; font-weight: 800; color: var(--accent);
+    font-family: "Fredoka", sans-serif;
+    font-size: 13px; font-weight: 700; color: var(--hk-deep);
     margin-bottom: 8px; letter-spacing: 0.5px;
   }
   .help-item {
     display: flex; align-items: center; gap: 12px;
-    background: rgba(255,255,255,0.05);
-    border-radius: 12px;
+    background: rgba(255,238,244,0.8);
+    border: 1px solid rgba(255,158,196,0.25);
+    border-radius: 14px;
     padding: 9px 12px;
     margin-bottom: 6px;
   }
@@ -388,23 +460,23 @@
     width: 40px; height: 40px;
     display: flex; align-items: center; justify-content: center;
     font-size: 26px;
-    background: linear-gradient(135deg, rgba(255,217,61,0.2), rgba(255,110,199,0.2));
-    border-radius: 10px;
+    background: linear-gradient(135deg, rgba(255,158,196,0.3), rgba(255,107,157,0.2));
+    border-radius: 12px;
   }
   .help-icon.small { font-size: 20px; }
   .help-text { flex: 1; min-width: 0; }
   .help-name {
-    font-size: 14px; font-weight: 700; color: var(--text);
+    font-size: 14px; font-weight: 700; color: var(--hk-deep);
     display: flex; align-items: center; gap: 6px;
   }
   .help-tag {
-    font-size: 10px; font-weight: 600;
-    background: rgba(110,231,168,0.2);
-    color: var(--good);
+    font-size: 10px; font-weight: 700;
+    background: rgba(255,213,107,0.3);
+    color: #c98a00;
     padding: 1px 7px; border-radius: 99px;
   }
   .help-desc {
-    font-size: 12px; color: var(--muted);
+    font-size: 12px; color: var(--hk-muted);
     margin-top: 2px; line-height: 1.4;
   }
   .help-modal .btn { margin-top: 10px; width: 100%; }
@@ -650,12 +722,15 @@ const IDLE_TIMEOUT = 5000;     // 空闲触发时长
 let idleTimer = null;          // 空闲计时器
 let naughtyLock = false;       // 大儿乱跑动画锁(独立于 busy)
 // 大儿(倔强猫):被消除时有概率拒绝消失;交换时拒绝移动
-const STUBBORN_RATE = 0.5;     // 倔强概率 50%
-let stubbornCats = new Set();  // 当前处于倔强(生气)状态的大儿位置 "r,c"
+const STUBBORN_RATE = 0.5;          // 倔强概率 50%
+// ⚠️ 倔强状态用「DOM 元素」记录,而非坐标。
+//    因为大儿会调皮乱跑、会下落,坐标会变;若用坐标记录,
+//    大儿移走后旧坐标残留的倔强标记会误伤移动过来的其他猫。
+let stubbornEls = new Set();        // 当前处于倔强(生气)状态的大儿 DOM 元素
 // 大儿(攻击性):交换时有概率反击扣分
-const ATTACK_RATE = 0.3;       // 攻击概率 30%
-const ATTACK_MIN = 200;        // 单次攻击最少扣分
-const ATTACK_MAX = 500;        // 单次攻击最多扣分
+const ATTACK_RATE = 0.3;            // 攻击概率 30%
+const ATTACK_MIN = 200;             // 单次攻击最少扣分
+const ATTACK_MAX = 500;             // 单次攻击最多扣分
 let soundOn = true;
 let audioCtx = null;
 
@@ -914,25 +989,30 @@ function onCatClick(r, c) {
 }
 
 async function attemptSwap(r1, c1, r2, c2) {
-  // 倔强大儿拒绝被移动:弹回 + 提示
-  const k1 = `${r1},${c1}`, k2 = `${r2},${c2}`;
-  if (stubbornCats.has(k1) || stubbornCats.has(k2)) {
+  // —— 大儿三连判定的入口(优先级:倔强 > 攻击 > 正常) ——
+
+  // ① 倔强检查:如果交换涉及「正在生气(倔强)中的大儿」,它拒绝移动
+  //    判断依据是 DOM 元素(不是坐标),避免误伤其他猫
+  const el1 = catEls[r1][c1], el2 = catEls[r2][c2];
+  const stubbornEl = isStubbornEl(el1) ? el1 : (isStubbornEl(el2) ? el2 : null);
+  if (stubbornEl) {
+    // 倔强大儿拒绝移动:抖一下 + 提示,不扣步数
     sfx.bad();
-    showToast("😤 大儿不想动,别喷我!");
-    // 让倔强大儿抖一下
-    [k1, k2].forEach(k => {
-      if (!stubbornCats.has(k)) return;
-      const [rr, cc] = k.split(",").map(Number);
-      const el = catEls[rr][cc];
-      if (el) {
-        el.style.animation = "none";
-        void el.offsetWidth;
-        el.style.animation = "angryShake 0.3s ease-in-out 2";
-        setTimeout(() => { el.style.animation = ""; markStubborn(rr, cc); }, 700);
-      }
-    });
-    return;
+    showToast("😤 大儿不想动,别碰我!");
+    stubbornEl.style.animation = "none";
+    void stubbornEl.offsetWidth;  // 强制重排,重启动画
+    stubbornEl.style.animation = "angryShake 0.3s ease-in-out 2";
+    setTimeout(() => { stubbornEl.style.animation = ""; }, 700);
+    return;  // 交换中断
   }
+
+  // ② 攻击检查:交换涉及大儿时,大儿有概率反击(扣分)
+  //    攻击不扣步数、不移动猫咪,只扣分 + 视觉特效
+  if (daerAttack(r1, c1, r2, c2)) {
+    return;  // 被攻击了,交换中断
+  }
+
+  // ③ 正常交换流程
   busy = true;
   sfx.swap();
   // 处理特殊道具:彩虹猫与任意猫交换,清除该色所有
@@ -1055,41 +1135,48 @@ async function resolveCascades(matched, combo) {
 }
 
 /* ============================================================
-   大儿倔强(拒绝消除):matched 中的大儿有概率拒绝消失
-   摘出来加生气标记,并提示用户"别喷我"
+   大儿三大性格(只有 type===NAUGHTY_TYPE 的猫才有)
+   ① 调皮:空闲 5 秒乱跑(见 naughtyRun)
+   ② 倔强:被消除时有概率拒绝消失(见 handleStubborn)
+   ③ 攻击:被玩家交换时有概率反击扣分(见 daerAttack)
+   ⚠️ 倔强状态绑定到 DOM 元素,不绑定坐标,避免误伤其他猫
    ============================================================ */
+
+/* ② 倔强:本轮 matched 中的大儿有概率拒绝消除
+   把倔强的大儿从 matched 摘出来,它们不会被消除,并加上 😤 生气标记
+   返回处理后的 matched 集合(已剔除倔强大儿) */
 function handleStubborn(matched) {
-  const rescued = [];     // 倔强成功的大儿
-  const survivors = [];   // 普通大儿(这次没倔强)
+  const rescued = [];  // 本轮倔强成功的大儿 {r, c, key, el}
   for (const key of matched) {
     const [r, c] = key.split(",").map(Number);
     const cell = grid[r] && grid[r][c];
+    // 只有大儿才倔强,其他猫直接 continue
     if (!cell || cell.type !== NAUGHTY_TYPE) continue;
-    // 特殊道具大儿(⚡/🌈)不倔强
+    // 特殊道具大儿(⚡/🌈)不倔强,它是道具了
     if (cell.special) continue;
     // 投骰子:倔强概率
     if (Math.random() < STUBBORN_RATE) {
-      rescued.push({ r, c, key });
+      rescued.push({ r, c, key, el: catEls[r][c] });
     }
   }
   if (rescued.length > 0) {
     // 从 matched 中移除倔强的大儿,它们不会被消除
-    for (const { r, c, key } of rescued) {
-      matched.delete(key);
-      stubbornCats.add(key);
-      markStubborn(r, c);
+    for (const { r, c, key, el } of rescued) {
+      matched.delete(key);          // 从消除名单剔除
+      markStubborn(el);             // 给这只大儿加 😤 生气标记(绑元素)
     }
     sfx.bad();
-    showToast("😤 大儿不想消失,别喷我!");
+    showToast("😤 大儿不想消失,别碰我!");
   }
   return matched;
 }
 
-/* 给某只大儿加生气标记(😤 角标 + 摇晃) */
-function markStubborn(r, c) {
-  const el = catEls[r] && catEls[r][c];
+/* 给某只大儿(的 DOM 元素)加生气标记:😤 角标 + 左右摇晃
+   绑定到元素本身,大儿乱跑/下落后标记依然跟随,不会误伤其他猫 */
+function markStubborn(el) {
   if (!el) return;
-  el.classList.add("stubborn");
+  stubbornEls.add(el);              // 记入倔强集合(元素级)
+  el.classList.add("stubborn");     // 触发摇晃动画
   // 添加 😤 角标(若尚未有)
   if (!el.querySelector(".stubborn-badge")) {
     const badge = document.createElement("span");
@@ -1099,19 +1186,108 @@ function markStubborn(r, c) {
   }
 }
 
-/* 清除所有大儿的倔强(生气)状态——有效操作后消气 */
+/* 清除所有大儿的倔强(生气)状态
+   在玩家「有效操作」后调用——大儿被哄好了,全部消气 */
 function clearAllStubborn() {
-  if (stubbornCats.size === 0) return;
-  for (const key of stubbornCats) {
-    const [r, c] = key.split(",").map(Number);
-    const el = catEls[r] && catEls[r][c];
+  if (stubbornEls.size === 0) return;
+  for (const el of stubbornEls) {
     if (el) {
       el.classList.remove("stubborn");
       const badge = el.querySelector(".stubborn-badge");
       if (badge) badge.remove();
     }
   }
-  stubbornCats.clear();
+  stubbornEls.clear();
+}
+
+/* 判断某个 DOM 元素是不是倔强(生气)中的大儿 */
+function isStubbornEl(el) {
+  return el && stubbornEls.has(el);
+}
+
+/* ③ 攻击:玩家试图交换涉及大儿时,大儿有概率反击
+   返回 true=发动了攻击(应中断交换), false=未攻击(继续交换)
+   攻击效果:扣 200~500 分 + 屏幕红闪 + 爆炸特效 + 扣分飘字
+   不扣步数、不移动猫咪,保证不卡死游戏 */
+function daerAttack(r1, c1, r2, c2) {
+  // 找出本次交换涉及的大儿元素(发起攻击的就是它)
+  let attackerEl = null, attackerPos = null;
+  const a = grid[r1][c1], b = grid[r2][c2];
+  if (a && a.type === NAUGHTY_TYPE && !a.special) {
+    attackerEl = catEls[r1][c1]; attackerPos = { r: r1, c: c1 };
+  } else if (b && b.type === NAUGHTY_TYPE && !b.special) {
+    attackerEl = catEls[r2][c2]; attackerPos = { r: r2, c: c2 };
+  }
+  if (!attackerEl) return false;    // 没大儿参与,不攻击
+  // 投骰子:攻击概率
+  if (Math.random() >= ATTACK_RATE) return false;
+
+  // —— 发动攻击!——
+  const damage = ATTACK_MIN + Math.floor(Math.random() * (ATTACK_MAX - ATTACK_MIN + 1));
+  score = Math.max(0, score - damage);   // 扣分(不低于 0)
+  updateHUD();
+
+  // ① 屏幕红闪(全屏覆盖层,动画结束自动移除)
+  const flash = document.createElement("div");
+  flash.className = "attack-flash";
+  document.body.appendChild(flash);
+  setTimeout(() => flash.remove(), 600);
+
+  // ② 攻击者爆炸放大特效
+  attackerEl.classList.add("attacking");
+  setTimeout(() => attackerEl.classList.remove("attacking"), 500);
+  // 在攻击者位置撒红色粒子
+  spawnAttackParticles(attackerEl);
+
+  // ③ 扣分飘字(-XXX)显示在攻击者头顶
+  showDamage(attackerPos, damage);
+
+  // ④ HUD 分数抖动变红
+  const hudScore = $("hud-score");
+  hudScore.classList.add("damaged");
+  setTimeout(() => hudScore.classList.remove("damaged"), 400);
+
+  // ⑤ 音效:低沉警告音 + toast
+  sfx.bad();
+  showToast(`😾 大儿反击了你!扣除 ${damage} 分!`);
+  return true;
+}
+
+/* 在指定棋盘坐标显示扣分飘字 */
+function showDamage(pos, damage) {
+  const p = posOf(pos.r, pos.c);
+  const el = document.createElement("div");
+  el.className = "float-damage";
+  el.textContent = "-" + damage;
+  el.style.left = (p.left + CELL / 2) + "px";
+  el.style.top = p.top + "px";
+  boardEl.appendChild(el);
+  setTimeout(() => el.remove(), 1150);
+}
+
+/* 攻击专属红色粒子爆炸(8 方向) */
+function spawnAttackParticles(el) {
+  const rect = el.getBoundingClientRect();
+  const boardRect = boardEl.getBoundingClientRect();
+  const cx = rect.left - boardRect.left + rect.width / 2;
+  const cy = rect.top - boardRect.top + rect.height / 2;
+  for (let i = 0; i < 10; i++) {
+    const p = document.createElement("div");
+    p.className = "particle";
+    p.style.left = cx + "px";
+    p.style.top = cy + "px";
+    // 红橙渐变粒子
+    p.style.background = i % 2 ? "#ff2020" : "#ff7700";
+    const ang = (Math.PI * 2 * i) / 10;
+    const dist = 35 + Math.random() * 25;
+    p.style.transition = "transform 0.55s ease-out, opacity 0.55s";
+    boardEl.appendChild(p);
+    requestAnimationFrame(() => {
+      p.style.transform = `translate(${Math.cos(ang) * dist}px, ${Math.sin(ang) * dist}px) scale(0)`;
+      p.style.opacity = "0";
+    });
+    setTimeout(() => p.remove(), 580);
+  }
 }
 
 /* 检测4连/5连,返回要放置的特殊道具列表
@@ -1381,7 +1557,7 @@ function startLevel() {
   usedPasswords.clear();   // 新关重置已用密码记录
   hintLeft = FREE_QUOTA.hint;      // 重置提示额度
   shuffleLeft = FREE_QUOTA.shuffle; // 重置重排额度
-  stubbornCats.clear();    // 新关重置倔强状态
+  stubbornEls.clear();     // 新关重置倔强状态
   initBoard();
   buildCells();
   renderAll();
@@ -1431,8 +1607,8 @@ function showHint() {
   hint.forEach(({r,c}) => {
     const el = catEls[r][c];
     if (el) {
-      el.style.animation = "ring 0.4s ease-in-out 3";
-      setTimeout(() => el.style.animation = "", 1300);
+      el.classList.add("hint-glow");
+      setTimeout(() => el.classList.remove("hint-glow"), 2600);
     }
   });
 }
@@ -1539,8 +1715,8 @@ $("unlock-confirm").onclick = () => {
     hint.forEach(({r,c}) => {
       const el = catEls[r][c];
       if (el) {
-        el.style.animation = "ring 0.4s ease-in-out 3";
-        setTimeout(() => el.style.animation = "", 1300);
+        el.classList.add("hint-glow");
+        setTimeout(() => el.classList.remove("hint-glow"), 2600);
       }
     });
   } else if (action === "shuffle") {
@@ -1695,8 +1871,7 @@ async function naughtyRun() {
   swapEls(cat.r, cat.c, target.r, target.c);
   naughtyLock = false;
 
-  // 显示调皮提示
-  showToast("😼 大儿偷偷换了个位置!");
+  // 大儿换位置不再弹 toast 提示(太频繁),只保留视觉动画
   // 继续下一轮空闲计时
   pokeIdle();
 }
