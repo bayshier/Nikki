@@ -18,7 +18,7 @@
      --hk-red    蝴蝶结红(点缀,得分高亮)
      --hk-text   深棕粉(文字,比纯黑柔和) */
   :root {
-    --cell-size: 56px;
+    --cell-size: 60px;            /* 格子放大 56→60 */
     --board-cols: 8;
     --board-rows: 8;
     --hk-pink:   #ff9ec4;   /* 樱花粉 主色 */
@@ -30,7 +30,7 @@
     --hk-text:   #8b4a5e;   /* 深棕粉 文字 */
     --hk-muted:  #c98ba0;   /* 暗粉 次要文字 */
     --good:      #6ee7a8;   /* 进度条绿 */
-    --gap: 4px;
+    --gap: 2px;                   /* 间隙缩小 4→2,格子更紧凑 */
     /* 兼容旧代码引用 */
     --accent:   var(--hk-red);
     --accent-2: var(--hk-deep);
@@ -55,17 +55,20 @@
     overflow-x: hidden;
     user-select: none;
   }
-  /* 背景波点纹理(Hello Kitty 经典波点) */
+  /* 背景波点纹理:粉+黄双色波点,Hello Kitty 经典风 */
   body::before {
     content: "";
     position: fixed; inset: 0;
-    background-image: radial-gradient(circle, rgba(255,158,196,0.25) 2px, transparent 2.5px);
-    background-size: 28px 28px;
+    background-image:
+      radial-gradient(circle, rgba(255,158,196,0.3) 2px, transparent 2.5px),
+      radial-gradient(circle, rgba(255,213,107,0.2) 1.5px, transparent 2px);
+    background-size: 28px 28px, 28px 28px;
+    background-position: 0 0, 14px 14px;
     pointer-events: none; z-index: 0;
   }
-  /* 背景漂浮的蝴蝶结/爱心(替换原来猫爪) */
+  /* 背景漂浮的可爱元素:蝴蝶结/爱心/星星/花朵/糖果 */
   body::after {
-    content: "🎀 💕 ✨ 🌸 🎀 💕 ✨ 🌸 🎀 💕";
+    content: "🎀 💕 ✨ 🌸 🍬 🎀 💕 ✨ 🌸 🍬 🎀 💕 ✨ 🌸";
     position: fixed; inset: 0;
     color: rgba(255,158,196,0.12);
     font-size: 36px; line-height: 100px;
@@ -82,7 +85,7 @@
     align-items: center; gap: 14px;
     padding: 16px;
     width: 100%;
-    max-width: 560px;
+    max-width: 620px;  /* 扩大整体宽度,给棋盘更多空间 */
   }
   .title {
     font-family: "Fredoka", "Nunito", sans-serif;  /* 圆润标题字体 */
@@ -94,6 +97,16 @@
     filter: drop-shadow(0 3px 6px rgba(255,158,196,0.4));
   }
   .subtitle { font-size: 13px; color: var(--hk-muted); margin-top: -10px; font-weight: 600; }
+  /* 标题蝴蝶结摇摆动画 */
+  .title .bow {
+    display: inline-block;
+    animation: bowSway 2s ease-in-out infinite alternate;
+    filter: drop-shadow(0 0 4px rgba(233,69,96,0.4));
+  }
+  @keyframes bowSway {
+    from { transform: rotate(-12deg) scale(1); }
+    to   { transform: rotate(12deg) scale(1.1); }
+  }
 
   /* ============ HUD ============ */
   .hud {
@@ -139,9 +152,32 @@
     padding: 12px;
     background: rgba(255,255,255,0.75);
     border: 3px solid rgba(255,158,196,0.5);
-    border-radius: 24px;
+    border-radius: 28px;               /* 更大圆角更可爱 */
     backdrop-filter: blur(8px);
     box-shadow: 0 12px 36px rgba(255,158,196,0.35), inset 0 1px 0 rgba(255,255,255,0.8);
+  }
+  /* 棋盘左上角蝴蝶结装饰 */
+  .board-frame::before {
+    content: "🎀";
+    position: absolute;
+    top: -16px; left: -8px;
+    font-size: 26px;
+    z-index: 5;
+    filter: drop-shadow(0 2px 4px rgba(233,69,96,0.3));
+    animation: bowSway 2.5s ease-in-out infinite alternate;
+  }
+  /* 棋盘右下角星星装饰 */
+  .board-frame::after {
+    content: "✨";
+    position: absolute;
+    bottom: -12px; right: -6px;
+    font-size: 24px;
+    z-index: 5;
+    animation: twinkle 1.5s ease-in-out infinite alternate;
+  }
+  @keyframes twinkle {
+    from { transform: scale(0.9); opacity: 0.6; }
+    to   { transform: scale(1.2); opacity: 1; }
   }
   .board {
     position: relative;
@@ -213,33 +249,36 @@
 
   /* 猫咪背景色块(增强区分度) */
   .cat-bg {
-    position: absolute; inset: 4px;
-    border-radius: 10px;
-    opacity: 0.85;
+    position: absolute; inset: 2px;     /* 缩小内边距 4→2 */
+    border-radius: 14px;                 /* 大圆角更可爱 */
+    opacity: 0.9;
     z-index: -1;
   }
   .cat .emoji { position: relative; z-index: 1; }
 
-  /* 猫咪头像图片 */
+  /* 猫咪头像图片:几乎填满格子,白色描边 + 大圆角 = 可爱 */
   .cat-img {
-    position: absolute; inset: 4px;
-    border-radius: 10px;
-    width: calc(100% - 8px); height: calc(100% - 8px);
+    position: absolute; inset: 2px;     /* 几乎贴满格子 */
+    border-radius: 14px;                 /* 大圆角 */
+    width: calc(100% - 4px); height: calc(100% - 4px);
     object-fit: cover;
     z-index: 0;
-    background: var(--cell-bg);
+    background: var(--hk-cream);
+    border: 2px solid #fff;             /* 白色描边,可爱感 */
+    box-shadow: 0 2px 6px rgba(255,107,157,0.25);
   }
   /* 图片加载失败时的兜底:显示名字 */
   .cat-fallback {
-    position: absolute; inset: 4px;
-    border-radius: 10px;
+    position: absolute; inset: 2px;
+    border-radius: 14px;
     display: none; /* 默认隐藏,img 加载失败时显示 */
     align-items: center; justify-content: center;
-    font-size: 12px; font-weight: 700;
-    color: rgba(0,0,0,0.75);
+    font-size: 13px; font-weight: 800;
+    color: rgba(255,255,255,0.95);
     text-align: center; line-height: 1.1;
     padding: 2px;
     z-index: 1;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.3);
   }
   .cat.no-img .cat-img { display: none; }
   .cat.no-img .cat-fallback { display: flex; }
@@ -549,20 +588,20 @@
 
   /* ============ 响应式 ============ */
   @media (max-width: 480px) {
-    :root { --cell-size: 42px; }
+    :root { --cell-size: 46px; }     /* 手机格子也放大 */
     .title { font-size: 22px; }
     .hud-value { font-size: 17px; }
     .combo-text { font-size: 32px; }
   }
   @media (max-width: 380px) {
-    :root { --cell-size: 38px; --gap: 3px; }
+    :root { --cell-size: 41px; }     /* 小屏紧凑 */
   }
 </style>
 </head>
 <body>
 <div class="app">
-  <div class="title">👑 Nikki 猫大王</div>
-  <div class="subtitle">Nikki the Cat King — 消除三只相同的猫咪</div>
+  <div class="title"><span class="bow">🎀</span> Nikki 猫大王 <span class="bow">🎀</span></div>
+  <div class="subtitle">💕 消除三只相同的猫咪,收集所有小伙伴 ✨</div>
 
   <!-- HUD -->
   <div class="hud">
