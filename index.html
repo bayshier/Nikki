@@ -18,7 +18,7 @@
      --hk-red    蝴蝶结红(点缀,得分高亮)
      --hk-text   深棕粉(文字,比纯黑柔和) */
   :root {
-    --cell-size: 64px;            /* 格子再放大 60→64,Poki 级巨大元素 */
+    --cell-size: 57px;            /* 格子大小(兼顾大图与一屏放下) */
     --board-cols: 8;
     --board-rows: 8;
     --hk-pink:   #ff9ec4;   /* 樱花粉 主色 */
@@ -158,16 +158,22 @@
     position: relative; z-index: 1;
     display: flex; flex-direction: column;
     align-items: center;
-    gap: 12px;
-    padding: 14px 16px 18px;
+    gap: 4px;                   /* 压缩间距,减少页面滚动 */
+    padding: 2px 16px 4px;
     width: 100%;
     max-width: 780px;          /* 拓宽到游戏横幅宽度 */
     min-height: 100dvh;        /* 占满整个视口高度 */
+    justify-content: safe center; /* 高视口居中,矮视口安全回退顶部 */
+  }
+  /* 标题行:主标题 + 副标题并排成一行,节省纵向空间 */
+  .title-row {
+    display: flex; align-items: baseline; justify-content: center;
+    gap: 10px; flex-wrap: wrap;
   }
   /* 标题压缩成紧凑游戏顶栏 */
   .title {
     font-family: "Fredoka", "Nunito", sans-serif;
-    font-size: 26px; font-weight: 700; letter-spacing: 1px;
+    font-size: 22px; font-weight: 700; letter-spacing: 1px;
     background: linear-gradient(90deg, var(--hk-red), var(--hk-deep));
     -webkit-background-clip: text; background-clip: text; color: transparent;
     display: flex; align-items: center; gap: 6px;
@@ -177,7 +183,7 @@
       drop-shadow(0 4px 0 rgba(209,86,131,0.5))
       drop-shadow(0 8px 12px rgba(255,107,157,0.4));
   }
-  .subtitle { font-size: 13px; color: var(--hk-muted); margin-top: -10px; font-weight: 600; }
+  .subtitle { font-size: 11px; color: var(--hk-muted); font-weight: 600; }
   /* 标题蝴蝶结摇摆动画 */
   .title .bow {
     display: inline-block;
@@ -201,19 +207,19 @@
     background: rgba(255,255,255,0.88);
     border: 2px solid rgba(255,158,196,0.4);
     border-radius: 16px;
-    padding: 8px 6px;
+    padding: 4px 4px;
     text-align: center;
     backdrop-filter: blur(8px);
     box-shadow: 0 4px 0 -1px #f3b7cc, 0 8px 16px rgba(255,158,196,0.25);
   }
   .hud-label { font-size: 10px; color: var(--hk-muted); letter-spacing: 1px; font-weight: 700; }
-  .hud-value { font-size: 20px; font-weight: 800; margin-top: 2px; color: var(--hk-deep); }
+  .hud-value { font-size: 18px; font-weight: 800; margin-top: 1px; color: var(--hk-deep); }
   .hud-value.warn { color: var(--hk-red); animation: pulse 0.6s ease-in-out infinite alternate; }
   @keyframes pulse { to { transform: scale(1.12);} }
 
   /* 目标进度条 */
   .progress-wrap {
-    width: 100%; height: 12px;
+    width: 100%; height: 9px;
     background: rgba(255,255,255,0.6);
     border-radius: 99px; overflow: hidden;
     border: 2px solid rgba(255,158,196,0.35);
@@ -235,10 +241,10 @@
   }
   .board-frame {
     position: relative;
-    padding: 14px;
+    padding: 8px;
     /* 厚重饼干框:白→粉渐变底 + 粗描边 + 外白圈,像大块奶油饼干 */
     background: linear-gradient(160deg, #ffffff 0%, #fff0f6 55%, #ffe3ee 100%);
-    border: 7px solid #ff9ec4;
+    border: 5px solid #ff9ec4;
     outline: 5px solid rgba(255,255,255,0.9);
     border-radius: 36px;
     /* 3D 后仰姿态(--rx/--ry 由鼠标视差实时驱动) */
@@ -334,6 +340,17 @@
   }
   @keyframes ring { to { box-shadow: 0 0 16px var(--hk-pink);} }
 
+  .cat.picked {
+    z-index: 6;
+    transform: translateZ(20px) scale(1.12);
+    filter: drop-shadow(0 0 12px #ffb937);
+  }
+  .cat.picked::after {
+    content: "";
+    position: absolute; inset: -4px;
+    border: 3px dashed #ffb937;
+    border-radius: 14px;
+  }
   /* 提示高亮:醒目的弹跳放大 + 粉色描边发光 + 旋转 */
   .cat.hint-glow {
     z-index: 7;
@@ -461,10 +478,12 @@
   .controls {
     display: flex; gap: 10px; width: 100%;
     justify-content: center;
+    position: relative;
+    z-index: 10;                 /* 盖过棋盘 3D 后仰延伸的视觉底边 */
   }
   .btn {
     flex: 1; max-width: 160px;
-    padding: 11px 16px;
+    padding: 7px 14px;
     border: 2px solid rgba(255,255,255,0.7);
     border-radius: 16px;
     font-size: 14px; font-weight: 700;
@@ -774,6 +793,369 @@
     75% { transform: translateX(5px); color: #ff3838; }
   }
 
+  /* ============================================================
+     趣味系统四件套:金币 / 猫爪锤 / 宝箱 / FEVER
+     ============================================================ */
+  /* 连击状态栏:显示连击进度或 FEVER 倒计时 */
+  .status-bar {
+    width: 100%;
+    text-align: center;
+    font-size: 12px; font-weight: 800;
+    color: var(--hk-muted);
+    min-height: 14px;
+    letter-spacing: 0.5px;
+  }
+  .status-bar .fever-count {
+    color: #e8890c;
+    background: linear-gradient(90deg, #fff3c9, #ffe89a);
+    padding: 2px 14px; border-radius: 99px;
+    box-shadow: 0 2px 8px rgba(255,180,40,0.5);
+    animation: pulse 0.5s ease-in-out infinite alternate;
+  }
+  /* FEVER 全屏金色流光(body 上挂 class 驱动) */
+  body.fever::after {
+    content: "";
+    position: fixed; inset: 0; z-index: 60;
+    pointer-events: none;
+    background: radial-gradient(60% 50% at 50% 45%, rgba(255,214,90,0.28), rgba(255,150,60,0.12) 55%, transparent 75%);
+    animation: feverFlow 1.2s ease-in-out infinite alternate;
+  }
+  @keyframes feverFlow {
+    from { filter: hue-rotate(-18deg) brightness(1); opacity: 0.75; }
+    to   { filter: hue-rotate(18deg) brightness(1.18); opacity: 1; }
+  }
+  /* FEVER 时金币卡发亮 */
+  body.fever .hud-card { border-color: #ffd56b; }
+
+  /* 瞄准模式(猫爪锤):棋盘上猫咪指针变化 + 提示光效 */
+  .board-scene.aiming .cat,
+  .board-scene.aiming .cat-img {
+    cursor: inherit;   /* 继承棋盘上设置的道具自定义光标(JS 动态设置) */
+  }
+  .board-scene.aiming .cat-img {
+    animation: catBob 1.2s ease-in-out infinite alternate;
+    outline: 2px dashed rgba(255,107,157,0.55);
+    outline-offset: -4px;
+  }
+  /* 锤击飞出的 💥 特效 */
+  .hammer-hit {
+    position: absolute; z-index: 20;
+    font-size: 40px; pointer-events: none;
+    animation: hammerPop 0.45s ease-out forwards;
+  }
+  @keyframes hammerPop {
+    0% { transform: scale(0.4) rotate(-20deg); opacity: 1; }
+    60% { transform: scale(1.4) rotate(10deg); opacity: 1; }
+    100% { transform: scale(1.9) rotate(0); opacity: 0; }
+  }
+
+  /* 惊喜宝箱:限时出现在屏幕任意处,点击领金币 */
+  .chest {
+    position: fixed; z-index: 90;
+    font-size: 52px; line-height: 1;
+    cursor: pointer;
+    filter: drop-shadow(0 6px 12px rgba(180,90,20,0.45));
+    animation: chestBounce 0.5s ease-in-out infinite alternate;
+    user-select: none;
+  }
+  @keyframes chestBounce {
+    from { transform: translateY(0) scale(1) rotate(-6deg); }
+    to   { transform: translateY(-14px) scale(1.12) rotate(6deg); }
+  }
+  /* 宝箱剩余时间:整圈边框从满到空 */
+  .chest .chest-timer {
+    position: absolute; inset: -8px;
+    border: 3px dashed rgba(255,180,40,0.85);
+    border-radius: 50%;
+  }
+
+  /* ============ 手游风道具栏(悬浮在棋盘左侧竖排) ============ */
+  .board-scene {
+    position: relative;          /* 作为道具栏的定位锚点 */
+    margin-bottom: 20px;         /* 给 3D 后仰的视觉底边留出延伸空间 */
+    z-index: 5;
+  }
+  .item-bar {
+    position: absolute;
+    left: -108px;                         /* 悬浮在棋盘左侧空隙 */
+    top: 50%;
+    transform: translateY(-50%);
+    display: grid;
+    grid-template-columns: repeat(2, 48px);  /* 两列竖排,容纳 11 个道具 */
+    gap: 10px 8px;
+    justify-items: center;
+    align-content: center;
+    z-index: 6;
+  }
+  .item-btn {
+    position: relative;
+    width: 48px; height: 48px;
+    border: 3px solid #fff;
+    border-radius: 50%;
+    font-size: 22px;
+    cursor: pointer;
+    /* 糖果圆钮:粉渐变 + 底部厚度,按得下去 */
+    background: linear-gradient(145deg, #ff8fb8, var(--hk-deep));
+    box-shadow: 0 5px 0 -1px #d15683, 0 10px 16px rgba(255,107,157,0.35);
+    transition: transform 0.1s, box-shadow 0.1s;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .item-btn:active {
+    transform: translateY(5px);
+    box-shadow: 0 0 0 -1px #d15683, 0 3px 6px rgba(255,107,157,0.3);
+  }
+  .item-icon {
+    width: 76%; height: 76%;
+    object-fit: contain;
+    pointer-events: none;        /* 不拦截按钮点击 */
+    filter: drop-shadow(0 2px 3px rgba(120,30,60,0.35));
+  }
+  .item-btn .item-count {
+    position: absolute; top: -5px; right: -5px;
+    min-width: 19px; height: 19px;
+    font-size: 11px;
+    font-size: 12px; font-weight: 800;
+    color: var(--hk-deep); background: #fff;
+    border: 2px solid var(--hk-pink);
+    border-radius: 99px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .item-btn .item-count.zero { color: #fff; background: var(--hk-red); border-color: #fff; }
+  /* 道具激活态(瞄准模式):黄色呼吸光圈 */
+  .item-btn.active {
+    background: linear-gradient(145deg, #ffe27a, #ffb937);
+    box-shadow: 0 0 0 4px rgba(255,213,107,0.5), 0 5px 0 -1px #d99a1f;
+    animation: pulse 0.8s ease-in-out infinite alternate;
+  }
+  .item-label {
+    position: absolute;
+    left: 50%; top: calc(100% + 1px);      /* 竖排:文字在按钮下方 */
+    transform: translateX(-50%);
+    font-size: 9px; font-weight: 800; color: var(--hk-muted);
+    white-space: nowrap;
+  }
+  /* 窄屏(<1080px):两侧没空间,道具栏回退为棋盘下方横排 */
+  @media (max-width: 1080px) {
+    .item-bar {
+      position: static;
+      transform: none;
+      flex-direction: row;
+      gap: 26px;
+      justify-content: center;
+      margin-top: 14px;
+    }
+  }
+
+  /* ============ 木箱障碍 📦 ============ */
+  /* 占据格子的木箱:里面没有猫,挡住路线,受击碎裂 */
+  .cell.box {
+    background: linear-gradient(145deg, #e8b67e, #c98d4e);
+    box-shadow:
+      inset 0 0 0 3px rgba(120,70,20,0.35),
+      inset 0 4px 0 rgba(255,230,190,0.5),
+      inset 0 -5px 0 rgba(90,50,10,0.35),
+      0 3px 6px rgba(120,70,20,0.3);
+  }
+  .cell.box::after {
+    /* 用美工画的木箱图(assets/items/box.png)替代 emoji */
+    content: "";
+    position: absolute; inset: 0;
+    background: url("assets/items/box.png") center / 82% no-repeat;
+    filter: drop-shadow(0 3px 4px rgba(90,50,10,0.35));
+  }
+
+  /* 缺口格:箱子砸碎后留下的洞,猫咪不会自动补上,等马里奥丢猫 */
+  .cell.hole {
+    background: radial-gradient(circle at 50% 42%, #6b3550 0%, #3d1c30 60%, #2a1224 100%);
+    box-shadow: inset 0 5px 12px rgba(0,0,0,0.55), inset 0 -2px 0 rgba(255,158,196,0.2);
+  }
+  .cell.hole::after {
+    content: "";
+    position: absolute; inset: 22%;
+    border: 2px dashed rgba(255,182,213,0.55);
+    border-radius: 50%;
+    animation: holePulse 1.6s ease-in-out infinite alternate;
+  }
+  @keyframes holePulse {
+    from { transform: scale(0.9); opacity: 0.5; }
+    to   { transform: scale(1.05); opacity: 1; }
+  }
+
+  /* ============ 马里奥(跑入式补位工) ============ */
+  /* 平时躲在屏幕外,有缺口才跑进来丢猫,丢完跑走
+     想换序列帧动画:放一张 assets/items/mario-sheet.png 即自动启用
+     想换单帧立绘:放一张 assets/items/mario.png 即自动使用 */
+  .mario {
+    --dir: 1;                       /* 朝向:1=面向右,-1=面向左(翻转用) */
+    position: fixed;
+    left: -120px; top: 60vh;        /* 初始藏在屏幕外,JS 控制跑入 */
+    width: 72px;
+    z-index: 12;                    /* 跑过道具栏前景 */
+    pointer-events: none;
+    visibility: hidden;
+    display: flex; flex-direction: column; align-items: center; gap: 2px;
+    transition: left 0.85s linear, top 0.85s linear;   /* 跑动位移 */
+  }
+  .mario.show { visibility: visible; }
+  .mario.face-left { --dir: -1; }
+  .mario-body {
+    width: 66px; height: 80px;
+    filter: drop-shadow(0 4px 6px rgba(90,140,60,0.35));
+    transform: scaleX(var(--dir));
+  }
+  .mario-body svg { width: 100%; height: 100%; display: block; }
+  .mario-tag {
+    font-size: 10px; font-weight: 800; color: #e8890c;
+    background: rgba(255,255,255,0.75);
+    padding: 1px 8px; border-radius: 99px;
+    box-shadow: 0 2px 5px rgba(150,90,30,0.25);
+  }
+  /* 跑动:上下颠簸 + 身体摇摆(占位动画,sprite 存在时被帧动画取代) */
+  .mario.running .mario-body {
+    animation: marioRun 0.26s linear infinite;
+  }
+  @keyframes marioRun {
+    0%   { transform: scaleX(var(--dir)) translateY(0)    rotate(calc(var(--dir) * -5deg)); }
+    25%  { transform: scaleX(var(--dir)) translateY(-6px) rotate(calc(var(--dir) * 3deg)); }
+    50%  { transform: scaleX(var(--dir)) translateY(0)    rotate(calc(var(--dir) * 5deg)); }
+    75%  { transform: scaleX(var(--dir)) translateY(-5px) rotate(calc(var(--dir) * -3deg)); }
+    100% { transform: scaleX(var(--dir)) translateY(0)    rotate(calc(var(--dir) * -5deg)); }
+  }
+  /* 丢猫瞬间:跳起挥臂 */
+  .mario.throwing .mario-body {
+    animation: marioThrow 0.6s ease-out;
+  }
+  @keyframes marioThrow {
+    0%   { transform: scaleX(var(--dir)) translateY(0)    scale(1)    rotate(0); }
+    30%  { transform: scaleX(var(--dir)) translateY(-26px) scale(1.22) rotate(calc(var(--dir) * -14deg)); }
+    60%  { transform: scaleX(var(--dir)) translateY(2px)  scale(1.05) rotate(calc(var(--dir) * 8deg)); }
+    100% { transform: scaleX(var(--dir)) translateY(0)    scale(1)    rotate(0); }
+  }
+  /* ============ 🧱 天空砖块轨道(马里奥顶砖) ============ */
+  /* 悬浮在棋盘上方的砖块,马里奥跑过时跳起顶它,掉出可拾取道具 */
+  .brick {
+    position: fixed;          /* fixed:视口坐标,与马里奥统一 */
+    width: 44px; height: 34px;
+    z-index: 8;
+    pointer-events: none;
+    border-radius: 5px;
+    /* CSS 手绘砖块:橙棕渐变 + 砖缝纹路 */
+    background:
+      linear-gradient(180deg, rgba(255,255,255,0.25), transparent 30%),
+      repeating-linear-gradient(90deg, transparent 0 19px, rgba(120,60,20,0.55) 19px 22px),
+      repeating-linear-gradient(0deg, transparent 0 15px, rgba(120,60,20,0.55) 15px 17px),
+      linear-gradient(160deg, #f4a460, #c97430);
+    box-shadow:
+      0 4px 0 #9c5a20,
+      inset 0 0 0 2px rgba(255,220,160,0.5),
+      0 6px 12px rgba(150,80,30,0.35);
+    animation: brickFloat 2.4s ease-in-out infinite alternate;
+  }
+  @keyframes brickFloat { from { margin-top: 0; } to { margin-top: -5px; } }
+  /* 被顶的瞬间:向上弹起回弹 */
+  .brick.bump { animation: brickBump 0.32s ease-out; }
+  @keyframes brickBump {
+    0% { transform: translateY(0); }
+    35% { transform: translateY(-16px) scale(1.06); }
+    100% { transform: translateY(0) scale(1); }
+  }
+  .brick.gone { opacity: 0; transform: scale(0.3); transition: all 0.3s; pointer-events: none; }
+
+  /* 从砖块掉出的可拾取道具(限时点击) */
+  .drop-pick {
+    position: fixed;          /* fixed:视口坐标 */
+    width: 46px; height: 46px;
+    z-index: 14;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    animation: dropBounce 0.5s cubic-bezier(.3,1.5,.5,1);
+    filter: drop-shadow(0 3px 6px rgba(180,90,30,0.4));
+  }
+  @keyframes dropBounce {
+    0% { transform: translateY(30px) scale(0.4); opacity: 0; }   /* 从砖块处向上弹出 */
+    60% { transform: translateY(-6px) scale(1.15); opacity: 1; }
+    100% { transform: translateY(0) scale(1); }
+  }
+  /* 限时未拾取:闪烁催促 */
+  .drop-pick.urgent { animation: dropUrgent 0.4s ease-in-out infinite alternate; }
+  @keyframes dropUrgent {
+    from { transform: scale(1); filter: brightness(1); }
+    to { transform: scale(1.18); filter: brightness(1.35) drop-shadow(0 0 10px #ffd93d); }
+  }
+  .drop-pick svg { width: 100%; height: 100%; }
+
+  /* 马里奥跳跃顶砖(占位版 + sprite 帧 7 版) */
+  .mario.jump .mario-body {
+    animation: marioJump 0.42s ease-out;
+  }
+  @keyframes marioJump {
+    0% { transform: scaleX(var(--dir)) translateY(0); }
+    45% { transform: scaleX(var(--dir)) translateY(-44px) rotate(calc(var(--dir) * -10deg)); }
+    100% { transform: scaleX(var(--dir)) translateY(0); }
+  }
+  .mario.has-sheet.jump::before {
+    animation: none;
+    background-position: -672px 0;   /* sprite 第 8 帧:跳跃 */
+    transform: scaleX(var(--dir)) translateY(-34px);
+  }
+
+  /* 被丢出去的飞行猫:弧线飞向缺口 */
+  .fly-cat {
+    position: fixed;          /* fixed:视口坐标 */
+    width: 30px; height: 30px;
+    object-fit: cover;
+    border-radius: 10px;
+    border: 2px solid #fff;
+    box-shadow: 0 3px 8px rgba(210,80,130,0.4);
+    z-index: 30;
+    pointer-events: none;
+    transition:
+      left 0.62s cubic-bezier(.30,.6,.45,1.1),
+      top  0.62s cubic-bezier(.45,-0.45,.65,1.05);   /* 上抛弧线感 */
+  }
+  /* 窄屏:棋盘占满时马里奥退到右下角小只一点 */
+  @media (max-width: 1080px) {
+    .mario { right: 3%; bottom: 3vh; }
+    .mario-img, .mario-face { width: 44px; height: 44px; font-size: 38px; }
+  }
+  /* 碎箱动画:木屑飞散 */
+  .box-break {
+    position: absolute; z-index: 16;
+    font-size: 26px; pointer-events: none;
+    animation: iceBreak 0.5s ease-out forwards;
+  }
+
+  /* ============ 图片放大查看器(点二维码/海报放大) ============ */
+  .img-viewer {
+    position: fixed; inset: 0; z-index: 200;   /* 盖在解锁弹窗(z-100)之上 */
+    background: rgba(25,8,18,0.88);
+    display: none;
+    flex-direction: column; align-items: center; justify-content: center;
+    gap: 16px;
+    cursor: zoom-out;                            /* 点任意处关闭 */
+  }
+  .img-viewer.show { display: flex; }
+  .img-viewer img {
+    /* 二维码放大到手机也能轻松扫的尺寸 */
+    max-width: min(85vw, 460px);
+    max-height: 70vh;
+    width: auto; height: auto;
+    border-radius: 18px;
+    border: 4px solid #fff;
+    background: #fff;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+    animation: viewerPop 0.25s cubic-bezier(.34,1.56,.64,1);
+  }
+  @keyframes viewerPop {
+    from { transform: scale(0.55); opacity: 0; }
+    to   { transform: scale(1); opacity: 1; }
+  }
+  .img-viewer .viewer-tip {
+    color: #fff; font-size: 13px; font-weight: 700;
+    background: rgba(0,0,0,0.55);
+    padding: 7px 16px; border-radius: 99px;
+  }
+
   /* ============ 响应式 ============ */
   @media (max-width: 480px) {
     :root { --cell-size: 46px; }     /* 手机格子也放大 */
@@ -864,6 +1246,12 @@
 <div class="cloud c3"></div>
 <div class="hill back"></div>
 <div class="hill front"></div>
+<!-- 马里奥:站在棋盘外的补位工,会往缺口丢猫
+     想换成立绘图:放一张 assets/items/mario.png 即可自动使用 -->
+<div class="mario" id="mario">
+  <div class="mario-body" id="mario-body"></div>
+  <span class="mario-tag">马里奥</span>
+</div>
 <div class="prop p1">🌷</div>
 <div class="prop p2">🍄</div>
 <div class="prop p3">🌻</div>
@@ -875,24 +1263,31 @@
   <div class="layer l-near">💕 🌸 ✨ 🎀 🍬 💕 🌸 ✨ 🎀</div>
 </div>
 <div class="app">
-  <div class="title"><span class="bow">🎀</span> Nikki 猫大王 <span class="bow">🎀</span></div>
-  <div class="subtitle">💕 消除三只相同的猫咪,收集所有小伙伴 ✨</div>
+  <div class="title-row">
+    <div class="title"><span class="bow">🎀</span> Nikki 猫大王 <span class="bow">🎀</span></div>
+    <div class="subtitle">💕 消除三只相同猫咪,收集小伙伴 ✨</div>
+  </div>
 
-  <!-- HUD -->
+  <!-- HUD:五卡(关卡/分数/目标/步数/金币) -->
   <div class="hud">
     <div class="hud-card"><div class="hud-label">关卡</div><div class="hud-value" id="hud-level">1</div></div>
     <div class="hud-card"><div class="hud-label">分数</div><div class="hud-value" id="hud-score">0</div></div>
     <div class="hud-card"><div class="hud-label">目标</div><div class="hud-value" id="hud-target">1000</div></div>
     <div class="hud-card"><div class="hud-label">步数</div><div class="hud-value" id="hud-moves">20</div></div>
+    <div class="hud-card"><div class="hud-label">💰 金币</div><div class="hud-value" id="hud-coin">0</div></div>
   </div>
   <div class="progress-wrap"><div class="progress-bar" id="progress"></div></div>
+  <!-- 连击状态栏:提示连击进度 / FEVER 倒计时 -->
+  <div class="status-bar" id="status-bar"></div>
 
-  <!-- 棋盘:外层 3D 透视场景,内层棋盘板随鼠标倾斜 -->
+  <!-- 棋盘:外层 3D 透视场景,内层棋盘板随鼠标倾斜;道具栏悬浮在左侧 -->
   <div class="board-scene">
     <div class="board-frame" id="board-frame">
       <div class="board" id="board"></div>
       <div class="combo-text" id="combo-text"></div>
     </div>
+    <!-- 手游风道具栏:主动道具圆槽(桌面端悬浮在棋盘左侧,窄屏回退到下方横排) -->
+    <div class="item-bar" id="item-bar"><!-- 道具按钮由 JS 按 ITEM_DEFS 配置生成 --></div>
   </div>
 
   <!-- 按钮 -->
@@ -900,7 +1295,7 @@
     <button class="btn" id="btn-hint">💡 提示 <span class="quota">5</span></button>
     <button class="btn" id="btn-shuffle">🔀 重排 <span class="quota">2</span></button>
     <button class="btn secondary" id="btn-help">❓ 帮助</button>
-    <button class="btn secondary" id="btn-sound">🔊 音效</button>
+    <button class="btn secondary" id="btn-sound">🔊 声音</button>
     <button class="btn secondary" id="btn-restart">🔄 重开</button>
   </div>
 </div>
@@ -947,10 +1342,10 @@
       <img class="kfc-img" src="assets/kfc-crazy-thursday.jpg" alt="肯德基疯狂星期四 V50">
       <div class="qr-side">
         <img class="qr-img small" src="assets/cats/erweima.jpg" alt="收款二维码">
-        <p class="qr-side-tip">👈 扫这个<br>就对了!</p>
+        <p class="qr-side-tip">👈 点击放大<br>扫这个就对了!</p>
       </div>
     </div>
-    <p class="qr-hint">👇 吃上炸鸡后,请输入 4 位密码</p>
+    <p class="qr-hint">👇 二维码太小?点击它全屏放大,扫完输入 4 位密码</p>
     <div class="pwd-row" id="pwd-row">
       <input class="pwd-box" type="text" maxlength="1" inputmode="numeric" data-idx="0">
       <input class="pwd-box" type="text" maxlength="1" inputmode="numeric" data-idx="1">
@@ -962,7 +1357,17 @@
       <button class="btn secondary" id="unlock-cancel">下次一定</button>
       <button class="btn" id="unlock-confirm">确认</button>
     </div>
+    <!-- 富婆通道:金币够多可以直接解锁,不用等疯四 -->
+    <button class="btn secondary kfc-coin-pay" id="btn-coin-pay" style="width:100%;margin-top:10px;display:none;">
+      💰 花费 100 金币立即解锁
+    </button>
   </div>
+</div>
+
+<!-- 图片放大查看器:点击弹窗里的二维码/海报后全屏打开,方便扫码 -->
+<div class="img-viewer" id="img-viewer">
+  <img id="viewer-img" src="" alt="放大查看">
+  <div class="viewer-tip">👆 点击任意处关闭</div>
 </div>
 
 <!-- 弹窗:帮助 / 道具图鉴 -->
@@ -996,6 +1401,27 @@
         </div>
       </div>
       <div class="help-item">
+        <div class="help-icon">📦</div>
+        <div class="help-text">
+          <div class="help-name">木箱 <span class="help-tag">棋盘障碍</span></div>
+          <div class="help-desc">占住格子的箱子,挡住下落!砸开后留下缺口,马里奥会来补猫</div>
+        </div>
+      </div>
+      <div class="help-item">
+        <div class="help-icon">🍄</div>
+        <div class="help-text">
+          <div class="help-name">马里奥 <span class="help-tag">补位工</span></div>
+          <div class="help-desc">往缺口丢随机猫;还会跑过棋盘上空,跳起顶砖掉出道具!</div>
+        </div>
+      </div>
+      <div class="help-item">
+        <div class="help-icon">🧱</div>
+        <div class="help-text">
+          <div class="help-name">天空砖块 <span class="help-tag">限时奖励</span></div>
+          <div class="help-desc">马里奥跑过时顶砖,掉出 💰金币 / 🍄恢复蘑菇(步数+2) / ⭐幸运星星,8 秒内点击拾取!</div>
+        </div>
+      </div>
+      <div class="help-item">
         <div class="help-icon">✨</div>
         <div class="help-text">
           <div class="help-name">组合技 <span class="help-tag">交换两只特殊猫</span></div>
@@ -1007,6 +1433,66 @@
         <div class="help-text">
           <div class="help-name">冰块关卡 <span class="help-tag">关卡目标</span></div>
           <div class="help-desc">在冰块格子上消除猫咪即可打碎冰层,碎光所有冰块过关</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="help-section">
+      <div class="help-section-title">🎊 趣味系统</div>
+      <div class="help-item">
+        <div class="help-icon">💰</div>
+        <div class="help-text">
+          <div class="help-name">金币 <span class="help-tag">消除掉落</span></div>
+          <div class="help-desc">每消除 2 只猫掉 1 枚,攒够 100 枚可以代替 V50 直接解锁道具!</div>
+        </div>
+      </div>
+      <div class="help-item">
+        <div class="help-icon">🐾</div>
+        <div class="help-text">
+          <div class="help-name">猫爪锤 <span class="help-tag">每关 2 次</span></div>
+          <div class="help-desc">点锤子进入瞄准模式,再点任意猫直接锤飞它!不耗步数</div>
+        </div>
+      </div>
+      <div class="help-item">
+        <div class="help-icon">🔄</div>
+        <div class="help-text">
+          <div class="help-name">任意换位 <span class="help-tag">每关 1 次</span></div>
+          <div class="help-desc">先后点两只猫(不限距离)交换位置,换出三连就赚翻,没连上退还次数</div>
+        </div>
+      </div>
+      <div class="help-item">
+        <div class="help-icon">🌪️</div>
+        <div class="help-text">
+          <div class="help-name">清行风 <span class="help-tag">每关 1 次</span></div>
+          <div class="help-desc">点任意一只猫,吹走它所在的整行,顺便砸碎路上的箱子!</div>
+        </div>
+      </div>
+      <div class="help-item">
+        <div class="help-icon">🎁</div>
+        <div class="help-text">
+          <div class="help-name">猫爪宝箱 <span class="help-tag">随机掉落</span></div>
+          <div class="help-desc">消除几次后屏幕上会出现宝箱,5 秒内点它开出金币!</div>
+        </div>
+      </div>
+      <div class="help-item">
+        <div class="help-icon">🎉</div>
+        <div class="help-text">
+          <div class="help-name">FEVER 狂欢 <span class="help-tag">连击 3 次</span></div>
+          <div class="help-desc">连续 3 次有效消除触发狂欢:12 秒内全部分数 ×2,音乐加速!</div>
+        </div>
+      </div>
+      <div class="help-item">
+        <div class="help-icon">🪄</div>
+        <div class="help-text">
+          <div class="help-name">同色魔法 · 火药桶 · 碎冰镐 <span class="help-tag">瞄准道具</span></div>
+          <div class="help-desc">🪄 全场同色消除 · 🧨 3×3 轰炸 · ⛏️ 精准碎冰</div>
+        </div>
+      </div>
+      <div class="help-item">
+        <div class="help-icon">⏰</div>
+        <div class="help-text">
+          <div class="help-name">即时道具五连 <span class="help-tag">点击即用</span></div>
+          <div class="help-desc">⏰ 步数+3 · 🎲 免费洗牌 · 🧲 吸50金币 · ⭐ 生成彩虹猫 · 🧊 冻住大儿30秒</div>
         </div>
       </div>
     </div>
@@ -1072,12 +1558,35 @@ let catEls = [];               // catEls[r][c] = DOM 元素 | null
 let score = 0, level = 1, moves = 20, target = 1000;
 let selected = null;           // {r, c}
 let busy = false;              // 动画锁
-// 每关免费额度:提示 5 次,重排 2 次;用完后需扫码解锁
+// 每关免费额度:锤子 2 次,换位 1 次,清行 1 次,提示 5 次,重排 2 次;用完后需扫码解锁
 const FREE_QUOTA = { hint: 5, shuffle: 2 };
+/* ============================================================
+   道具配置表(加新道具只需在这里加一行):
+   mode:true = 瞄准类(点了再选目标), false = 即时类(点了立刻生效)
+   ============================================================ */
+const ITEM_DEFS = [
+  { id:"hammer",  file:"hammer",  emoji:"🔨", label:"锤子",     quota:2, mode:true  },
+  { id:"swap",    file:"swap",    emoji:"🔄", label:"任意换位", quota:1, mode:true  },
+  { id:"row",     file:"wind",    emoji:"🌪️", label:"清行风",   quota:1, mode:true  },
+  { id:"wand",    file:"wand",    emoji:"🪄", label:"同色魔法", quota:1, mode:true  },
+  { id:"tnt",     file:"tnt",     emoji:"🧨", label:"火药桶",   quota:1, mode:true  },
+  { id:"pickaxe", file:"pickaxe", emoji:"⛏️", label:"碎冰镐",   quota:2, mode:true  },
+  { id:"clock",   file:"clock",   emoji:"⏰", label:"+3步数",   quota:1, mode:false },
+  { id:"dice",    file:"dice",    emoji:"🎲", label:"命运骰子", quota:1, mode:false },
+  { id:"magnet",  file:"magnet",  emoji:"🧲", label:"吸金币",   quota:1, mode:false },
+  { id:"star",    file:"star",    emoji:"⭐", label:"彩虹星",   quota:1, mode:false },
+  { id:"freeze",  file:"freeze",  emoji:"🧊", label:"冻住大儿", quota:1, mode:false },
+];
+// 各道具剩余次数(按配置表生成)
+let quota = Object.fromEntries(ITEM_DEFS.map(d => [d.id, d.quota]));
+// 当前瞄准中的道具 id(null = 无):'hammer'|'swap'|'row'|'wand'|'tnt'|'pickaxe'
+let aimMode = null;
+// 大儿冻结截止时间戳(冰冻奶糖道具)
+let freezeUntil = 0;
 let hintLeft = FREE_QUOTA.hint;
 let shuffleLeft = FREE_QUOTA.shuffle;
 let usedPasswords = new Set(); // 本关已使用过的密码(防止复用)
-// 当前正在解锁的动作:'hint' | 'shuffle'
+// 当前正在解锁的动作:'hint' | 'shuffle' | 'hammer' | 'swap' | 'row'
 let unlockAction = null;
 // 大儿(调皮猫):空闲 5 秒后随机乱跑
 const NAUGHTY_TYPE = 4;        // 大儿在 CAT_TYPES 中的索引
@@ -1100,16 +1609,23 @@ const ATTACK_MAX = 500;             // 单次攻击最多扣分
    三种关卡类型循环 —— 分数关 → 收集关 → 冰块关
    ============================================================ */
 // 冰块层:iceLayer[r][c] = 0(无冰)/1(有冰)。冰附着在格子上,不随猫咪下落
-let iceLayer = [];
-let cellEls = [];          // 格子背景 DOM 引用(用于显示/打碎冰块)
+// ⚠️ 声明时即初始化为全尺寸 0:启动区的背景棋盘不经过 startLevel,
+//    若保持空数组,消除时的"相邻震箱"访问 boxLayer[nr][nc] 会直接崩溃
+let iceLayer = Array.from({ length: ROWS }, () => Array(COLS).fill(0));
+// 木箱层:boxLayer[r][c] = 0(无箱)/1(有箱)。箱子占据格子(格内无猫),挡住下落路线
+let boxLayer = Array.from({ length: ROWS }, () => Array(COLS).fill(0));
+// 缺口层:holeLayer[r][c] = 0(无)/1(缺口)。箱子被砸碎后留下缺口,
+// 缺口不会自动补猫(猫咪也不会掉进去),由马里奥定期丢猫补上
+let holeLayer = Array.from({ length: ROWS }, () => Array(COLS).fill(0));
+let cellEls = [];          // 格子背景 DOM 引用(用于显示/打碎冰块与木箱)
 // 收集目标:collectGoal = { type:猫咪类型, need:需要数量, got:已收集 } 或 null
 let collectGoal = null;
 let iceTotalAtStart = 0;   // 本关冰块总数(算进度条用)
 // 当前关卡类型:'score' | 'collect' | 'ice'
 let levelType = 'score';
 
-/* 本地存档:进度 + 每关星级,存 localStorage */
-let saveData = { unlocked: 1, stars: {} };   // unlocked=已解锁到的最高关卡,stars={关卡:星级}
+/* 本地存档:进度 + 星级 + 金币,存 localStorage */
+let saveData = { unlocked: 1, stars: {}, coins: 0 };
 function loadSave() {
   try {
     const raw = localStorage.getItem("nikki_save");
@@ -1124,29 +1640,49 @@ function totalStars() {
   return Object.values(saveData.stars).reduce((s, n) => s + n, 0);
 }
 
-/* 关卡配置器:根据关卡数生成 目标/步数/冰块/收集 任务
-   类型循环:第1关分数、第2关收集、第3关冰块、第4关分数…… */
+/* 关卡配置器:根据关卡数生成 目标/步数/冰块/木箱/收集 任务
+   类型循环:第1关分数、第2关收集、第3关冰块、第4关分数……
+   从第 4 关(第二轮)起,各种关卡都会混入木箱障碍增加难度 */
 function levelConfig(lv) {
   const t = (lv - 1) % 3;                 // 循环索引
   const round = Math.floor((lv - 1) / 3); // 难度轮数,越往后越难
+  // 木箱数量:第一轮没有,之后每轮 +2,封顶 10 个
+  const boxCount = round >= 1 ? Math.min(10, 3 + round * 2) : 0;
   if (t === 0) {
     // —— 分数关:在限定步数内达到目标分 ——
-    return { type: "score", target: 800 + lv * 450, moves: 20 - Math.min(6, round), collect: null, iceCount: 0 };
+    return { type: "score", target: 800 + lv * 450, moves: 20 - Math.min(6, round), collect: null, iceCount: 0, boxCount };
   } else if (t === 1) {
     // —— 收集关:收集指定猫咪若干只 ——
     // 随机指定一种猫作为收集目标(包含大儿,倔强机制会让收集更有戏剧性)
     return { type: "collect", target: 600 + lv * 350, moves: 24 - Math.min(6, round),
-             collect: { type: Math.floor(Math.random() * CAT_TYPES.length), need: 12 + round * 4 }, iceCount: 0 };
+             collect: { type: Math.floor(Math.random() * CAT_TYPES.length), need: 12 + round * 4 }, iceCount: 0, boxCount };
   } else {
     // —— 冰块关:打碎棋盘上所有冰块 ——
     return { type: "ice", target: 600 + lv * 350, moves: 26 - Math.min(6, round),
-             collect: null, iceCount: Math.min(30, 8 + round * 4 + (lv % 3)) };
+             collect: null, iceCount: Math.min(30, 8 + round * 4 + (lv % 3)), boxCount };
   }
 }
 
 let soundOn = true;
 let bgmOn = true;          // 背景音乐开关
 let audioCtx = null;
+
+/* ============================================================
+   趣味系统状态:金币 / 猫爪锤 / 宝箱 / FEVER
+   ============================================================ */
+let coinCount = 0;             // 金币(跨关累计,存档)
+let swapPick = null;           // 换位模式中已选中的第一只猫 {r,c}
+let exchangeCount = 0;         // 有效交换计数(驱动宝箱掉落)
+let nextChestAt = 5;           // 下一次宝箱出现的交换次数(4~7 随机)
+let chestEl = null;            // 当前屏幕上的宝箱 DOM(同一时间只一个)
+let chestTimer = null;         // 宝箱 5 秒消失计时
+// FEVER 狂欢:连续 3 次有效交换触发,12 秒内分数翻倍
+const FEVER_NEED = 3;          // 触发所需连击次数
+const FEVER_SECONDS = 12;      // 狂欢持续秒数
+let feverStreak = 0;           // 当前连击数
+let feverOn = false;           // 是否狂欢中
+let feverEndTime = 0;          // 狂欢结束时间戳
+let feverTickTimer = null;     // 倒计时刷新器
 
 /* ============================================================
    音效(Web Audio 合成,无需外部文件)
@@ -1182,6 +1718,7 @@ const BGM_MELODY = [
 const BGM_BASS = [131, 165, 196, 165];
 let bgmTimer = null;   // BGM 调度器句柄
 let bgmStep = 0;       // 当前播放到第几个音符
+let bgmIntervalMs = 290;  // 音符间隔:FEVER 狂欢时切到 170ms 加速
 function startBGM() {
   if (bgmTimer || !bgmOn) return;   // 已在播放或被关闭
   ensureAudio();
@@ -1193,7 +1730,7 @@ function startBGM() {
     // 每 4 拍加一个低音根音
     if (bgmStep % 4 === 0) playTone(BGM_BASS[(bgmStep / 4) % BGM_BASS.length], 0.4, "sine", 0.03);
     bgmStep++;
-  }, 290);
+  }, bgmIntervalMs);
 }
 function stopBGM() {
   if (bgmTimer) { clearInterval(bgmTimer); bgmTimer = null; }
@@ -1243,6 +1780,10 @@ function buildCells() {
       cell.className = "cell";
       // 该格有冰层时加冰块样式(🧊 半透明覆盖)
       if (iceLayer[r] && iceLayer[r][c] > 0) cell.classList.add("ice-1");
+      // 该格有木箱时加箱子样式(📦 占格障碍)
+      if (boxLayer[r] && boxLayer[r][c] > 0) cell.classList.add("box");
+      // 该格是缺口时加洞样式(等马里奥补猫)
+      if (holeLayer[r] && holeLayer[r][c] > 0) cell.classList.add("hole");
       const p = posOf(r, c);
       cell.style.left = p.left + "px";
       cell.style.top  = p.top + "px";
@@ -1267,6 +1808,30 @@ function breakIce(r, c) {
   boardEl.appendChild(frag);
   setTimeout(() => frag.remove(), 520);
   beep(1200, 0.08, "triangle", 0.1);   // 清脆碎冰音
+  return true;
+}
+
+/* 打碎某格的木箱:清数据 + 移除样式 + 播碎木动画 + 奖励金币 */
+function breakBox(r, c) {
+  if (!boxLayer[r] || boxLayer[r][c] <= 0) return false;
+  boxLayer[r][c] = 0;
+  // 砸开箱子会留下缺口:不自动补猫,等马里奥来丢
+  holeLayer[r][c] = 1;
+  const cell = cellEls[r] && cellEls[r][c];
+  if (cell) { cell.classList.remove("box"); cell.classList.add("hole"); }
+  // 碎木视觉:💥 + 🪵 飞出
+  const p = posOf(r, c);
+  ["💥", "🪵"].forEach((emo, i) => {
+    const frag = document.createElement("div");
+    frag.className = "box-break";
+    frag.textContent = emo;
+    frag.style.left = (p.left + CELL / 2 - 13 + i * 14) + "px";
+    frag.style.top  = (p.top + CELL / 2 - 13 - i * 8) + "px";
+    boardEl.appendChild(frag);
+    setTimeout(() => frag.remove(), 520);
+  });
+  beep(300, 0.12, "square", 0.12);     // 闷响碎木音
+  addCoins(5);                          // 砸箱子有金币奖励
   return true;
 }
 
@@ -1373,6 +1938,8 @@ function initBoard() {
   grid = Array.from({length: ROWS}, () => Array(COLS).fill(null));
   for (let r = 0; r < ROWS; r++)
     for (let c = 0; c < COLS; c++) {
+      // 木箱占据的格子不放猫(箱子就是障碍,留空)
+      if (boxLayer[r] && boxLayer[r][c] > 0) continue;
       const exclude = [];
       if (c >= 2 && grid[r][c-1]?.type === grid[r][c-2]?.type && grid[r][c-1])
         exclude.push(grid[r][c-1].type);
@@ -1446,9 +2013,32 @@ function swapData(r1, c1, r2, c2) {
    交互:点击选中 & 交换
    ============================================================ */
 function onCatClick(r, c) {
-  if (busy || !grid[r][c]) return;
+  // 大儿乱跑动画进行中禁止点击,防止数据竞态
+  if (naughtyLock) return;
+  const isBoxTarget = boxLayer[r] && boxLayer[r][c] > 0;
+  if (busy) return;
+  if (!grid[r][c] && !isBoxTarget) return;   // 空白格忽略(箱子格允许锤)
   ensureAudio();
   pokeIdle();  // 用户有操作,重置大儿空闲计时
+
+  // —— 瞄准类道具统一分发 ——
+  if (aimMode) {
+    // 锤子和火药桶可以直接作用于箱子,其余道具只能以猫为目标
+    if (isBoxTarget && aimMode !== "hammer" && aimMode !== "tnt") {
+      showToast("📦 有箱子挡着,先用锤子或火药桶砸开它!");
+      sfx.bad();
+      return;
+    }
+    switch (aimMode) {
+      case "hammer":  hammerSmash(r, c);  return;
+      case "swap":    handleSwapPick(r, c); return;
+      case "row":     rowSmash(r);        return;
+      case "wand":    wandSmash(r, c);    return;
+      case "tnt":     tntBlast(r, c);     return;
+      case "pickaxe": pickaxeHit(r, c);   return;
+    }
+  }
+
   if (!selected) {
     selected = { r, c };
     catEls[r][c]?.classList.add("selected");
@@ -1492,17 +2082,18 @@ async function attemptSwap(r1, c1, r2, c2) {
     void stubbornEl.offsetWidth;  // 强制重排,重启动画
     stubbornEl.style.animation = "angryShake 0.3s ease-in-out 2";
     setTimeout(() => { stubbornEl.style.animation = ""; }, 700);
-    return;  // 交换中断
+    return false;  // 交换中断(倔强)
   }
 
   // ② 攻击检查:交换涉及大儿时,大儿有概率反击(扣分)
   //    攻击不扣步数、不移动猫咪,只扣分 + 视觉特效
   if (daerAttack(r1, c1, r2, c2)) {
-    return;  // 被攻击了,交换中断
+    return false;  // 被攻击了,交换中断
   }
 
   // ③ 正常交换流程
   busy = true;
+  try {
   sfx.swap();
   const a = grid[r1][c1], b = grid[r2][c2];
   const sa = a?.special, sb = b?.special;
@@ -1562,8 +2153,7 @@ async function attemptSwap(r1, c1, r2, c2) {
     if (grid[r2][c2]) grid[r2][c2].special = null;
     await resolveCascades(toClear, 1);
     afterMove();
-    busy = false;
-    return;
+      return true;   // 组合技完成
   }
 
   // —— 单只彩虹猫:与普通猫交换,清除该色全部 ——
@@ -1584,8 +2174,7 @@ async function attemptSwap(r1, c1, r2, c2) {
     sfx.special();
     await resolveCascades(toClear, 1);
     afterMove();
-    busy = false;
-    return;
+      return true;   // 彩虹消除完成
   }
 
   await animateMove(r1, c1, r2, c2);
@@ -1593,22 +2182,26 @@ async function attemptSwap(r1, c1, r2, c2) {
   swapEls(r1, c1, r2, c2);
   const matches = findMatches();
   if (matches.size === 0) {
-    // 无效交换,换回去
+    // 无效交换,换回去(连击中断,FEVER 计数清零)
+    resetFeverStreak();
     await sleep(120);
     sfx.bad();
     await animateMove(r1, c1, r2, c2);
     swapData(r1, c1, r2, c2);
     swapEls(r1, c1, r2, c2);
-    busy = false;
-    return;
+      return false;  // 无效交换(没连上)
   }
-  // 有效:扣步数,连锁消除
+  // 有效:扣步数,连锁消除;推进连击/宝箱/FEVER 系统
   clearAllStubborn();  // 玩家有效操作,大儿消气了
+  onValidExchange();   // 连击 +1、随机掉宝箱、可能触发 FEVER
   moves--;
   updateHUD();
   await resolveCascades(matches, 1);
   afterMove();
-  busy = false;
+  return true;   // 有效交换完成
+  } finally {
+    busy = false;   // 任何异常/分支都保证解锁,防止全局卡死
+  }
 }
 
 /* 移动两个格子的元素到对方位置(仅视觉),不动数据 */
@@ -1642,10 +2235,13 @@ async function resolveCascades(matched, combo) {
     // 1. 生成特殊道具(仅 combo==1 即首次命中且匹配数为4/5)
     const specialsToPlace = combo === 1 ? detectSpecials(matched) : [];
 
-    // 2. 计分 & 粒子 & 消除动画
-    const gained = matched.size * 60 * combo;
+    // 2. 计分 & 金币 & 粒子 & 消除动画
+    // FEVER 狂欢期间所有得分 ×2!
+    const gained = matched.size * 60 * combo * (feverOn ? 2 : 1);
     addScore(gained);
     floatScoreAt(matched, gained);
+    // 金币奖励:每消除 2 只猫掉 1 枚(向上取整),存档累计
+    addCoins(Math.ceil(matched.size / 2));
 
     // 触发特殊道具的连锁清除(条纹清行列 / 炸弹清3×3 / 彩虹清同色)
     const extra = expandSpecials(matched);
@@ -1663,9 +2259,12 @@ async function resolveCascades(matched, combo) {
     }
     await sleep(400);   // 等待 3D 翻转消除动画(0.4s)播完
 
-    // 3. 真正删除数据 & 元素 + 处理冰块/收集目标
+    // 3. 真正删除数据 & 元素 + 处理冰块/木箱/收集目标
+    const boxHits = new Set();   // 本轮被震碎/打碎的箱子(去重)
     for (const key of matched) {
       const [r, c] = key.split(",").map(Number);
+      // —— 木箱:箱子格没有猫,特效波及(清行/炸弹/彩虹)时直接打碎 ——
+      if (boxLayer[r] && boxLayer[r][c] > 0) { boxHits.add(`${r},${c}`); continue; }
       const cellData = grid[r][c];
       // —— 冰块:消除该格猫咪时打碎一层冰(冰附着在格子上,不随猫下落) ——
       if (iceLayer[r] && iceLayer[r][c] > 0) breakIce(r, c);
@@ -1676,12 +2275,27 @@ async function resolveCascades(matched, combo) {
       grid[r][c] = null;
       catEls[r][c]?.remove();
       catEls[r][c] = null;
+      // —— 相邻震箱:消除的震动波及四邻的木箱(相邻消除也能砸开箱子) ——
+      [[-1,0],[1,0],[0,-1],[0,1]].forEach(([dr, dc]) => {
+        const nr = r + dr, nc = c + dc;
+        if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS
+            && boxLayer[nr] && boxLayer[nr][nc] > 0) {
+          boxHits.add(`${nr},${nc}`);
+        }
+      });
+    }
+    // 统一执行碎箱(去重后)
+    for (const key of boxHits) {
+      const [r, c] = key.split(",").map(Number);
+      breakBox(r, c);
     }
     // 冰块/收集进度变化后刷新 HUD(目标卡与进度条)
     if (iceTotalAtStart > 0 || collectGoal) updateHUD();
 
     // 4. 放置生成的特殊道具
     for (const sp of specialsToPlace) {
+      // 双保险:箱子格不放置特殊道具(防止覆盖障碍数据)
+      if (boxLayer[sp.r] && boxLayer[sp.r][sp.c] > 0) continue;
       grid[sp.r][sp.c] = { type: sp.type, special: sp.kind };
       const el = makeCatEl(sp.r, sp.c, grid[sp.r][sp.c]);
       el.classList.add("spawning");
@@ -1868,6 +2482,9 @@ function detectSpecials(matched) {
   const byCol = {}; // c -> Set<r>
   for (const key of matched) {
     const [r, c] = key.split(",").map(Number);
+    // 箱子格/空格不参与特殊道具判定(防止把特殊猫放进箱子格造成数据错乱)
+    if (boxLayer[r] && boxLayer[r][c] > 0) continue;
+    if (!grid[r] || !grid[r][c]) continue;
     (byRow[r] = byRow[r] || new Set()).add(c);
     (byCol[c] = byCol[c] || new Set()).add(r);
   }
@@ -1982,43 +2599,56 @@ function expandSpecials(matched) {
    下落 & 填充新猫
    ============================================================ */
 async function dropAndFill() {
-  // 每一列:收集非空,沉底
+  // 每一列:以木箱为「隔板」切分成若干段,每段独立沉底 + 顶部补新
+  // (箱子占据格子且固定不动,猫不能穿过箱子下落)
   for (let c = 0; c < COLS; c++) {
-    let writeRow = ROWS - 1;
-    for (let r = ROWS - 1; r >= 0; r--) {
-      if (grid[r][c]) {
-        if (r !== writeRow) {
-          grid[writeRow][c] = grid[r][c];
-          grid[r][c] = null;
-          catEls[writeRow][c] = catEls[r][c];
-          catEls[r][c] = null;
-          const el = catEls[writeRow][c];
-          if (el) {
-            const p = posOf(writeRow, c);
-            el.style.top = p.top + "px";
-            // 更新坐标标签,点击才不会漂移
-            el.dataset.r = writeRow;
-            el.dataset.c = c;
-          }
-        }
-        writeRow--;
+    // 找出本列所有「隔板」行(箱子 + 缺口),切出无隔板的连续区段
+    // 缺口格里既没有猫也不会自动补猫,猫不能穿过缺口下落
+    const segs = [];
+    let segStart = 0;
+    for (let r = 0; r < ROWS; r++) {
+      if (boxLayer[r][c] > 0 || holeLayer[r][c] > 0) {
+        if (r > segStart) segs.push([segStart, r - 1]);  // 箱子上方的一段
+        segStart = r + 1;
       }
     }
-    // 顶部填充新猫
-    for (let r = writeRow; r >= 0; r--) {
-      const data = { type: Math.floor(Math.random() * CAT_TYPES.length), special: null };
-      grid[r][c] = data;
-      const el = makeCatEl(r, c, data);
-      // 从屏幕上方落入
-      const startTop = -(writeRow - r + 1) * (CELL + GAP);
-      el.style.top = startTop + "px";
-      boardEl.appendChild(el);
-      catEls[r][c] = el;
-      // 触发回流后下落到目标位置
-      requestAnimationFrame(() => {
-        const p = posOf(r, c);
-        el.style.top = p.top + "px";
-      });
+    if (segStart < ROWS) segs.push([segStart, ROWS - 1]); // 最后一段
+    // 对每一段独立做「收集非空 → 沉底 → 顶部补新」
+    for (const [top, bottom] of segs) {
+      let writeRow = bottom;
+      for (let r = bottom; r >= top; r--) {
+        if (grid[r][c]) {
+          if (r !== writeRow) {
+            grid[writeRow][c] = grid[r][c];
+            grid[r][c] = null;
+            catEls[writeRow][c] = catEls[r][c];
+            catEls[r][c] = null;
+            const el = catEls[writeRow][c];
+            if (el) {
+              const p = posOf(writeRow, c);
+              el.style.top = p.top + "px";
+              // 更新坐标标签,点击才不会漂移
+              el.dataset.r = writeRow;
+              el.dataset.c = c;
+            }
+          }
+          writeRow--;
+        }
+      }
+      // 段内顶部填充新猫(从棋盘上方落入)
+      for (let r = writeRow; r >= top; r--) {
+        const data = { type: Math.floor(Math.random() * CAT_TYPES.length), special: null };
+        grid[r][c] = data;
+        const el = makeCatEl(r, c, data);
+        const startTop = -(writeRow - r + 1) * (CELL + GAP);
+        el.style.top = startTop + "px";
+        boardEl.appendChild(el);
+        catEls[r][c] = el;
+        requestAnimationFrame(() => {
+          const p = posOf(r, c);
+          el.style.top = p.top + "px";
+        });
+      }
     }
   }
   await sleep(380);
@@ -2116,13 +2746,18 @@ function updateHUD() {
   const m = $("hud-moves");
   m.textContent = moves;
   m.classList.toggle("warn", moves <= 5);
-  // 更新提示/重排按钮上的剩余次数徽章
+  // 金币显示(跨关累计)
+  const coinEl = $("hud-coin");
+  if (coinEl) coinEl.textContent = coinCount;
+  // 更新道具槽与按钮上的剩余次数徽章(道具槽用 .item-count)
+  // 遍历配置表刷新全部道具槽徽章
+  ITEM_DEFS.forEach(d => updateQuota("btn-" + d.id, quota[d.id]));
   updateQuota("btn-hint", hintLeft);
   updateQuota("btn-shuffle", shuffleLeft);
 }
 function updateQuota(btnId, left) {
   const btn = $(btnId);
-  const span = btn.querySelector(".quota");
+  const span = btn.querySelector(".quota, .item-count");   // 兼容按钮徽章与道具槽徽章
   if (!span) return;
   span.textContent = left;
   span.classList.toggle("zero", left <= 0);
@@ -2136,6 +2771,441 @@ function joltBoard() {
   void f.offsetWidth;   // 强制重排以重启动画
   f.classList.add("jolt");
   setTimeout(() => f.classList.remove("jolt"), 320);
+}
+
+/* ============================================================
+   💰 金币系统:消除掉金币,存档累计,可代替 V50 解锁
+   ============================================================ */
+function addCoins(n) {
+  if (n <= 0) return;
+  coinCount += n;
+  saveData.coins = coinCount;
+  writeSave();          // 金币即时入档,关掉浏览器不丢
+  updateHUD();
+}
+
+/* ============================================================
+   🎉 FEVER 狂欢模式:连续 3 次有效交换触发
+   12 秒内分数 ×2 + 全屏金色流光 + 背景音乐加速
+   ============================================================ */
+function addFeverStreak() {
+  if (feverOn) return;                      // 狂欢中不再累计
+  feverStreak++;
+  updateStatusBar();
+  if (feverStreak >= FEVER_NEED) startFever();
+}
+function resetFeverStreak() {
+  if (feverOn) return;
+  if (feverStreak !== 0) { feverStreak = 0; updateStatusBar(); }
+}
+function startFever() {
+  feverOn = true;
+  feverEndTime = Date.now() + FEVER_SECONDS * 1000;
+  document.body.classList.add("fever");     // 挂金色流光
+  sfx.win();                                // 开狂欢音效
+  showToast("🎉 FEVER 狂欢开始!分数 ×2!");
+  speedUpBGM(true);                         // 背景音乐加速
+  updateStatusBar();
+  // 倒计时刷新(每 100ms 更新状态栏文案)
+  feverTickTimer = setInterval(() => {
+    const left = Math.ceil((feverEndTime - Date.now()) / 1000);
+    if (left <= 0) endFever();
+    else updateStatusBar();
+  }, 100);
+}
+function endFever() {
+  feverOn = false;
+  feverStreak = 0;
+  clearInterval(feverTickTimer);
+  feverTickTimer = null;
+  document.body.classList.remove("fever");
+  speedUpBGM(false);                        // 恢复正常节奏
+  updateStatusBar();
+}
+/* 状态栏:非狂欢显示连击进度,狂欢中显示倒计时 */
+function updateStatusBar() {
+  const bar = $("status-bar");
+  if (!bar) return;
+  if (feverOn) {
+    const left = Math.max(0, Math.ceil((feverEndTime - Date.now()) / 1000));
+    bar.innerHTML = `<span class="fever-count">🎉 FEVER 狂欢中!分数 ×2 · 剩余 ${left}s</span>`;
+  } else if (feverStreak > 0) {
+    bar.textContent = `🔥 连击 ×${feverStreak} — 再连 ${FEVER_NEED - feverStreak} 次开启狂欢!`;
+  } else {
+    bar.textContent = "";
+  }
+}
+/* 背景音乐节奏切换:FEVER 时音符间隔从 290ms 缩到 170ms */
+function speedUpBGM(fast) {
+  if (!bgmTimer) return;   // 音乐没在放就不管
+  stopBGM();
+  bgmIntervalMs = fast ? 170 : 290;
+  startBGM();
+}
+
+/* ============================================================
+   🎁 惊喜宝箱:有效交换若干次后随机掉落,5 秒内点击领金币
+   ============================================================ */
+function onValidExchange() {
+  exchangeCount++;
+  addFeverStreak();          // 顺带推进 FEVER 连击
+  if (!chestEl && exchangeCount >= nextChestAt) {
+    nextChestAt = exchangeCount + 4 + Math.floor(Math.random() * 4);  // 下次 4~7 次后
+    spawnChest();
+  }
+}
+function spawnChest() {
+  // 随机出生点(避开最边缘 10%,也避开屏幕正中棋盘区域)
+  const x = 8 + Math.random() * 74;    // vw
+  const topOrBottom = Math.random() < 0.5;
+  const y = topOrBottom ? (8 + Math.random() * 14) : (70 + Math.random() * 18);  // vh
+  chestEl = document.createElement("div");
+  chestEl.className = "chest";
+  chestEl.textContent = "🎁";
+  chestEl.style.left = x + "vw";
+  chestEl.style.top = y + "vh";
+  // 倒计时虚线圈
+  const ring = document.createElement("div");
+  ring.className = "chest-timer";
+  chestEl.appendChild(ring);
+  chestEl.addEventListener("click", collectChest);
+  document.body.appendChild(chestEl);
+  showToast("🎁 猫爪宝箱出现了!快点它!");
+  beep(880, 0.1, "triangle", 0.12);
+  // 5 秒没人领就自己溜走
+  chestTimer = setTimeout(removeChest, 5000);
+}
+function collectChest() {
+  if (!chestEl) return;
+  const reward = 15 + Math.floor(Math.random() * 46);   // 15~60 金币
+  addCoins(reward);
+  showToast(`🎁 开出 ${reward} 金币!`);
+  sfx.special();
+  removeChest();
+}
+function removeChest() {
+  clearTimeout(chestTimer);
+  chestTimer = null;
+  chestEl?.remove();
+  chestEl = null;
+}
+
+/* 退出所有道具瞄准模式,清理视觉状态 */
+function exitItemModes() {
+  aimMode = null;
+  // 清除换位第一只的高亮
+  if (swapPick) {
+    catEls[swapPick.r]?.[swapPick.c]?.classList.remove("picked");
+    swapPick = null;
+  }
+  document.querySelector(".board-scene").classList.remove("aiming");
+  boardEl.style.cursor = "";              // 恢复默认鼠标
+  // 所有道具槽取消激活光圈
+  ITEM_DEFS.forEach(d => $("btn-" + d.id)?.classList.remove("active"));
+}
+
+/* 切换某道具的瞄准模式(on:true 进入, false 退出) */
+function setItemMode(mode, on) {
+  exitItemModes();
+  if (!on) return;
+  aimMode = mode;
+  document.querySelector(".board-scene").classList.add("aiming");
+  $("btn-" + mode)?.classList.add("active");
+  applyItemCursor(mode);   // 鼠标变成对应道具光标
+}
+
+/* ============================================================
+   道具自定义鼠标光标
+   优先使用 assets/items/ 下的自定义图片(美工做的道具图);
+   图片不存在时自动退回到 emoji 动态生成的光标,永不断档
+   ============================================================ */
+const ITEM_CURSORS = {
+  hammer:  { emoji: "🔨", file: "assets/items/hammer.png",  size: 40 },
+  swap:    { emoji: "🔄", file: "assets/items/swap.png",    size: 40 },
+  row:     { emoji: "🌪️", file: "assets/items/wind.png",    size: 40 },
+  wand:    { emoji: "🪄", file: "assets/items/wand.png",    size: 40 },
+  tnt:     { emoji: "🧨", file: "assets/items/tnt.png",     size: 40 },
+  pickaxe: { emoji: "⛏️", file: "assets/items/pickaxe.png", size: 40 },
+};
+// 用 emoji 现场生成一个 SVG 光标(无需任何图片资源)
+function makeEmojiCursor(emoji, size) {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}">` +
+    `<text x="50%" y="54%" dominant-baseline="central" text-anchor="middle" font-size="${Math.round(size * 0.82)}">${emoji}</text></svg>`;
+  return `url("data:image/svg+xml,${encodeURIComponent(svg)}") ${size / 2} ${size / 2}, auto`;
+}
+// 启动时探测自定义道具图:存在则预构建图片光标,自动覆盖 emoji 版
+(function probeItemCursors() {
+  for (const cfg of Object.values(ITEM_CURSORS)) {
+    const probe = new Image();
+    probe.onload = () => {
+      cfg.cursor = `url(${cfg.file}) ${cfg.size / 2} ${cfg.size / 2}, auto`;
+    };
+    probe.src = cfg.file;
+  }
+})();
+/* 把某道具的光标铺到棋盘上(进入瞄准模式时调用) */
+function applyItemCursor(mode) {
+  const cfg = ITEM_CURSORS[mode];
+  if (!cfg) return;
+  boardEl.style.cursor = cfg.cursor || makeEmojiCursor(cfg.emoji, cfg.size);
+}
+
+/* 道具栏渲染:按 ITEM_DEFS 配置生成全部道具按钮 */
+function renderItemBar() {
+  const bar = $("item-bar");
+  bar.innerHTML = "";
+  for (const def of ITEM_DEFS) {
+    const btn = document.createElement("button");
+    btn.className = "item-btn";
+    btn.id = "btn-" + def.id;
+    const img = document.createElement("img");
+    img.className = "item-icon";
+    img.src = `assets/items/${def.file}.png`;
+    img.alt = def.label;
+    img.draggable = false;
+    img.addEventListener("error", () => {
+      const sp = document.createElement("span");
+      sp.className = "item-icon";
+      sp.style.fontSize = "24px";
+      sp.textContent = def.emoji;
+      img.replaceWith(sp);
+    });
+    const count = document.createElement("span");
+    count.className = "item-count";
+    count.textContent = quota[def.id];
+    const label = document.createElement("span");
+    label.className = "item-label";
+    label.textContent = def.label;
+    btn.append(img, count, label);
+    btn.addEventListener("click", () => handleItemClick(def.id));
+    bar.appendChild(btn);
+  }
+}
+
+/* 道具点击统一入口:瞄准类进入选择模式,即时类立刻生效 */
+function handleItemClick(id) {
+  if (busy) return;
+  pokeIdle();
+  const def = ITEM_DEFS.find(d => d.id === id);
+  if (!def) return;
+  if ((quota[id] || 0) <= 0) { openUnlockModal(id); return; }
+  if (def.mode) {
+    const turningOn = aimMode !== id;
+    exitItemModes();
+    if (!turningOn) { sfx.select(); return; }
+    if (selected) {
+      catEls[selected.r]?.[selected.c]?.classList.remove("selected");
+      selected = null;
+    }
+    setItemMode(id, true);
+    const tips = {
+      hammer:  "🐾 点一只猫锤飞它!点箱子也能砸开~",
+      swap:    "🔄 先点一只猫,再点另一只(不限距离)交换!",
+      row:     "🌪️ 点任意一只猫,吹走它所在的整行!",
+      wand:    "🪄 点一只猫,清除全场与它同色的伙伴!",
+      tnt:     "🧨 点一处,3×3 轰炸开路!",
+      pickaxe: "⛏️ 点一个冰块,精准砸碎它!",
+    };
+    showToast(tips[id] || "选择目标");
+    sfx.select();
+  } else {
+    useInstantItem(id);
+  }
+}
+
+/* 即时类道具:点了立刻生效 */
+function useInstantItem(id) {
+  switch (id) {
+    case "clock": {
+      quota.clock--; updateHUD();
+      moves += 3; updateHUD();
+      sfx.special();
+      showToast("⏰ 猫咪时钟!步数 +3!");
+      break;
+    }
+    case "dice": {
+      quota.dice--; updateHUD();
+      sfx.special();
+      showToast("🎲 命运骰子,重新洗牌!");
+      shuffleBoard(false);
+      break;
+    }
+    case "magnet": {
+      quota.magnet--; updateHUD();
+      addCoins(50);
+      sfx.win();
+      showToast("🧲 猫薄荷磁铁吸来 50 金币!");
+      break;
+    }
+    case "star": {
+      const cands = [];
+      for (let r = 0; r < ROWS; r++)
+        for (let c = 0; c < COLS; c++)
+          if (grid[r][c] && !grid[r][c].special) cands.push({ r, c });
+      if (cands.length === 0) { showToast("棋盘上没有可变的猫~"); return; }
+      quota.star--; updateHUD();
+      const p = cands[Math.floor(Math.random() * cands.length)];
+      grid[p.r][p.c] = { type: grid[p.r][p.c].type, special: "rainbow" };
+      catEls[p.r][p.c]?.remove();
+      const el = makeCatEl(p.r, p.c, grid[p.r][p.c]);
+      el.classList.add("spawning");
+      boardEl.appendChild(el);
+      catEls[p.r][p.c] = el;
+      sfx.win();
+      showToast("⭐ 彩虹星降临!生成一只彩虹猫!");
+      break;
+    }
+    case "freeze": {
+      quota.freeze--; updateHUD();
+      freezeUntil = Date.now() + 30000;
+      sfx.special();
+      showToast("🧊 大儿被冻住 30 秒,不敢捣乱了!");
+      break;
+    }
+  }
+}
+
+async function hammerSmash(r, c) {
+  exitItemModes();   // 统一清理瞄准态/光圈/自定义光标
+  // 目标是木箱:直接一锤砸开,不消耗次数(箱子里没有猫,不走消除连锁)
+  if (boxLayer[r] && boxLayer[r][c] > 0) {
+    breakBox(r, c);
+    sfx.special();
+    joltBoard();
+    showToast("📦 一锤砸开箱子!锤子不消耗~");
+    return;
+  }
+  if (!grid[r][c]) return;   // 目标没有猫(异常保护),不消耗次数
+  quota.hammer--;
+  updateHUD();
+  busy = true;
+  try {
+    // 💥 锤击特效 + 音效
+    const hit = document.createElement("div");
+    hit.className = "hammer-hit";
+    hit.textContent = "💥";
+    const p = posOf(r, c);
+    hit.style.left = (p.left + CELL / 2 - 20) + "px";
+    hit.style.top = (p.top + CELL / 2 - 20) + "px";
+    boardEl.appendChild(hit);
+    setTimeout(() => hit.remove(), 500);
+    sfx.special();
+    joltBoard();
+    clearAllStubborn();          // 动了锤子,大儿也被吓乖了
+    // 单格消除,后续连锁交给 resolveCascades
+    await resolveCascades(new Set([`${r},${c}`]), 1);
+    afterMove();
+  } finally {
+    busy = false;   // 任何异常都保证解锁,防止全局卡死
+  }
+}
+function handleSwapPick(r, c) {
+  // 第一只:记录并高亮
+  if (!swapPick) {
+    swapPick = { r, c };
+    catEls[r][c]?.classList.add("picked");
+    sfx.select();
+    return;
+  }
+  // 点到同一只:取消选择
+  if (swapPick.r === r && swapPick.c === c) {
+    catEls[r][c]?.classList.remove("picked");
+    swapPick = null;
+    return;
+  }
+  // 第二只:执行任意换位(消耗 1 次;没连上会退还)
+  const a = swapPick;
+  catEls[a.r]?.[a.c]?.classList.remove("picked");
+  swapPick = null;
+  quota.swap--;
+  updateHUD();
+  setItemMode("swap", false);   // 退出瞄准态
+  (async () => {
+    const ok = await attemptSwap(a.r, a.c, r, c);
+    if (!ok) {
+      // 没产生消除:退还次数,友好提示
+      quota.swap++;
+      updateHUD();
+      showToast("🔄 没连上,次数退给你!换出三连才算哦");
+    }
+  })();
+}
+async function rowSmash(r) {
+  exitItemModes();   // 统一清理瞄准态/光圈/自定义光标
+  quota.row--;
+  updateHUD();
+  busy = true;
+  try {
+    sfx.special();
+    joltBoard();
+    clearAllStubborn();
+    // 构造整行消除集合,连锁交给 resolveCascades
+    const set = new Set();
+    for (let c = 0; c < COLS; c++) set.add(`${r},${c}`);
+    await resolveCascades(set, 1);
+    afterMove();
+  } finally {
+    busy = false;   // 任何异常都保证解锁
+  }
+}
+
+/* 🪄 同色魔法:点一只猫,清除全场与它同色的伙伴 */
+async function wandSmash(r, c) {
+  exitItemModes();
+  if (!grid[r][c]) return;   // 异常保护,不消耗
+  quota.wand--;
+  updateHUD();
+  busy = true;
+  try {
+    clearAllStubborn();
+    const t = grid[r][c].type;
+    const set = new Set([`${r},${c}`]);
+    for (let rr = 0; rr < ROWS; rr++)
+      for (let cc = 0; cc < COLS; cc++)
+        if (grid[rr][cc] && grid[rr][cc].type === t) set.add(`${rr},${cc}`);
+    sfx.special();
+    joltBoard();
+    await resolveCascades(set, 1);
+    afterMove();
+  } finally {
+    busy = false;
+  }
+}
+
+/* 🧨 火药桶:点一处,3×3 大爆炸(可以直接点箱子引爆炸药) */
+async function tntBlast(r, c) {
+  exitItemModes();
+  quota.tnt--;
+  updateHUD();
+  busy = true;
+  try {
+    clearAllStubborn();
+    const set = new Set();
+    for (let rr = r - 1; rr <= r + 1; rr++)
+      for (let cc = c - 1; cc <= c + 1; cc++)
+        if (rr >= 0 && rr < ROWS && cc >= 0 && cc < COLS) set.add(`${rr},${cc}`);
+    sfx.special();
+    joltBoard();
+    showToast("🧨 轰!3×3 爆炸!");
+    await resolveCascades(set, 1);
+    afterMove();
+  } finally {
+    busy = false;
+  }
+}
+
+/* ⛏️ 碎冰镐:精准砸碎一个冰块(没冰的格子不消耗次数) */
+function pickaxeHit(r, c) {
+  exitItemModes();
+  if (iceLayer[r] && iceLayer[r][c] > 0) {
+    quota.pickaxe--;
+    breakIce(r, c);
+    updateHUD();
+    showToast("⛏️ 冰层碎裂!");
+  } else {
+    showToast("⛏️ 这里没有冰,不消耗次数~");
+    sfx.bad();
+  }
 }
 
 /* 判断本关主目标是否已达成(三种关卡类型各自判定) */
@@ -2172,6 +3242,8 @@ function calcStars() {
 }
 
 function endLevel(win) {
+  exitItemModes();  // 关卡结束,清理道具瞄准状态
+  removeChest();    // 清理未领取的宝箱
   stopIdle();  // 关卡结束,停止大儿计时
   stopBGM();   // 停止背景音乐
   if (win) sfx.win(); else sfx.lose();
@@ -2264,12 +3336,40 @@ function startLevel() {
   }
   iceTotalAtStart = placed;
 
+  // —— 生成木箱障碍(与冰块位置互斥,箱内无猫,挡住下落) ——
+  boxLayer = Array.from({ length: ROWS }, () => Array(COLS).fill(0));
+  let boxed = 0; guard = 0;
+  while (boxed < (cfg.boxCount || 0) && guard++ < 500) {
+    const r = Math.floor(Math.random() * ROWS);
+    const c = Math.floor(Math.random() * COLS);
+    // 避开冰块格,也避免两个箱子相邻(保持可玩性)
+    if (iceLayer[r][c] === 1 || boxLayer[r][c] === 1) continue;
+    const aroundBox = [[-1,0],[1,0],[0,-1],[0,1]].some(([dr,dc]) => {
+      const nr = r + dr, nc = c + dc;
+      return nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS && boxLayer[nr][nc] === 1;
+    });
+    if (aroundBox) continue;
+    boxLayer[r][c] = 1; boxed++;
+  }
+
   score  = 0;
   selected = null;
   usedPasswords.clear();   // 新关重置已用密码记录
+  quota = Object.fromEntries(ITEM_DEFS.map(d => [d.id, d.quota]));  // 重置全部道具额度
+  renderItemBar();  // 重绘道具栏(次数徽章同步)
+  holeLayer = Array.from({ length: ROWS }, () => Array(COLS).fill(0));  // 新关清空缺口
+  marioCooldownUntil = Date.now() + 2000;  // 开局给马里奥 2 秒热身
   hintLeft = FREE_QUOTA.hint;      // 重置提示额度
   shuffleLeft = FREE_QUOTA.shuffle; // 重置重排额度
   stubbornEls.clear();     // 新关重置倔强状态
+  exitItemModes();         // 关闭所有道具瞄准模式
+  // 趣味系统重置:连击/FEVER/宝箱全部清干净
+  feverStreak = 0;
+  if (feverOn) endFever();
+  exchangeCount = 0;
+  nextChestAt = 4 + Math.floor(Math.random() * 4);
+  removeChest();
+  updateStatusBar();
   initBoard();
   buildCells();   // buildCells 内部会按 iceLayer 绘制冰块
   renderAll();
@@ -2335,6 +3435,61 @@ const pwdError = $("pwd-error");
 
 // 各动作的文案配置(肯德基疯狂星期四文学 🍗)
 const UNLOCK_TEXT = {
+  wand: {
+    title: "疯狂星期四,想吃土豆泥",
+    desc:  "小李子挥着魔法棒:今天疯狂星期四!V 50 份土豆泥,全场同色随便消!",
+    btn:   "🍗 V50 施魔法",
+  },
+  tnt: {
+    title: "疯狂星期四,想吃劲爆鸡米花",
+    desc:  "阿狸抱着 TNT:疯狂星期四!V 50 买鸡米花,轰一个 3×3 给你开路!",
+    btn:   "🍗 V50 点火",
+  },
+  pickaxe: {
+    title: "疯狂星期四,想吃圆筒冰淇淋",
+    desc:  "警长扛着碎冰镐:疯狂星期四!V 50 来个圆筒,冰块给你敲个稀碎!",
+    btn:   "🍗 V50 碎冰",
+  },
+  clock: {
+    title: "疯狂星期四,想吃巧克力圣代",
+    desc:  "布丁举着小闹钟:今天疯狂星期四!V 50 买圣代,送你 3 步数!",
+    btn:   "🍗 V50 加步数",
+  },
+  dice: {
+    title: "疯狂星期四,想吃上校鸡块",
+    desc:  "有鱼转着骰子:今天疯狂星期四!V 50 来份鸡块,命运骰子帮你洗牌!",
+    btn:   "🍗 V50 洗牌",
+  },
+  magnet: {
+    title: "疯狂星期四,想吃芝士汉堡",
+    desc:  "包子的磁铁饿了:疯狂星期四!V 50 买个汉堡,金币哗啦啦吸给你!",
+    btn:   "🍗 V50 吸金币",
+  },
+  star: {
+    title: "疯狂星期四,想吃新奥尔良烤翅",
+    desc:  "年年眨眨眼:疯狂星期四!V 50 吃对翅,送你一只彩虹猫!",
+    btn:   "🍗 V50 召唤彩虹",
+  },
+  freeze: {
+    title: "疯狂星期四,想吃芙蓉鲜蔬汤",
+    desc:  "大儿缩在角落发抖:疯狂星期四…V 50 给我碗热汤,我 30 秒不敢捣乱…",
+    btn:   "🍗 V50 冻住大儿",
+  },
+  hammer: {
+    title: "疯狂星期四,想吃香辣鸡腿堡",
+    desc:  "猫爪锤也想过节!大儿说:今天肯德基疯狂星期四,V 50 买个鸡腿堡,锤子随便抡!",
+    btn:   "🍗 V50 抡锤子",
+  },
+  swap: {
+    title: "疯狂星期四,想吃蛋挞",
+    desc:  "年年叼来一盒葡式蛋挞:疯狂星期四!V 我 50,我帮你把任意两只猫换位置~",
+    btn:   "🍗 V50 换位",
+  },
+  row: {
+    title: "疯狂星期四,想吃全家桶",
+    desc:  "松露张开小翅膀:今天疯狂星期四!V 50 上全家桶,我吹一整行给你看!",
+    btn:   "🍗 V50 清行",
+  },
   hint: {
     title: "疯狂星期四,想吃吮指原味鸡",
     desc:  "刚才陈皮偷偷告诉我:今天是肯德基疯狂星期四!谁 V 她 50,她就偷偷告诉你提示的密码…",
@@ -2349,11 +3504,20 @@ const UNLOCK_TEXT = {
 
 function openUnlockModal(action) {
   if (busy) return;
+  exitItemModes();   // 打开弹窗时退出道具瞄准模式,避免状态残留
   unlockAction = action;
   const t = UNLOCK_TEXT[action];
   $("unlock-title").textContent  = t.title;
   $("unlock-desc").textContent   = t.desc;
   $("unlock-confirm").textContent = t.btn;
+  // 金币支付通道:金币 ≥100 时显示"富婆按钮"
+  const coinBtn = $("btn-coin-pay");
+  if (coinCount >= 100) {
+    coinBtn.style.display = "block";
+    coinBtn.textContent = `💰 花费 100 金币立即解锁(现有 ${coinCount})`;
+  } else {
+    coinBtn.style.display = "none";
+  }
   pwdBoxes.forEach(b => { b.value = ""; b.classList.remove("filled","error-shake"); });
   pwdError.textContent = "";
   unlockOverlay.classList.add("show");
@@ -2412,15 +3576,15 @@ pwdBoxes.forEach((box, i) => {
   });
 });
 
-// 确认按钮:验证密码 → 记录已用 → 执行对应动作
-$("unlock-confirm").onclick = () => {
-  if (!checkUnlockPwd()) return;
-  const code = Array.from(pwdBoxes).map(b => b.value).join("");
-  usedPasswords.add(code);   // 标记本关已使用
-  const action = unlockAction;
-  closeUnlockModal();
+/* 执行解锁后的动作(扫码解锁与金币支付共用) */
+function executeUnlock(action) {
   sfx.special();
-  if (action === "hint") {
+  if (ITEM_DEFS.some(d => d.id === action)) {
+    // 通用道具解锁:获赠 1 次使用
+    quota[action] = 1;
+    updateHUD();
+    showToast("🍗 解锁成功!道具已就位!");
+  } else if (action === "hint") {
     // 解锁后执行一次提示(不消耗免费额度)
     const hint = findHint();
     if (!hint) { showToast("没有可消除的步啦!"); return; }
@@ -2436,9 +3600,47 @@ $("unlock-confirm").onclick = () => {
     showToast("✨ 解锁成功,已重排!");
     shuffleBoard(true);
   }
+}
+
+// 确认按钮:验证密码 → 记录已用 → 执行对应动作
+$("unlock-confirm").onclick = () => {
+  if (!checkUnlockPwd()) return;
+  const code = Array.from(pwdBoxes).map(b => b.value).join("");
+  usedPasswords.add(code);   // 标记本关已使用
+  const action = unlockAction;
+  closeUnlockModal();
+  executeUnlock(action);
+};
+// 金币支付按钮:100 金币直接解锁,无需扫码
+$("btn-coin-pay").onclick = () => {
+  if (coinCount < 100) return;
+  coinCount -= 100;
+  saveData.coins = coinCount;
+  writeSave();
+  const action = unlockAction;
+  closeUnlockModal();
+  executeUnlock(action);
 };
 // 取消按钮
 $("unlock-cancel").onclick = () => { closeUnlockModal(); sfx.select(); };
+
+/* ============================================================
+   图片放大查看器:弹窗里的二维码/海报点击后全屏放大,方便扫码
+   ============================================================ */
+const imgViewer = $("img-viewer");
+const viewerImg = $("viewer-img");
+// 给弹窗里的二维码和 KFC 海报挂上"点击放大"
+document.querySelectorAll(".qr-img, .kfc-img").forEach(img => {
+  img.style.cursor = "zoom-in";             // 鼠标变放大镜
+  img.addEventListener("click", (e) => {
+    e.stopPropagation();                     // 不触发弹窗其它点击
+    viewerImg.src = img.src;                 // 用同一张图放大显示
+    imgViewer.classList.add("show");
+    sfx.select();
+  });
+});
+// 点击查看器任意处关闭
+imgViewer.addEventListener("click", () => imgViewer.classList.remove("show"));
 
 /* 用户主动点击重排按钮:先检查免费额度 */
 function requestShuffle() {
@@ -2527,6 +3729,11 @@ function findNaughtyCats() {
 
 // 大儿调皮乱跑:随机挑一只大儿,与一只非大儿邻居交换
 async function naughtyRun() {
+  // 大儿被冰冻奶糖冻住:装作无事发生,继续空转计时
+  if (Date.now() < freezeUntil) {
+    idleTimer = setTimeout(naughtyRun, IDLE_TIMEOUT);
+    return;
+  }
   // 游戏忙 / 弹窗打开 / 锁定中 → 稍后再试
   if (busy || naughtyLock || overlay.classList.contains("show")
       || unlockOverlay.classList.contains("show")
@@ -2587,6 +3794,336 @@ async function naughtyRun() {
   // 大儿换位置不再弹 toast 提示(太频繁),只保留视觉动画
   // 继续下一轮空闲计时
   pokeIdle();
+}
+
+/* ============================================================
+   🍄 马里奥(补位工):定期往棋盘缺口丢猫
+   缺口来源:箱子被砸碎后留下。马里奥每隔几秒检查一次,
+   有缺口就跳出来丢一只随机猫进去 —— 丢进去的猫可能恰好凑成三连!
+   ============================================================ */
+/* —— 经典马里奥 SVG 四帧(自制矢量素材,透明背景)——
+   run1/run2 交替 = 奔跑;throw = 投掷;jump = 跳跃顶砖 */
+const MARIO_FRAMES = {
+  run1: `<svg viewBox="0 0 100 120" xmlns="http://www.w3.org/2000/svg"><ellipse cx="50" cy="114" rx="26" ry="5" fill="rgba(120,70,60,0.25)"/><path d="M30 96 L18 112 L30 114 Z" fill="#7a3b12"/><rect x="16" y="110" width="18" height="7" rx="3" fill="#7a3b12"/><path d="M68 96 L82 110 L70 114 Z" fill="#7a3b12"/><rect x="66" y="110" width="18" height="7" rx="3" fill="#7a3b12"/><rect x="32" y="62" width="36" height="38" rx="8" fill="#2a56c6"/><rect x="30" y="58" width="40" height="14" rx="6" fill="#2a56c6"/><rect x="36" y="52" width="8" height="16" fill="#e52521"/><rect x="56" y="52" width="8" height="16" fill="#e52521"/><circle cx="40" cy="70" r="3.5" fill="#ffd23b"/><circle cx="60" cy="70" r="3.5" fill="#ffd23b"/><rect x="24" y="52" width="12" height="20" rx="6" fill="#e52521"/><rect x="64" y="52" width="12" height="20" rx="6" fill="#e52521"/><circle cx="24" cy="74" r="7" fill="#fff"/><circle cx="76" cy="74" r="7" fill="#fff"/><circle cx="50" cy="40" r="19" fill="#ffc8a0"/><path d="M31 34 Q28 22 40 20 L60 20 Q72 22 69 34 L69 28 Q60 24 40 24 Q33 26 31 34Z" fill="#7a3b12"/><ellipse cx="42" cy="38" rx="3" ry="4.5" fill="#2a2a2a"/><ellipse cx="60" cy="38" rx="3" ry="4.5" fill="#2a2a2a"/><ellipse cx="51" cy="47" rx="7" ry="6" fill="#ffc8a0" stroke="#e0996a" stroke-width="1"/><path d="M36 50 Q50 60 66 50 L66 55 Q50 63 36 55 Z" fill="#7a3b12"/><path d="M28 14 Q50 2 72 14 L74 22 Q50 14 26 22 Z" fill="#e52521"/><ellipse cx="52" cy="17" rx="30" ry="6" fill="#e52521"/><circle cx="50" cy="12" r="7" fill="#fff"/><text x="50" y="16" text-anchor="middle" font-size="10" font-weight="bold" fill="#e52521">M</text></svg>`,
+  run2: `<svg viewBox="0 0 100 120" xmlns="http://www.w3.org/2000/svg"><ellipse cx="50" cy="114" rx="24" ry="5" fill="rgba(120,70,60,0.25)"/><rect x="34" y="102" width="14" height="8" rx="3" fill="#7a3b12"/><rect x="52" y="102" width="14" height="8" rx="3" fill="#7a3b12"/><rect x="32" y="62" width="36" height="40" rx="8" fill="#2a56c6"/><rect x="30" y="58" width="40" height="14" rx="6" fill="#2a56c6"/><rect x="36" y="52" width="8" height="16" fill="#e52521"/><rect x="56" y="52" width="8" height="16" fill="#e52521"/><circle cx="40" cy="70" r="3.5" fill="#ffd23b"/><circle cx="60" cy="70" r="3.5" fill="#ffd23b"/><rect x="26" y="54" width="12" height="22" rx="6" fill="#e52521"/><rect x="62" y="54" width="12" height="22" rx="6" fill="#e52521"/><circle cx="27" cy="78" r="7" fill="#fff"/><circle cx="73" cy="78" r="7" fill="#fff"/><circle cx="50" cy="40" r="19" fill="#ffc8a0"/><path d="M31 34 Q28 22 40 20 L60 20 Q72 22 69 34 L69 28 Q60 24 40 24 Q33 26 31 34Z" fill="#7a3b12"/><ellipse cx="42" cy="38" rx="3" ry="4.5" fill="#2a2a2a"/><ellipse cx="60" cy="38" rx="3" ry="4.5" fill="#2a2a2a"/><ellipse cx="51" cy="47" rx="7" ry="6" fill="#ffc8a0" stroke="#e0996a" stroke-width="1"/><path d="M36 50 Q50 60 66 50 L66 55 Q50 63 36 55 Z" fill="#7a3b12"/><path d="M28 14 Q50 2 72 14 L74 22 Q50 14 26 22 Z" fill="#e52521"/><ellipse cx="52" cy="17" rx="30" ry="6" fill="#e52521"/><circle cx="50" cy="12" r="7" fill="#fff"/><text x="50" y="16" text-anchor="middle" font-size="10" font-weight="bold" fill="#e52521">M</text></svg>`,
+  throw: `<svg viewBox="0 0 100 120" xmlns="http://www.w3.org/2000/svg"><ellipse cx="50" cy="114" rx="24" ry="5" fill="rgba(120,70,60,0.25)"/><rect x="34" y="102" width="14" height="8" rx="3" fill="#7a3b12"/><rect x="52" y="102" width="14" height="8" rx="3" fill="#7a3b12"/><rect x="32" y="62" width="36" height="40" rx="8" fill="#2a56c6"/><rect x="30" y="58" width="40" height="14" rx="6" fill="#2a56c6"/><rect x="36" y="52" width="8" height="16" fill="#e52521"/><rect x="56" y="52" width="8" height="16" fill="#e52521"/><circle cx="40" cy="70" r="3.5" fill="#ffd23b"/><circle cx="60" cy="70" r="3.5" fill="#ffd23b"/><rect x="62" y="50" width="26" height="11" rx="5.5" fill="#e52521" transform="rotate(-18 62 55)"/><circle cx="90" cy="46" r="7.5" fill="#fff"/><rect x="14" y="56" width="12" height="18" rx="6" fill="#e52521"/><circle cx="18" cy="76" r="7" fill="#fff"/><circle cx="50" cy="40" r="19" fill="#ffc8a0"/><path d="M31 34 Q28 22 40 20 L60 20 Q72 22 69 34 L69 28 Q60 24 40 24 Q33 26 31 34Z" fill="#7a3b12"/><ellipse cx="42" cy="38" rx="3" ry="4.5" fill="#2a2a2a"/><ellipse cx="60" cy="38" rx="3" ry="4.5" fill="#2a2a2a"/><ellipse cx="51" cy="47" rx="7" ry="6" fill="#ffc8a0" stroke="#e0996a" stroke-width="1"/><path d="M36 50 Q50 60 66 50 L66 55 Q50 63 36 55 Z" fill="#7a3b12"/><path d="M28 14 Q50 2 72 14 L74 22 Q50 14 26 22 Z" fill="#e52521"/><ellipse cx="52" cy="17" rx="30" ry="6" fill="#e52521"/><circle cx="50" cy="12" r="7" fill="#fff"/><text x="50" y="16" text-anchor="middle" font-size="10" font-weight="bold" fill="#e52521">M</text></svg>`,
+  jump: `<svg viewBox="0 0 100 120" xmlns="http://www.w3.org/2000/svg"><rect x="30" y="88" width="15" height="10" rx="4" fill="#7a3b12"/><rect x="55" y="88" width="15" height="10" rx="4" fill="#7a3b12"/><rect x="32" y="58" width="36" height="34" rx="8" fill="#2a56c6"/><rect x="30" y="54" width="40" height="14" rx="6" fill="#2a56c6"/><rect x="36" y="48" width="8" height="16" fill="#e52521"/><rect x="56" y="48" width="8" height="16" fill="#e52521"/><circle cx="40" cy="66" r="3.5" fill="#ffd23b"/><circle cx="60" cy="66" r="3.5" fill="#ffd23b"/><rect x="20" y="34" width="11" height="24" rx="5.5" fill="#e52521" transform="rotate(16 25 46)"/><rect x="69" y="34" width="11" height="24" rx="5.5" fill="#e52521" transform="rotate(-16 75 46)"/><circle cx="17" cy="30" r="7" fill="#fff"/><circle cx="83" cy="30" r="7" fill="#fff"/><circle cx="50" cy="36" r="19" fill="#ffc8a0"/><path d="M31 30 Q28 18 40 16 L60 16 Q72 18 69 30 L69 24 Q60 20 40 20 Q33 22 31 30Z" fill="#7a3b12"/><ellipse cx="42" cy="34" rx="3" ry="4.5" fill="#2a2a2a"/><ellipse cx="60" cy="34" rx="3" ry="4.5" fill="#2a2a2a"/><ellipse cx="51" cy="43" rx="7" ry="6" fill="#ffc8a0" stroke="#e0996a" stroke-width="1"/><path d="M36 46 Q50 56 66 46 L66 51 Q50 59 36 51 Z" fill="#7a3b12"/><path d="M28 10 Q50 -2 72 10 L74 18 Q50 10 26 18 Z" fill="#e52521"/><ellipse cx="52" cy="13" rx="30" ry="6" fill="#e52521"/><circle cx="50" cy="8" r="7" fill="#fff"/><text x="50" y="12" text-anchor="middle" font-size="10" font-weight="bold" fill="#e52521">M</text></svg>`,
+  stand: `<svg viewBox="0 0 100 120" xmlns="http://www.w3.org/2000/svg"><ellipse cx="50" cy="114" rx="24" ry="5" fill="rgba(120,70,60,0.25)"/><rect x="34" y="102" width="14" height="8" rx="3" fill="#7a3b12"/><rect x="52" y="102" width="14" height="8" rx="3" fill="#7a3b12"/><rect x="32" y="62" width="36" height="40" rx="8" fill="#2a56c6"/><rect x="30" y="58" width="40" height="14" rx="6" fill="#2a56c6"/><rect x="36" y="52" width="8" height="16" fill="#e52521"/><rect x="56" y="52" width="8" height="16" fill="#e52521"/><circle cx="40" cy="70" r="3.5" fill="#ffd23b"/><circle cx="60" cy="70" r="3.5" fill="#ffd23b"/><rect x="26" y="54" width="12" height="22" rx="6" fill="#e52521"/><rect x="62" y="54" width="12" height="22" rx="6" fill="#e52521"/><circle cx="27" cy="78" r="7" fill="#fff"/><circle cx="73" cy="78" r="7" fill="#fff"/><circle cx="50" cy="40" r="19" fill="#ffc8a0"/><path d="M31 34 Q28 22 40 20 L60 20 Q72 22 69 34 L69 28 Q60 24 40 24 Q33 26 31 34Z" fill="#7a3b12"/><ellipse cx="42" cy="38" rx="3" ry="4.5" fill="#2a2a2a"/><ellipse cx="60" cy="38" rx="3" ry="4.5" fill="#2a2a2a"/><ellipse cx="51" cy="47" rx="7" ry="6" fill="#ffc8a0" stroke="#e0996a" stroke-width="1"/><path d="M36 50 Q50 60 66 50 L66 55 Q50 63 36 55 Z" fill="#7a3b12"/><path d="M28 14 Q50 2 72 14 L74 22 Q50 14 26 22 Z" fill="#e52521"/><ellipse cx="52" cy="17" rx="30" ry="6" fill="#e52521"/><circle cx="50" cy="12" r="7" fill="#fff"/><text x="50" y="16" text-anchor="middle" font-size="10" font-weight="bold" fill="#e52521">M</text></svg>`,
+};
+function marioPose(pose) {
+  const body = document.getElementById("mario-body");
+  if (body) body.innerHTML = MARIO_FRAMES[pose] || MARIO_FRAMES.run2;
+}
+// 跑动两帧交替(演出期间开关)
+let marioLegTimer = null;
+function marioLegsStart() {
+  marioPose("run1");
+  if (marioLegTimer) return;
+  let alt = 0;
+  marioLegTimer = setInterval(() => { alt ^= 1; marioPose(alt ? "run2" : "run1"); }, 140);
+}
+function marioLegsStop() {
+  if (marioLegTimer) { clearInterval(marioLegTimer); marioLegTimer = null; }
+}
+
+let marioTimer = null;          // 马里奥巡逻计时器
+let marioCooldownUntil = 0;     // 两次丢猫之间的冷却
+const marioEl = document.getElementById("mario");
+
+function startMario() {
+  if (marioTimer) return;
+  marioTimer = setInterval(marioTick, 2000);   // 每 2 秒巡逻一次
+  // 初始站立帧
+  marioPose("stand");
+}
+
+function marioTick() {
+  // 大儿被冻住时马里奥也休息(避免同时动画)
+  if (Date.now() < freezeUntil) return;
+  // 游戏忙 / 弹窗打开 / 操作锁定中 → 这次不丢
+  if (busy || naughtyLock) return;
+  if (overlay.classList.contains("show")
+      || unlockOverlay.classList.contains("show")
+      || $("help-overlay").classList.contains("show")
+      || $("start-overlay").classList.contains("show")) return;
+  if (Date.now() < marioCooldownUntil) return;
+  // 收集所有缺口
+  const holes = [];
+  for (let r = 0; r < ROWS; r++)
+    for (let c = 0; c < COLS; c++)
+      if (holeLayer[r][c] > 0) holes.push({ r, c });
+  if (holes.length === 0) return;
+  // 随机挑一个缺口丢猫
+  const target = holes[Math.floor(Math.random() * holes.length)];
+  marioDrop(target);
+}
+
+/* 马里奥丢猫完整演出:随机一侧跑入 → 投掷弧线猫 → 原路跑出 → 可能触发连锁 */
+async function marioDrop(pos) {
+  naughtyLock = true;          // 演出期间禁止玩家点击
+  const { r, c } = pos;
+  const type = Math.floor(Math.random() * CAT_TYPES.length);   // 随机丢一种猫
+
+  // —— 计算跑入路线:随机从左/右侧屏幕外,跑到与缺口同高的棋盘侧边 ——
+  const side = Math.random() < 0.5 ? "left" : "right";
+  const boardRect = boardEl.getBoundingClientRect();
+  const p = posOf(r, c);
+  const stopY = Math.max(80, Math.min(innerHeight - 90, boardRect.top + p.top + CELL / 2 - 34));
+  // 停点钳制在视口内(窄屏棋盘溢出时也能正确显示)
+  const visL = Math.max(boardRect.left, 60);
+  const visR = Math.min(boardRect.right, innerWidth - 60);
+  const stopX = side === "left"
+    ? Math.max(8, visL - 52)
+    : Math.min(innerWidth - 78, visR + 6);
+  const startX = side === "left" ? -100 : innerWidth + 30;   // 起跑点(屏幕外)
+
+  // —— 跑入 ——
+  marioEl.classList.add("show");
+  marioLegsStart();
+  marioEl.classList.toggle("face-left", side === "right");   // 从右跑入则面向左
+  marioEl.style.transition = "none";                          // 先无动画放到屏幕外
+  marioEl.style.left = startX + "px";
+  marioEl.style.top = stopY + "px";
+  void marioEl.offsetWidth;                                   // 强制重排
+  marioEl.style.transition = "";                              // 恢复 CSS 过渡 → 匀速跑入
+  marioEl.style.left = stopX + "px";
+  beep(480, 0.12, "square", 0.05);                            // 跑步声
+  await sleep(880);                                           // 等跑到位
+  marioLegsStop();
+
+  // —— 投掷姿势 ——
+  marioEl.classList.add("throwing");
+  marioPose("throw");                                 // 投掷帧(手臂前伸)
+  beep(650, 0.08, "square", 0.1);
+  await sleep(200);
+
+  // —— 丢出弧线猫:从马里奥胸口飞向缺口格中心 ——
+  const fly = document.createElement("img");
+  fly.className = "fly-cat";
+  fly.src = `assets/cats/${CAT_TYPES[type].file}.${IMG_EXT}`;
+  fly.draggable = false;
+  const marioRect = marioEl.getBoundingClientRect();
+  fly.style.left = (marioRect.left + marioRect.width / 2 - 15) + "px";
+  fly.style.top = (marioRect.top + 18) + "px";
+  document.body.appendChild(fly);   // fixed 挂 body,统一视口坐标(boardRect 上面已取)
+  const p2 = posOf(r, c);
+  requestAnimationFrame(() => {
+    // 终点 = 缺口格中心的视口位置(布局坐标 + 棋盘视口偏移)
+    fly.style.left = (boardRect.left + p2.left + CELL / 2 - 15) + "px";
+    fly.style.top = (boardRect.top + p2.top + CELL / 2 - 15) + "px";
+  });
+  await sleep(660);            // 等飞行到位
+  fly.remove();
+  marioEl.classList.remove("throwing");
+
+  // —— 缺口补上:洞变回普通格,放入新猫 ——
+  holeLayer[r][c] = 0;
+  const cell = cellEls[r] && cellEls[r][c];
+  if (cell) cell.classList.remove("hole");
+  grid[r][c] = { type, special: null };
+  const el = makeCatEl(r, c, grid[r][c]);
+  el.classList.add("spawning");
+  boardEl.appendChild(el);
+  catEls[r][c] = el;
+  beep(1000, 0.1, "triangle", 0.12);
+
+  // —— 原路跑出 ——
+  marioLegsStart();
+  marioEl.style.left = startX + "px";
+  beep(480, 0.12, "square", 0.05);
+  await sleep(880);
+  marioLegsStop();
+  marioEl.classList.remove("show");
+  marioEl.classList.remove("face-left");
+  marioPose("stand");
+
+  // —— 新猫可能凑成三连 → 触发消除连锁 ——
+  const m = findMatches();
+  if (m.size > 0) {
+    showToast("🍄 马里奥丢的猫凑成了三连!");
+    busy = true;
+    try {
+      await resolveCascades(m, 1);
+      afterMove();
+    } finally {
+      busy = false;            // 任何异常都保证解锁
+    }
+  }
+  naughtyLock = false;
+  marioCooldownUntil = Date.now() + 4000;   // 冷却 4 秒再跑下一次
+  pokeIdle();
+}
+
+/* ============================================================
+   🧱 天空砖块演出:马里奥跑过棋盘上方,跳起顶砖掉道具
+   道具全部为内联 SVG 自制素材:猫爪金币 / 恢复蘑菇 / 幸运星星
+   ============================================================ */
+// —— 内联 SVG 素材(自制,无需外部图片) ——
+// 猫爪金币:金圆 + 粉色猫爪印
+const SVG_COIN = `<svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+  <circle cx="20" cy="20" r="18" fill="#ffd23b" stroke="#e8a000" stroke-width="3"/>
+  <circle cx="20" cy="20" r="13" fill="#ffe27a"/>
+  <g fill="#ff8fb8">
+    <ellipse cx="20" cy="17" rx="5.5" ry="4.5"/>
+    <circle cx="13.5" cy="24" r="2.6"/>
+    <circle cx="20" cy="26" r="2.6"/>
+    <circle cx="26.5" cy="24" r="2.6"/>
+  </g>
+</svg>`;
+// 恢复蘑菇:红帽白点 + 米色茎(吃掉恢复 2 步数)
+const SVG_MUSHROOM = `<svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+  <path d="M4 20 a16 15 0 0 1 32 0 z" fill="#ff5a6e" stroke="#c93a4e" stroke-width="2"/>
+  <circle cx="13" cy="12" r="3.6" fill="#fff"/>
+  <circle cx="26" cy="11" r="3" fill="#fff"/>
+  <circle cx="20" cy="16" r="2.4" fill="#fff"/>
+  <path d="M12 20 h16 v6 a8 8 0 0 1 -16 0 z" fill="#fff3e0" stroke="#d9b88a" stroke-width="2"/>
+  <circle cx="16" cy="24" r="1.4" fill="#3d2b1f"/>
+  <circle cx="24" cy="24" r="1.4" fill="#3d2b1f"/>
+</svg>`;
+// 幸运星星:黄五角星 + 笑脸(使用后 +300 分)
+const SVG_STAR = `<svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+  <path d="M20 2 L25 15 L39 15 L28 23 L32 37 L20 29 L8 37 L12 23 L1 15 L15 15 Z"
+        fill="#ffd23b" stroke="#e8a000" stroke-width="2" stroke-linejoin="round"/>
+  <circle cx="16" cy="19" r="1.8" fill="#7a5200"/>
+  <circle cx="24" cy="19" r="1.8" fill="#7a5200"/>
+  <path d="M16 24 q4 3.5 8 0" stroke="#7a5200" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+</svg>`;
+
+// 掉落道具表:权重决定出现概率
+const BRICK_DROPS = [
+  { id: "coin",     svg: SVG_COIN,     weight: 50, label: "猫爪金币" },
+  { id: "mushroom", svg: SVG_MUSHROOM, weight: 30, label: "恢复蘑菇" },
+  { id: "starpt",   svg: SVG_STAR,     weight: 20, label: "幸运星星" },
+];
+
+let brickTimer = null;             // 砖块演出计时器
+let brickCooldownUntil = 0;        // 演出冷却
+let brickShowRunning = false;      // 演出中标记
+
+function startBrickShow() {
+  if (brickTimer) return;
+  brickTimer = setInterval(brickTick, 9000);   // 每 9 秒尝试一次
+}
+
+function brickTick() {
+  if (brickShowRunning) return;
+  if (Date.now() < brickCooldownUntil) return;
+  if (busy || naughtyLock) return;
+  if (overlay.classList.contains("show")
+      || unlockOverlay.classList.contains("show")
+      || $("help-overlay").classList.contains("show")
+      || $("start-overlay").classList.contains("show")) return;
+  runBrickShow();
+}
+
+/* 完整演出:撒砖块 → 马里奥跑入 → 跳顶 → 掉道具 → 跑出 */
+async function runBrickShow() {
+  brickShowRunning = true;
+  naughtyLock = true;            // 演出期间禁止玩家操作
+  // 开场清掉上一轮未拾取的残留砖块/道具,保证棋盘上同时只有一块砖
+  document.querySelectorAll(".brick, .drop-pick").forEach(e => e.remove());
+  try {
+    const boardRect = boardEl.getBoundingClientRect();
+    // 窄屏下棋盘可能超出视口:演出只在「视口与棋盘的交集」内进行
+    const visL = Math.max(boardRect.left, 8);
+    const visR = Math.min(boardRect.right, innerWidth - 8);
+    const trackY = Math.max(64, Math.min(boardRect.top + 8, innerHeight - 130));
+    const innerW = innerWidth;
+
+    // —— 1. 只出 1 个砖块在轨道上(挂在 body,fixed 视口坐标) ——
+    const bricks = [];
+    const n = 1;
+    for (let i = 0; i < n; i++) {
+      const bx = visL + 40 + Math.random() * Math.max(60, visR - visL - 120);
+      const b = document.createElement("div");
+      b.className = "brick";
+      b.style.left = bx + "px";
+      b.style.top = trackY + "px";
+      document.body.appendChild(b);   // fixed 挂 body,视口坐标
+      bricks.push({ el: b, x: bx });
+      await sleep(180);
+    }
+    await sleep(500);
+
+    // —— 2. 马里奥沿轨道跑入(随机方向) ——
+    const side = Math.random() < 0.5 ? "left" : "right";
+    // 马里奥站在砖块正下方(跳起时头顶正好碰到砖块底部)
+    const runY = Math.max(60, trackY + 30);
+    const stopBrick = bricks[Math.floor(Math.random() * bricks.length)];
+    const stopX = Math.max(6, Math.min(innerW - 80,
+      stopBrick.x + (side === "left" ? -58 : 58) + 22));
+    const startX = side === "left" ? -100 : innerW + 30;
+    marioEl.classList.add("show");
+    marioLegsStart();                     // SVG 两帧奔跑交替
+    marioEl.classList.toggle("face-left", side === "right");
+    marioEl.style.transition = "none";
+    marioEl.style.left = startX + "px";
+    marioEl.style.top = runY + "px";
+    void marioEl.offsetWidth;
+    marioEl.style.transition = "";
+    marioEl.style.left = stopX + "px";
+    beep(480, 0.12, "square", 0.05);
+    await sleep(900);
+
+    // —— 3. 跳起顶砖! ——
+    marioLegsStop();
+    marioEl.classList.add("jump");
+    marioPose("jump");                                  // 跳跃帧(双臂上举)
+    await sleep(200);                                   // 跳到最高点时顶到砖
+    stopBrick.el.classList.add("bump");
+    beep(900, 0.08, "square", 0.12);
+    await sleep(320);
+    marioEl.classList.remove("jump");
+
+    // —— 4. 按权重随机掉出一个道具,弹到砖块下方 ——
+    const total = BRICK_DROPS.reduce((s, d) => s + d.weight, 0);
+    let roll = Math.random() * total, drop = BRICK_DROPS[0];
+    for (const d of BRICK_DROPS) { roll -= d.weight; if (roll <= 0) { drop = d; break; } }
+
+    const pick = document.createElement("div");
+    pick.className = "drop-pick";
+    pick.innerHTML = drop.svg;
+    pick.style.left = (stopBrick.x - 1) + "px";
+    pick.style.top = (trackY - 44) + "px";   // 道具弹到砖块上方
+    document.body.appendChild(pick);   // fixed 挂 body
+
+    // —— 5. 马里奥不等玩家,直接跑出 ——
+    marioLegsStart();
+    marioEl.style.left = startX + "px";
+    beep(480, 0.12, "square", 0.05);
+    await sleep(900);
+    marioLegsStop();
+    marioEl.classList.remove("show");
+    marioEl.classList.remove("face-left");
+    marioPose("stand");
+
+    // —— 6. 玩家限时 8 秒拾取(点击生效) ——
+    showToast(`🧱 马里奥顶出了「${drop.label}」!快点它!`);
+    beep(1100, 0.1, "triangle", 0.1);
+    let picked = false;
+    pick.addEventListener("click", () => {
+      if (picked) return;
+      picked = true;
+      // 三种道具的恢复效果
+      if (drop.id === "coin") { const g = 15 + Math.floor(Math.random() * 16); addCoins(g); showToast(`💰 拾取猫爪金币 +${g}!`); }
+      else if (drop.id === "mushroom") { moves += 2; updateHUD(); showToast("🍄 恢复蘑菇!步数 +2!"); }
+      else { const p = 300; score += p; updateHUD(); showToast(`⭐ 幸运星星 +${p} 分!`); }
+      sfx.special();
+      pick.remove();
+      bricks.forEach(b => { if (!b.el.classList.contains("gone")) b.el.classList.add("gone"); });
+      setTimeout(() => bricks.forEach(b => b.el.remove()), 350);
+    });
+    // 8 秒后:先闪烁催促 3 秒,然后连同砖块一起消失
+    setTimeout(() => { if (!picked) pick.classList.add("urgent"); }, 5000);
+    setTimeout(() => {
+      pick.remove();
+      bricks.forEach(b => b.el.remove());
+    }, 8000);
+    brickCooldownUntil = Date.now() + 20000;   // 演出后冷却 20 秒
+  } finally {
+    naughtyLock = false;
+    brickShowRunning = false;
+  }
 }
 
 /* ============================================================
@@ -2665,7 +4202,11 @@ document.addEventListener("click", ensureAudio, { once: true });
    启动流程:先显示开始界面(带存档进度),点「开始冒险」进游戏
    ============================================================ */
 readCellSize();
+renderItemBar();   // 渲染道具栏(全部道具按钮)
+startMario();      // 启动马里奥巡逻(有缺口才会行动)
+startBrickShow();  // 启动天空砖块演出(马里奥顶砖掉道具)
 loadSave();
+coinCount = saveData.coins || 0;   // 同步存档里的金币
 level = saveData.unlocked;
 initBoard();          // 先铺一张背景棋盘(开始界面后面可见)
 buildCells();
