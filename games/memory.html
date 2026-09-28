@@ -140,6 +140,7 @@
     </div>
   </div>
 
+<script src="../shared/common.js"></script>
 <script>
 // 8 只猫咪 × 2 = 16 张牌
 const CATS = [
@@ -227,9 +228,16 @@ function win() {
   if (best === null || steps < best) {
     try { localStorage.setItem("nikki_memory_best", JSON.stringify(steps)); isBest = true; } catch (e) {}
   }
+  // 💰 金币入账 + 📅 每日挑战 + 🐱 图鉴
+  const coins = Math.max(10, 130 - steps * 3);
+  Nikki.Wallet.add(coins);
+  const dailyGain = Nikki.Daily.report("memory", { steps });
+  const fresh = Nikki.Dex.check({ memorySteps: steps });
+  Nikki.announce(fresh);
   $("win-detail").innerHTML =
-    `用时 <b>${sec} 秒</b> · 步数 <b>${steps}</b><br>` +
-    (isBest ? "🏆 <b>新纪录!</b>" : `最佳纪录:${best} 步`);
+    `用时 <b>${sec} 秒</b> · 步数 <b>${steps}</b><br>💰 <b>+${coins}</b> 金币入账` +
+    (dailyGain ? `<br>📅 每日挑战完成!+${dailyGain.reward} 金币` : "") +
+    "<br>" + (isBest ? "🏆 <b>新纪录!</b>" : `最佳纪录:${best} 步`);
   document.getElementById("win").classList.add("show");
 }
 

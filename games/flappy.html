@@ -85,6 +85,7 @@
     </div>
   </div>
 
+<script src="../shared/common.js"></script>
 <script>
 // ===== 飞飞猫(Flappy)=====
 const cv = document.getElementById("cv"), ctx = cv.getContext("2d");
@@ -122,8 +123,16 @@ function gameOver() {
   const best = get("nikki_flappy_best", 0);
   let isBest = false;
   if (score > best) { set("nikki_flappy_best", score); isBest = true; document.getElementById("hud-best").textContent = score; }
+  // 💰 金币入账 + 📅 每日挑战 + 🐱 图鉴
+  const coins = score * 2;
+  Nikki.Wallet.add(coins);
+  const dailyGain = Nikki.Daily.report("flappy", { score });
+  const fresh = Nikki.Dex.check({ flappyScore: score });
+  Nikki.announce(fresh);
   document.getElementById("over-detail").innerHTML =
-    `飞过 <b>${score}</b> 根管道<br>` + (isBest ? "🏆 <b>新纪录!</b>" : `最高纪录:${best} 分`);
+    `飞过 <b>${score}</b> 根管道 · 💰 <b>+${coins}</b><br>` +
+    (dailyGain ? `📅 每日挑战完成!+${dailyGain.reward} 金币<br>` : "") +
+    (isBest ? "🏆 <b>新纪录!</b>" : `最高纪录:${best} 分`);
   setTimeout(() => document.getElementById("over").classList.add("show"), 400);
 }
 

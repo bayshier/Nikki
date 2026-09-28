@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🐱 猫咪图鉴 · Nikki 游戏合集</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='0.9em' font-size='90'%3E🎀%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Nunito:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+  :root { --hk-deep: #ff6b9d; --hk-muted: #c98ba0; --hk-yellow: #ffd56b; }
+  * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; }
+  body {
+    font-family: "Nunito", -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    color: #8b4a5e;
+    background: linear-gradient(135deg, #ffd6e8 0%, #ffeef4 40%, #fff9fb 100%) fixed;
+    min-height: 100dvh;
+    display: flex; flex-direction: column; align-items: center;
+    padding: 16px;
+  }
+  .top { display: flex; gap: 10px; align-items: center; margin-bottom: 14px; width: 100%; max-width: 560px; }
+  .home {
+    text-decoration: none; font-size: 13px; font-weight: 800; color: var(--hk-deep);
+    background: #fff; border: 2px solid rgba(255,158,196,0.5); border-radius: 12px; padding: 8px 14px;
+    box-shadow: 0 3px 0 -1px #f3b7cc;
+  }
+  h1 { font-family: "Fredoka", sans-serif; font-size: 24px; color: var(--hk-deep); flex: 1; text-align: center; margin-right: 86px; }
+  .progress-wrap {
+    width: 100%; max-width: 560px; height: 16px;
+    background: rgba(255,255,255,0.7); border-radius: 99px; overflow: hidden;
+    border: 2px solid rgba(255,158,196,0.4); margin-bottom: 6px;
+  }
+  .progress-bar { height: 100%; background: linear-gradient(90deg, #ff9ec4, #ff6b9d); border-radius: 99px; transition: width 0.6s; }
+  .progress-text { font-size: 13px; font-weight: 800; color: var(--hk-muted); margin-bottom: 18px; }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; width: 100%; max-width: 560px; }
+  .cat-card {
+    background: #fff; border: 3px solid rgba(255,158,196,0.5);
+    border-radius: 18px; padding: 12px 10px; text-align: center;
+    box-shadow: 0 4px 0 -1px #f3b7cc;
+  }
+  .cat-card .pic {
+    width: 84px; height: 84px; margin: 0 auto 8px;
+    border-radius: 50%; overflow: hidden;
+    border: 3px solid var(--hk-yellow);
+    box-shadow: 0 3px 8px rgba(255,158,196,0.4);
+  }
+  .cat-card .pic img { width: 100%; height: 100%; object-fit: cover; }
+  .cat-card .nm { font-weight: 800; font-size: 15px; color: var(--hk-deep); }
+  .cat-card .how { font-size: 10.5px; color: var(--hk-muted); margin-top: 3px; line-height: 1.45; }
+  /* 未解锁:灰度剪影 + 问号 */
+  .cat-card.locked { background: #f5f0f2; border-color: #d9c8cf; box-shadow: none; }
+  .cat-card.locked .pic { border-color: #cbb8c1; filter: grayscale(1) brightness(0.75); position: relative; }
+  .cat-card.locked .pic::after {
+    content: "?"; position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 38px; font-weight: 900; color: rgba(255,255,255,0.85);
+    text-shadow: 0 2px 6px rgba(0,0,0,0.35);
+  }
+  .cat-card.locked .nm { color: #b39aa6; }
+  .cat-card.locked .how { color: #b8a3ad; }
+  .cat-card.fresh { animation: freshPop 0.5s cubic-bezier(.34,1.56,.64,1); border-color: var(--hk-yellow); }
+  @keyframes freshPop { 40% { transform: scale(1.1) rotate(3deg); } }
+</style>
+</head>
+<body>
+  <div class="top">
+    <a class="home" href="../index.html">🏠 大厅</a>
+    <h1>🐱 猫咪图鉴</h1>
+  </div>
+  <div class="progress-wrap"><div class="progress-bar" id="progress"></div></div>
+  <div class="progress-text" id="progress-text"></div>
+  <div class="grid" id="grid"></div>
+
+<script src="../shared/common.js"></script>
+<script>
+// 渲染图鉴:8 只猫按解锁状态展示
+// 自动匹配已有成就:读取消消乐存档进度,达标条件立即点亮
+const m3save = Nikki.jget("nikki_save", { unlocked: 1, stars: {} });
+Nikki.Dex.check({
+  unlocked: m3save.unlocked || 1,
+  stars: Object.values(m3save.stars || {}).reduce((a, b) => a + b, 0),
+});
+const owned = Nikki.Dex.owned();
+const got = owned.filter(c => c.owned).length;
+document.getElementById("progress").style.width = (got / owned.length * 100) + "%";
+document.getElementById("progress-text").textContent = `已收集 ${got} / ${owned.length} 只猫咪 · 继续在各游戏中达成成就解锁!`;
+
+const grid = document.getElementById("grid");
+owned.forEach(c => {
+  const el = document.createElement("div");
+  el.className = "cat-card" + (c.owned ? "" : " locked");
+  el.innerHTML =
+    `<div class="pic"><img src="../assets/cats/${c.id}.png" alt=""></div>` +
+    `<div class="nm">${c.owned ? c.name : "???"}</div>` +
+    `<div class="how">${c.owned ? "✔ 已收集" : "解锁:" + c.how}</div>`;
+  grid.appendChild(el);
+});
+</script>
+</body>
+</html>

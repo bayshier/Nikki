@@ -134,6 +134,7 @@
     </div>
   </div>
 
+<script src="../shared/common.js"></script>
 <script>
 // ===== 猫咪打地鼠 =====
 const CATS = [
@@ -269,8 +270,16 @@ function endGame() {
   const best = get("nikki_whack_best", 0);
   let isBest = false;
   if (score > best) { set("nikki_whack_best", score); isBest = true; document.getElementById("hud-best").textContent = score; }
+  // 💰 金币入账 + 📅 每日挑战 + 🐱 图鉴
+  const coins = Math.floor(score / 2);
+  Nikki.Wallet.add(coins);
+  const dailyGain = Nikki.Daily.report("whack", { score });
+  const fresh = Nikki.Dex.check({ whackScore: score });
+  Nikki.announce(fresh);
   document.getElementById("over-detail").innerHTML =
-    `本局 <b>${score}</b> 分 · 喂了 <b>${fedCount}</b> 只猫<br>` + (isBest ? "🏆 <b>新纪录!</b>" : `最高纪录:${best} 分`);
+    `本局 <b>${score}</b> 分 · 喂了 <b>${fedCount}</b> 只猫 · 💰 <b>+${coins}</b><br>` +
+    (dailyGain ? `📅 每日挑战完成!+${dailyGain.reward} 金币<br>` : "") +
+    (isBest ? "🏆 <b>新纪录!</b>" : `最高纪录:${best} 分`);
   document.getElementById("over").classList.add("show");
 }
 

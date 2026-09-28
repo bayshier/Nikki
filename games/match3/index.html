@@ -1527,6 +1527,7 @@
   </div>
 </div>
 
+<script src="../../shared/common.js"></script>
 <script>
 "use strict";
 
@@ -2782,6 +2783,7 @@ function addCoins(n) {
   coinCount += n;
   saveData.coins = coinCount;
   writeSave();          // 金币即时入档,关掉浏览器不丢
+  try { Nikki.Wallet.add(n); } catch (e) {}   // 💰 同步进统一钱包(全场通用)
   updateHUD();
 }
 
@@ -3277,6 +3279,11 @@ function endLevel(win) {
     saveData.stars[level] = Math.max(saveData.stars[level] || 0, stars);
     writeSave();
   }
+  // —— 🐱 猫咪图鉴检查(解锁新关/累计星数达成条件) ——
+  try {
+    const fresh = Nikki.Dex.check({ unlocked: saveData.unlocked, stars: totalStars() });
+    Nikki.announce(fresh);
+  } catch (e) {}
 
   $("modal-stat").textContent = `本局得分:${score}`;
   $("modal-btn").textContent = win ? "下一关 ➜" : "重新挑战";
@@ -3612,12 +3619,13 @@ $("unlock-confirm").onclick = () => {
   closeUnlockModal();
   executeUnlock(action);
 };
-// 金币支付按钮:100 金币直接解锁,无需扫码
+// 金币支付按钮:100 金币直接解锁,无需扫码(金币从统一钱包扣除)
 $("btn-coin-pay").onclick = () => {
   if (coinCount < 100) return;
   coinCount -= 100;
   saveData.coins = coinCount;
   writeSave();
+  try { Nikki.Wallet.spend(100); } catch (e) {}   // 💰 同步扣统一钱包
   const action = unlockAction;
   closeUnlockModal();
   executeUnlock(action);

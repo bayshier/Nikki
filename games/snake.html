@@ -109,6 +109,7 @@
     </div>
   </div>
 
+<script src="../shared/common.js"></script>
 <script>
 // ===== 猫吃小鱼(贪吃蛇)=====
 const cv = document.getElementById("cv"), ctx = cv.getContext("2d");
@@ -173,8 +174,15 @@ function gameOver() {
   const best = get("nikki_snake_best", 0);
   let isBest = false;
   if (score > best) { set("nikki_snake_best", score); isBest = true; document.getElementById("hud-best").textContent = score; }
+  // 💰 金币入账 + 📅 每日挑战 + 🐱 图鉴
+  const coins = Math.floor(score / 5);
+  Nikki.Wallet.add(coins);
+  const dailyGain = Nikki.Daily.report("snake", { score });
+  const fresh = Nikki.Dex.check({ snakeScore: score });
+  Nikki.announce(fresh);
   document.getElementById("over-detail").innerHTML =
-    `本局 <b>${score}</b> 分 · 吃了 <b>${(score / 10) | 0}</b> 条小鱼<br>` +
+    `本局 <b>${score}</b> 分 · 吃了 <b>${(score / 10) | 0}</b> 条小鱼 · 💰 <b>+${coins}</b><br>` +
+    (dailyGain ? `📅 每日挑战完成!+${dailyGain.reward} 金币<br>` : "") +
     (isBest ? "🏆 <b>新纪录!</b>" : `最高纪录:${best} 分`);
   document.getElementById("over").classList.add("show");
 }
