@@ -18,7 +18,7 @@
      --hk-red    蝴蝶结红(点缀,得分高亮)
      --hk-text   深棕粉(文字,比纯黑柔和) */
   :root {
-    --cell-size: 60px;            /* 格子放大 56→60 */
+    --cell-size: 64px;            /* 格子再放大 60→64,Poki 级巨大元素 */
     --board-cols: 8;
     --board-rows: 8;
     --hk-pink:   #ff9ec4;   /* 樱花粉 主色 */
@@ -55,46 +55,127 @@
     overflow-x: hidden;
     user-select: none;
   }
-  /* 背景波点纹理:粉+黄双色波点,Hello Kitty 经典风 */
-  body::before {
+  /* 注:旧的 body::before 全屏波点已移除——场景天空保持干净,
+     质感由草地斑点(.hill.front::before)提供 */
+  /* ============================================================
+     全屏卡通场景(参考 Poki 级三消游戏):
+     天空渐变 + 太阳 + 飘云 + 双层草地丘陵 + 花草装饰
+     ============================================================ */
+  /* 天空:晨蓝 → 樱粉,整个视口 */
+  .scene-bg {
+    position: fixed; inset: 0; z-index: 0;
+    background: linear-gradient(180deg,
+      #9fdcff 0%, #c9ecff 30%, #ffe8f2 55%, #ffd9ea 75%, #ffcfe4 100%);
+    pointer-events: none;
+  }
+  /* 太阳:黄心白圈 + 大范围光晕 */
+  .sun {
+    position: fixed; top: 5%; right: 10%;
+    width: 96px; height: 96px; border-radius: 50%;
+    background: radial-gradient(circle at 38% 35%, #fffbe0, #ffe066 55%, #ffd43b 100%);
+    box-shadow:
+      0 0 0 14px rgba(255,255,255,0.35),
+      0 0 70px 30px rgba(255,224,102,0.55);
+    animation: sunBreathe 5s ease-in-out infinite alternate;
+    pointer-events: none; z-index: 0;
+  }
+  @keyframes sunBreathe {
+    from { transform: scale(1); }
+    to   { transform: scale(1.07); }
+  }
+  /* 云朵:一个 div + box-shadow 堆出多团圆滚滚的云 */
+  .cloud {
+    position: fixed;
+    width: 92px; height: 28px;
+    background: #fff; border-radius: 99px;
+    box-shadow:
+      22px -16px 0 10px #fff,
+      -26px -10px 0 5px #fff,
+      50px -2px 0 -3px #fff,
+      0 6px 18px rgba(140,190,230,0.25);
+    opacity: 0.95;
+    pointer-events: none; z-index: 0;
+    animation: cloudMove linear infinite;
+  }
+  .cloud.c1 { top: 10%; animation-duration: 70s; transform: scale(1.15); }
+  .cloud.c2 { top: 22%; animation-duration: 95s; transform: scale(0.8); opacity: 0.75; }
+  .cloud.c3 { top: 40%; animation-duration: 120s; transform: scale(0.55); opacity: 0.55; }
+  @keyframes cloudMove {
+    from { left: -20%; }
+    to   { left: 115%; }
+  }
+  /* 远山丘(粉色雾感)+ 近草地(嫩绿),两层圆弧叠出纵深感 */
+  .hill {
+    position: fixed; left: 50%; transform: translateX(-50%);
+    border-radius: 50% 50% 0 0;
+    pointer-events: none; z-index: 0;
+  }
+  .hill.back {
+    bottom: -34vh; width: 160vw; height: 56vh;
+    background: #ffc2dc;                      /* 粉色远丘 */
+    opacity: 0.85;
+  }
+  .hill.front {
+    bottom: -44vh; width: 190vw; height: 60vh;
+    background: linear-gradient(180deg, #c6ec8e, #9fd968);  /* 嫩绿草地 */
+  }
+  .hill.front::before {
+    /* 草地上的深绿斑点,增加质感 */
     content: "";
-    position: fixed; inset: 0;
-    background-image:
-      radial-gradient(circle, rgba(255,158,196,0.3) 2px, transparent 2.5px),
-      radial-gradient(circle, rgba(255,213,107,0.2) 1.5px, transparent 2px);
-    background-size: 28px 28px, 28px 28px;
-    background-position: 0 0, 14px 14px;
-    pointer-events: none; z-index: 0;
+    position: absolute; top: 26%; left: 0; right: 0; height: 60%;
+    background-image: radial-gradient(circle, rgba(110,170,70,0.35) 3px, transparent 4px);
+    background-size: 34px 34px;
   }
-  /* 背景漂浮的可爱元素:蝴蝶结/爱心/星星/花朵/糖果 */
-  body::after {
-    content: "🎀 💕 ✨ 🌸 🍬 🎀 💕 ✨ 🌸 🍬 🎀 💕 ✨ 🌸";
-    position: fixed; inset: 0;
-    color: rgba(255,158,196,0.12);
-    font-size: 36px; line-height: 100px;
-    pointer-events: none; z-index: 0;
-    animation: drift 35s linear infinite;
-    word-spacing: 80px;
+  /* 草地上的花草装饰:固定大 emoji,像场景道具 */
+  .prop {
+    position: fixed; bottom: 3vh; z-index: 0;
+    font-size: 44px; line-height: 1;
+    pointer-events: none;
+    filter: drop-shadow(0 4px 6px rgba(90,140,60,0.3));
+    animation: propSway 3.2s ease-in-out infinite alternate;
+    transform-origin: bottom center;
   }
+  @keyframes propSway { from { rotate: -5deg; } to { rotate: 5deg; } }
+  .prop.p1 { left: 4%; animation-delay: 0s; }
+  .prop.p2 { left: 12%; bottom: 5vh; font-size: 34px; animation-delay: .6s; }
+  .prop.p3 { right: 5%; animation-delay: 1.1s; }
+  .prop.p4 { right: 13%; bottom: 6vh; font-size: 32px; animation-delay: .3s; }
+  /* 三层景深漂浮装饰:远/中/近三层,模拟 3D 纵深(远层模糊+小+慢) */
+  .deco { position: fixed; inset: 0; pointer-events: none; z-index: 0; }
+  .deco .layer {
+    position: absolute; inset: -15%;
+    display: flex; flex-wrap: wrap;
+    align-content: space-around; justify-content: space-around;
+    word-spacing: 70px; line-height: 110px;
+  }
+  .deco .l-far  { font-size: 22px; opacity: 0.10; filter: blur(2px); animation: drift 55s linear infinite; }
+  .deco .l-mid  { font-size: 32px; opacity: 0.14; filter: blur(1px); animation: drift 40s linear infinite; }
+  .deco .l-near { font-size: 44px; opacity: 0.16; animation: drift 26s linear infinite; }
   @keyframes drift { from { transform: translateY(-120px);} to { transform: translateY(120px);} }
 
-  /* ============ 布局容器 ============ */
+  /* ============ 布局容器:全屏游戏化(参考 Poki 满屏布局) ============ */
   .app {
     position: relative; z-index: 1;
     display: flex; flex-direction: column;
-    align-items: center; gap: 14px;
-    padding: 16px;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px 18px;
     width: 100%;
-    max-width: 620px;  /* 扩大整体宽度,给棋盘更多空间 */
+    max-width: 780px;          /* 拓宽到游戏横幅宽度 */
+    min-height: 100dvh;        /* 占满整个视口高度 */
   }
+  /* 标题压缩成紧凑游戏顶栏 */
   .title {
-    font-family: "Fredoka", "Nunito", sans-serif;  /* 圆润标题字体 */
-    font-size: 30px; font-weight: 700; letter-spacing: 1px;
+    font-family: "Fredoka", "Nunito", sans-serif;
+    font-size: 26px; font-weight: 700; letter-spacing: 1px;
     background: linear-gradient(90deg, var(--hk-red), var(--hk-deep));
     -webkit-background-clip: text; background-clip: text; color: transparent;
-    text-shadow: 0 2px 10px rgba(255,107,157,0.25);
     display: flex; align-items: center; gap: 6px;
-    filter: drop-shadow(0 3px 6px rgba(255,158,196,0.4));
+    /* 3D 立体字:多层 drop-shadow 向下偏移,像浮雕 */
+    filter:
+      drop-shadow(0 2px 0 #d15683)
+      drop-shadow(0 4px 0 rgba(209,86,131,0.5))
+      drop-shadow(0 8px 12px rgba(255,107,157,0.4));
   }
   .subtitle { font-size: 13px; color: var(--hk-muted); margin-top: -10px; font-weight: 600; }
   /* 标题蝴蝶结摇摆动画 */
@@ -116,14 +197,14 @@
     width: 100%;
   }
   .hud-card {
-    /* 半透明白底卡片,粉色描边,圆润大圆角 */
-    background: rgba(255,255,255,0.85);
+    /* 白底卡片 + 底部厚度硬边,像软糖按键 */
+    background: rgba(255,255,255,0.88);
     border: 2px solid rgba(255,158,196,0.4);
     border-radius: 16px;
     padding: 8px 6px;
     text-align: center;
     backdrop-filter: blur(8px);
-    box-shadow: 0 4px 12px rgba(255,158,196,0.2);
+    box-shadow: 0 4px 0 -1px #f3b7cc, 0 8px 16px rgba(255,158,196,0.25);
   }
   .hud-label { font-size: 10px; color: var(--hk-muted); letter-spacing: 1px; font-weight: 700; }
   .hud-value { font-size: 20px; font-weight: 800; margin-top: 2px; color: var(--hk-deep); }
@@ -146,15 +227,29 @@
     box-shadow: 0 0 10px rgba(255,107,157,0.5);
   }
 
-  /* ============ 棋盘 ============ */
+  /* ============ 棋盘 3D 场景 ============ */
+  /* 透视容器:让整个棋盘像放在桌上的立体游戏板 */
+  .board-scene {
+    perspective: 1100px;          /* 透视距离,越小 3D 越夸张 */
+    perspective-origin: 50% 20%;  /* 视点偏上,俯视感 */
+  }
   .board-frame {
     position: relative;
-    padding: 12px;
-    background: rgba(255,255,255,0.75);
-    border: 3px solid rgba(255,158,196,0.5);
-    border-radius: 28px;               /* 更大圆角更可爱 */
-    backdrop-filter: blur(8px);
-    box-shadow: 0 12px 36px rgba(255,158,196,0.35), inset 0 1px 0 rgba(255,255,255,0.8);
+    padding: 14px;
+    /* 厚重饼干框:白→粉渐变底 + 粗描边 + 外白圈,像大块奶油饼干 */
+    background: linear-gradient(160deg, #ffffff 0%, #fff0f6 55%, #ffe3ee 100%);
+    border: 7px solid #ff9ec4;
+    outline: 5px solid rgba(255,255,255,0.9);
+    border-radius: 36px;
+    /* 3D 后仰姿态(--rx/--ry 由鼠标视差实时驱动) */
+    transform: rotateX(var(--rx, 9deg)) rotateY(var(--ry, 0deg));
+    transform-style: preserve-3d;              /* 让子元素也能 translateZ 浮起 */
+    transition: transform 0.18s ease-out;
+    /* 底部超厚"饼干厚度"硬阴影 + 大范围柔和投影 */
+    box-shadow:
+      0 16px 0 -4px #e07ba2,                   /* 硬厚度:饼干侧面 */
+      0 40px 70px rgba(224,110,150,0.4),       /* 柔和落地投影 */
+      inset 0 3px 0 rgba(255,255,255,0.9);
   }
   /* 棋盘左上角蝴蝶结装饰 */
   .board-frame::before {
@@ -163,6 +258,8 @@
     top: -16px; left: -8px;
     font-size: 26px;
     z-index: 5;
+    /* 浮在棋盘前方一点,更有立体感 */
+    transform: translateZ(30px);
     filter: drop-shadow(0 2px 4px rgba(233,69,96,0.3));
     animation: bowSway 2.5s ease-in-out infinite alternate;
   }
@@ -173,14 +270,16 @@
     bottom: -12px; right: -6px;
     font-size: 24px;
     z-index: 5;
+    transform: translateZ(24px);
     animation: twinkle 1.5s ease-in-out infinite alternate;
   }
   @keyframes twinkle {
-    from { transform: scale(0.9); opacity: 0.6; }
-    to   { transform: scale(1.2); opacity: 1; }
+    from { transform: translateZ(24px) scale(0.9); opacity: 0.6; }
+    to   { transform: translateZ(24px) scale(1.2); opacity: 1; }
   }
   .board {
     position: relative;
+    transform-style: preserve-3d;   /* 3D 上下文传递到每个猫咪 */
     width: calc(var(--cell-size) * var(--board-cols) + var(--gap) * (var(--board-cols) - 1));
     height: calc(var(--cell-size) * var(--board-rows) + var(--gap) * (var(--board-rows) - 1));
   }
@@ -188,9 +287,12 @@
     position: absolute;
     width: var(--cell-size);
     height: var(--cell-size);
-    border-radius: 12px;
-    background: rgba(255,255,255,0.35);
-    box-shadow: inset 0 0 0 1px rgba(255,158,196,0.15);
+    border-radius: 16px;
+    /* 格槽凹陷感:上暗下亮内阴影,像饼乾上压出的格子窝 */
+    background: rgba(255,214,232,0.5);
+    box-shadow:
+      inset 0 4px 8px rgba(214,110,155,0.22),
+      inset 0 -2px 0 rgba(255,255,255,0.85);
   }
 
   /* 猫咪方块 */
@@ -201,17 +303,27 @@
     display: flex; align-items: center; justify-content: center;
     font-size: calc(var(--cell-size) * 0.72);
     cursor: pointer;
-    transition: left 0.32s cubic-bezier(.34,1.56,.64,1), top 0.34s cubic-bezier(.34,1.2,.64,1), transform 0.15s;
+    /* 下落用高弹性曲线,像软糖一样 Q 弹落地 */
+    transition:
+      left 0.32s cubic-bezier(.34,1.56,.64,1),
+      top 0.42s cubic-bezier(.25,1.45,.4,1),
+      transform 0.15s ease-out;
+    transform-style: preserve-3d;   /* 允许 translateZ 浮起 */
     will-change: top, left, transform;
     filter: drop-shadow(0 3px 5px rgba(255,158,196,0.4));
     z-index: 2;
   }
-  .cat:hover { transform: scale(1.06); }
+  .cat:hover { transform: translateZ(10px) scale(1.06); }   /* 悬停微微浮起 */
   .cat.selected {
-    transform: scale(1.18);
+    /* 选中:整只猫朝观众浮起(3D translateZ)+ 轻微后仰展示 */
+    transform: translateZ(28px) scale(1.15) rotateX(-6deg);
     z-index: 5;
-    /* 选中:粉色发光圈 */
-    filter: drop-shadow(0 0 12px var(--hk-deep)) drop-shadow(0 3px 5px rgba(255,158,196,0.4));
+    filter: drop-shadow(0 10px 8px rgba(210,80,130,0.35)) drop-shadow(0 0 12px var(--hk-deep));
+    animation: selFloat 1.4s ease-in-out infinite alternate;  /* 悬浮呼吸 */
+  }
+  @keyframes selFloat {
+    from { transform: translateZ(28px) scale(1.15) rotateX(-6deg); }
+    to   { transform: translateZ(36px) scale(1.18) rotateX(-4deg); }
   }
   .cat.selected::after {
     content: "";
@@ -256,16 +368,24 @@
   }
   .cat .emoji { position: relative; z-index: 1; }
 
-  /* 猫咪头像图片:几乎填满格子,白色描边 + 大圆角 = 可爱 */
+  /* 猫咪头像图片:满格圆滚滚糖果块,几乎占满整个格子 */
   .cat-img {
-    position: absolute; inset: 2px;     /* 几乎贴满格子 */
-    border-radius: 14px;                 /* 大圆角 */
-    width: calc(100% - 4px); height: calc(100% - 4px);
+    position: absolute; inset: 1px;              /* 贴满格子(1px 边距) */
+    border-radius: 18px;                          /* 圆滚滚大圆角 */
+    width: calc(100% - 2px); height: calc(100% - 2px);
     object-fit: cover;
     z-index: 0;
     background: var(--hk-cream);
-    border: 2px solid #fff;             /* 白色描边,可爱感 */
-    box-shadow: 0 2px 6px rgba(255,107,157,0.25);
+    border: 3px solid #fff;                       /* 粗白描边,糖果感 */
+    box-shadow:
+      0 5px 0 rgba(224,110,150,0.28),             /* 底部厚度:立起来的一块 */
+      0 9px 12px rgba(210,80,130,0.3);            /* 悬浮投影 */
+    animation: catBob 2.6s ease-in-out infinite alternate;  /* 待机浮动 */
+  }
+  /* 待机浮动:每只猫相位不同(JS 随机 delay),像在轻轻呼吸 */
+  @keyframes catBob {
+    from { transform: translateY(0) scale(1); }
+    to   { transform: translateY(-4px) scale(1.02); }
   }
   /* 图片加载失败时的兜底:显示名字 */
   .cat-fallback {
@@ -288,16 +408,16 @@
   .cat.special .cat-bg { animation: specialGlow 1.4s ease-in-out infinite alternate; }
   @keyframes specialGlow { to { box-shadow: 0 0 18px #fff, 0 0 30px var(--accent); filter: brightness(1.3);} }
 
-  /* 消除动画 */
-  .cat.popping { animation: pop 0.34s ease-in forwards; pointer-events: none; }
-  @keyframes pop {
-    0% { transform: scale(1) rotate(0);}
-    40% { transform: scale(1.3) rotate(12deg);}
-    100% { transform: scale(0) rotate(180deg); opacity: 0;}
+  /* 消除动画:3D 翻转飞向观众再缩小消失,立体感十足 */
+  .cat.popping { animation: pop3d 0.4s ease-in forwards; pointer-events: none; }
+  @keyframes pop3d {
+    0%   { transform: translateZ(0) scale(1) rotateY(0) rotate(0);}
+    35%  { transform: translateZ(40px) scale(1.25) rotateY(120deg) rotate(8deg);}  /* 弹起+翻转 */
+    100% { transform: translateZ(-60px) scale(0) rotateY(540deg) rotate(160deg); opacity: 0;}  /* 翻转飞远消失 */
   }
-  /* 出生动画(下落到位) */
+  /* 出生动画(下落到位):从远处飞入的 3D 感 */
   .cat.spawning { animation: spawn 0.3s ease-out; }
-  @keyframes spawn { from { transform: scale(0.6); opacity: 0;} to { transform: scale(1); opacity: 1;} }
+  @keyframes spawn { from { transform: translateZ(-50px) scale(0.6); opacity: 0;} to { transform: translateZ(0) scale(1); opacity: 1;} }
 
   /* ============ 粒子 & 飘字 ============ */
   .particle {
@@ -352,20 +472,28 @@
     /* 粉色渐变按钮 */
     background: linear-gradient(135deg, var(--hk-deep), var(--hk-pink));
     cursor: pointer;
-    transition: transform 0.12s, box-shadow 0.2s;
-    box-shadow: 0 4px 14px rgba(255,107,157,0.4);
+    transition: transform 0.1s, box-shadow 0.1s;
+    /* 拟物 3D:底部硬厚度(像糖果按键)+ 柔和投影 */
+    box-shadow:
+      0 5px 0 -1px #d15683,               /* 硬厚度层:按下去会消失 */
+      0 10px 18px rgba(255,107,157,0.35);
     text-shadow: 0 1px 2px rgba(0,0,0,0.1);
   }
-  .btn:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(255,107,157,0.5); }
-  .btn:active { transform: translateY(0); }
+  .btn:hover { transform: translateY(-2px); box-shadow: 0 7px 0 -1px #d15683, 0 14px 22px rgba(255,107,157,0.45); }
+  .btn:active {
+    /* 物理按压:真的"按下去"厚度消失 */
+    transform: translateY(5px);
+    box-shadow: 0 0 0 -1px #d15683, 0 3px 8px rgba(255,107,157,0.3);
+  }
   .btn.secondary {
-    /* 次要按钮:白底粉字 */
-    background: rgba(255,255,255,0.85);
+    /* 次要按钮:白底粉字,厚度用浅粉 */
+    background: rgba(255,255,255,0.9);
     color: var(--hk-deep);
-    box-shadow: 0 3px 10px rgba(255,158,196,0.25);
+    box-shadow: 0 5px 0 -1px #f3b7cc, 0 10px 18px rgba(255,158,196,0.25);
     border: 2px solid rgba(255,158,196,0.4);
     text-shadow: none;
   }
+  .btn.secondary:active { box-shadow: 0 0 0 -1px #f3b7cc, 0 3px 8px rgba(255,158,196,0.25); }
   .btn.secondary.on { background: var(--hk-yellow); color: #fff; border-color: #fff; }
 
   /* 额度徽章:粉底白字小圆 */
@@ -406,10 +534,11 @@
     width: 88%; max-width: 360px;
     text-align: center;
     box-shadow: 0 16px 48px rgba(255,107,157,0.3);
-    transform: scale(0.85);
-    transition: transform 0.35s cubic-bezier(.34,1.56,.64,1);
+    /* 3D 入场:从后上方翻转飘入 */
+    transform: perspective(700px) rotateX(18deg) translateZ(-120px) scale(0.9);
+    transition: transform 0.4s cubic-bezier(.34,1.45,.5,1);
   }
-  .overlay.show .modal { transform: scale(1); }
+  .overlay.show .modal { transform: perspective(700px) rotateX(0) translateZ(0) scale(1); }
   .modal-emoji { font-size: 56px; }
   .modal h2 { font-family: "Fredoka", sans-serif; font-size: 24px; margin: 8px 0 4px; color: var(--hk-deep); }
   .modal p { color: var(--hk-muted); font-size: 14px; margin-bottom: 18px; line-height: 1.6; }
@@ -426,6 +555,65 @@
     box-shadow: 0 6px 20px rgba(255,158,196,0.3);
   }
   .qr-hint { font-size: 12px; color: var(--hk-muted); margin-bottom: 10px; font-weight: 700; }
+
+  /* ============ 肯德基疯狂星期四主题弹窗 🍗 ============ */
+  /* KFC 配色:红底(#e60012) + 黄字(#ffcc00),与粉色游戏形成反差萌 */
+  .kfc-modal {
+    background: linear-gradient(165deg, #e60012 0%, #c30010 60%, #a3000d 100%);
+    border-color: #ffcc00;
+    box-shadow: 0 16px 48px rgba(180,0,14,0.5);
+  }
+  .kfc-modal h2 { color: #ffcc00; }
+  .kfc-modal p { color: rgba(255,255,255,0.92); }
+  /* 顶部疯四横幅:黄底红字大标语 */
+  .kfc-banner {
+    font-family: "Fredoka", sans-serif;
+    font-size: 21px; font-weight: 700; letter-spacing: 1px;
+    color: #e60012;
+    background: linear-gradient(135deg, #ffd933, #ffcc00);
+    border-radius: 14px;
+    padding: 8px 10px;
+    margin-bottom: 12px;
+    box-shadow: 0 4px 0 #c9a300, 0 8px 18px rgba(0,0,0,0.25);
+    text-shadow: 0 1px 0 rgba(255,255,255,0.4);
+  }
+  .kfc-banner .v50 {
+    display: inline-block;
+    font-size: 26px;
+    transform: rotate(-6deg) scale(1.15);
+    color: #fff;
+    text-shadow: 2px 2px 0 #a3000d;
+    margin: 0 2px;
+  }
+  /* 海报 + 收款码并排 */
+  .kfc-imgs {
+    display: flex; align-items: center; justify-content: center;
+    gap: 12px; margin: 6px 0 4px;
+  }
+  .kfc-img {
+    width: 158px; height: 158px;
+    object-fit: cover; object-position: top;
+    border-radius: 14px;
+    border: 3px solid #ffcc00;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.35);
+    background: #fff;
+  }
+  .qr-side { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .qr-img.small {
+    width: 96px; height: 96px; margin: 0;
+    border-color: #ffcc00;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  }
+  .qr-side-tip {
+    font-size: 11px; font-weight: 800; color: #ffcc00 !important;
+    text-align: center; line-height: 1.3; margin: 0 !important;
+  }
+  .kfc-modal .qr-hint { color: rgba(255,255,255,0.85); }
+  /* KFC 弹窗内的密码框:黄框白底红字 */
+  .kfc-modal .pwd-box { border-color: #ffcc00; }
+  .kfc-modal .pwd-box:focus { border-color: #fff; box-shadow: 0 0 0 3px rgba(255,204,0,0.35); }
+  .kfc-modal .pwd-box.filled { border-color: #fff; background: #fff; }
+  .kfc-modal .pwd-error { color: #ffd933; }
 
   /* 4 位密码输入框 */
   .pwd-row {
@@ -596,9 +784,96 @@
   @media (max-width: 380px) {
     :root { --cell-size: 41px; }     /* 小屏紧凑 */
   }
+
+  /* ============ 冰块障碍(HUD/关卡系统) ============ */
+  /* 覆盖在格子上的半透明冰层,消除该格猫咪时打碎一层 */
+  .cell.ice-1 {
+    background: linear-gradient(135deg, rgba(173,224,255,0.75), rgba(219,242,255,0.75));
+    box-shadow: inset 0 0 0 2px rgba(255,255,255,0.8), inset 0 0 12px rgba(120,190,255,0.5);
+  }
+  .cell.ice-1::after {
+    content: "🧊";
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: calc(var(--cell-size) * 0.4);
+    opacity: 0.55;
+  }
+  /* 冰块碎裂闪光 */
+  .ice-break {
+    position: absolute; z-index: 15;
+    font-size: 22px; pointer-events: none;
+    animation: iceBreak 0.5s ease-out forwards;
+  }
+  @keyframes iceBreak {
+    0% { transform: scale(0.6) rotate(0); opacity: 1; }
+    100% { transform: scale(1.6) rotate(30deg); opacity: 0; }
+  }
+
+  /* ============ 屏幕震动打击感 ============ */
+  /* 震动时保留 3D 姿态(rotateX/Y 由 CSS 变量驱动),不会突然变平 */
+  .board-frame.jolt { animation: screenShake 0.3s ease-in-out; }
+  @keyframes screenShake {
+    0%, 100% { transform: rotateX(var(--rx, 9deg)) rotateY(var(--ry, 0deg)) translate(0, 0); }
+    20% { transform: rotateX(var(--rx, 9deg)) rotateY(var(--ry, 0deg)) translate(-5px, 3px); }
+    40% { transform: rotateX(var(--rx, 9deg)) rotateY(var(--ry, 0deg)) translate(5px, -3px); }
+    60% { transform: rotateX(var(--rx, 9deg)) rotateY(var(--ry, 0deg)) translate(-3px, -4px); }
+    80% { transform: rotateX(var(--rx, 9deg)) rotateY(var(--ry, 0deg)) translate(3px, 4px); }
+  }
+
+  /* ============ 结算星星 ============ */
+  .stars-row { font-size: 36px; margin: 4px 0 10px; letter-spacing: 6px; }
+  .stars-row .star {
+    display: inline-block;
+    opacity: 0.18; transform: scale(0.5);   /* 未点亮:灰暗缩小 */
+    filter: grayscale(1);
+  }
+  .stars-row .star.lit {
+    animation: starPop 0.45s cubic-bezier(.34,1.56,.64,1) forwards;
+  }
+  @keyframes starPop {
+    0% { opacity: 0.18; transform: scale(0.5) rotate(-30deg); filter: grayscale(1); }
+    60% { opacity: 1; transform: scale(1.35) rotate(8deg); filter: grayscale(0) drop-shadow(0 0 12px var(--hk-yellow)); }
+    100% { opacity: 1; transform: scale(1) rotate(0); filter: grayscale(0); }
+  }
+
+  /* ============ 开始界面 ============ */
+  .start-title {
+    font-family: "Fredoka", sans-serif;
+    font-size: 30px; font-weight: 700;
+    background: linear-gradient(90deg, var(--hk-red), var(--hk-deep));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    margin: 8px 0 2px;
+  }
+  .start-stars {
+    font-size: 15px; font-weight: 800; color: var(--hk-text);
+    background: rgba(255,213,107,0.25);
+    display: inline-block; padding: 4px 14px; border-radius: 99px;
+    margin-bottom: 14px;
+  }
+  .start-tip { font-size: 12px; color: var(--hk-muted); margin-top: 12px; line-height: 1.6; }
+  .start-btns { display: flex; flex-direction: column; gap: 10px; }
+  .start-btns .btn { width: 100%; max-width: none; }
 </style>
 </head>
 <body>
+<!-- 全屏卡通场景:天空/太阳/云/草地/花草 -->
+<div class="scene-bg"></div>
+<div class="sun"></div>
+<div class="cloud c1"></div>
+<div class="cloud c2"></div>
+<div class="cloud c3"></div>
+<div class="hill back"></div>
+<div class="hill front"></div>
+<div class="prop p1">🌷</div>
+<div class="prop p2">🍄</div>
+<div class="prop p3">🌻</div>
+<div class="prop p4">🍭</div>
+<!-- 三层景深漂浮装饰(远/中/近),模拟 3D 纵深 -->
+<div class="deco">
+  <div class="layer l-far">🎀 💕 🌸 ✨ 🍬 🎀 💕 🌸 ✨</div>
+  <div class="layer l-mid">✨ 🍬 🎀 💕 🌸 ✨ 🎀 💕 🌸</div>
+  <div class="layer l-near">💕 🌸 ✨ 🎀 🍬 💕 🌸 ✨ 🎀</div>
+</div>
 <div class="app">
   <div class="title"><span class="bow">🎀</span> Nikki 猫大王 <span class="bow">🎀</span></div>
   <div class="subtitle">💕 消除三只相同的猫咪,收集所有小伙伴 ✨</div>
@@ -612,10 +887,12 @@
   </div>
   <div class="progress-wrap"><div class="progress-bar" id="progress"></div></div>
 
-  <!-- 棋盘 -->
-  <div class="board-frame">
-    <div class="board" id="board"></div>
-    <div class="combo-text" id="combo-text"></div>
+  <!-- 棋盘:外层 3D 透视场景,内层棋盘板随鼠标倾斜 -->
+  <div class="board-scene">
+    <div class="board-frame" id="board-frame">
+      <div class="board" id="board"></div>
+      <div class="combo-text" id="combo-text"></div>
+    </div>
   </div>
 
   <!-- 按钮 -->
@@ -633,21 +910,47 @@
   <div class="modal">
     <div class="modal-emoji" id="modal-emoji">🎉</div>
     <h2 id="modal-title">过关!</h2>
+    <!-- 星级评价:过关时逐颗点亮 -->
+    <div class="stars-row" id="stars-row">
+      <span class="star">⭐</span><span class="star">⭐</span><span class="star">⭐</span>
+    </div>
     <p id="modal-desc">你成功收集了所有猫咪!</p>
     <div class="stat" id="modal-stat"></div>
     <button class="btn" id="modal-btn">下一关</button>
   </div>
 </div>
 
-<!-- 弹窗:V我50 重排密码 -->
-<!-- 弹窗:扫码解锁(提示/重排共用) -->
+<!-- 开始界面:显示进度与总星数 -->
+<div class="overlay" id="start-overlay">
+  <div class="modal">
+    <div class="modal-emoji">🎀</div>
+    <div class="start-title">Nikki 猫大王</div>
+    <p style="margin-top:2px">和猫咪们一起开启消除冒险!</p>
+    <div class="start-stars" id="start-stars">⭐ 0</div>
+    <div class="start-btns">
+      <button class="btn" id="btn-continue">▶ 开始冒险</button>
+      <button class="btn secondary" id="btn-reset">🗑 从头开始</button>
+    </div>
+    <p class="start-tip">💡 三连消除 · 4连⚡ · 5连🌈 · L形💣<br>特殊猫两两交换有惊喜组合!</p>
+  </div>
+</div>
+
+<!-- 弹窗:扫码解锁(提示/重排共用)—— 肯德基疯狂星期四主题 🍗 -->
 <div class="overlay" id="unlock-overlay">
-  <div class="modal shuffle-modal">
-    <div class="modal-emoji">💸</div>
+  <div class="modal shuffle-modal kfc-modal">
+    <!-- 疯四顶部横幅:红底黄字大标语 -->
+    <div class="kfc-banner">🍗 疯狂星期四 <span class="v50">V50</span> 🍗</div>
     <h2 id="unlock-title">解锁</h2>
-    <p id="unlock-desc">扫码 V 我 50,获得密码助力通关 😼</p>
-    <img class="qr-img" src="assets/cats/erweima.jpg" alt="收款二维码">
-    <p class="qr-hint">👇 扫码后请输入 4 位密码</p>
+    <p id="unlock-desc">今天是肯德基疯狂星期四,V 我 50 获得密码助力通关 😼</p>
+    <!-- 主视觉:疯四海报 + 收款码并排 -->
+    <div class="kfc-imgs">
+      <img class="kfc-img" src="assets/kfc-crazy-thursday.jpg" alt="肯德基疯狂星期四 V50">
+      <div class="qr-side">
+        <img class="qr-img small" src="assets/cats/erweima.jpg" alt="收款二维码">
+        <p class="qr-side-tip">👈 扫这个<br>就对了!</p>
+      </div>
+    </div>
+    <p class="qr-hint">👇 吃上炸鸡后,请输入 4 位密码</p>
     <div class="pwd-row" id="pwd-row">
       <input class="pwd-box" type="text" maxlength="1" inputmode="numeric" data-idx="0">
       <input class="pwd-box" type="text" maxlength="1" inputmode="numeric" data-idx="1">
@@ -656,7 +959,7 @@
     </div>
     <p class="pwd-error" id="pwd-error"></p>
     <div class="shuffle-modal-btns">
-      <button class="btn secondary" id="unlock-cancel">取消</button>
+      <button class="btn secondary" id="unlock-cancel">下次一定</button>
       <button class="btn" id="unlock-confirm">确认</button>
     </div>
   </div>
@@ -683,6 +986,27 @@
         <div class="help-text">
           <div class="help-name">彩虹猫 <span class="help-tag">5 连生成</span></div>
           <div class="help-desc">与任意猫交换,清除该色全部猫咪</div>
+        </div>
+      </div>
+      <div class="help-item">
+        <div class="help-icon">💣</div>
+        <div class="help-text">
+          <div class="help-name">炸弹猫 <span class="help-tag">L 形生成</span></div>
+          <div class="help-desc">被消除时爆炸,清除周围 3×3 区域</div>
+        </div>
+      </div>
+      <div class="help-item">
+        <div class="help-icon">✨</div>
+        <div class="help-text">
+          <div class="help-name">组合技 <span class="help-tag">交换两只特殊猫</span></div>
+          <div class="help-desc">⚡+⚡ 十字 · ⚡+💣 巨型十字 · 💣+💣 5×5 · 🌈+🌈 全屏!</div>
+        </div>
+      </div>
+      <div class="help-item">
+        <div class="help-icon">🧊</div>
+        <div class="help-text">
+          <div class="help-name">冰块关卡 <span class="help-tag">关卡目标</span></div>
+          <div class="help-desc">在冰块格子上消除猫咪即可打碎冰层,碎光所有冰块过关</div>
         </div>
       </div>
     </div>
@@ -770,7 +1094,58 @@ let stubbornEls = new Set();        // 当前处于倔强(生气)状态的大儿
 const ATTACK_RATE = 0.3;            // 攻击概率 30%
 const ATTACK_MIN = 200;             // 单次攻击最少扣分
 const ATTACK_MAX = 500;             // 单次攻击最多扣分
+
+/* ============================================================
+   进阶关卡系统(参考 Candy Crush):
+   三种关卡类型循环 —— 分数关 → 收集关 → 冰块关
+   ============================================================ */
+// 冰块层:iceLayer[r][c] = 0(无冰)/1(有冰)。冰附着在格子上,不随猫咪下落
+let iceLayer = [];
+let cellEls = [];          // 格子背景 DOM 引用(用于显示/打碎冰块)
+// 收集目标:collectGoal = { type:猫咪类型, need:需要数量, got:已收集 } 或 null
+let collectGoal = null;
+let iceTotalAtStart = 0;   // 本关冰块总数(算进度条用)
+// 当前关卡类型:'score' | 'collect' | 'ice'
+let levelType = 'score';
+
+/* 本地存档:进度 + 每关星级,存 localStorage */
+let saveData = { unlocked: 1, stars: {} };   // unlocked=已解锁到的最高关卡,stars={关卡:星级}
+function loadSave() {
+  try {
+    const raw = localStorage.getItem("nikki_save");
+    if (raw) saveData = { ...saveData, ...JSON.parse(raw) };
+  } catch (e) { /* 存档损坏则忽略,用默认值 */ }
+}
+function writeSave() {
+  try { localStorage.setItem("nikki_save", JSON.stringify(saveData)); } catch (e) {}
+}
+// 总星数(开始界面显示)
+function totalStars() {
+  return Object.values(saveData.stars).reduce((s, n) => s + n, 0);
+}
+
+/* 关卡配置器:根据关卡数生成 目标/步数/冰块/收集 任务
+   类型循环:第1关分数、第2关收集、第3关冰块、第4关分数…… */
+function levelConfig(lv) {
+  const t = (lv - 1) % 3;                 // 循环索引
+  const round = Math.floor((lv - 1) / 3); // 难度轮数,越往后越难
+  if (t === 0) {
+    // —— 分数关:在限定步数内达到目标分 ——
+    return { type: "score", target: 800 + lv * 450, moves: 20 - Math.min(6, round), collect: null, iceCount: 0 };
+  } else if (t === 1) {
+    // —— 收集关:收集指定猫咪若干只 ——
+    // 随机指定一种猫作为收集目标(包含大儿,倔强机制会让收集更有戏剧性)
+    return { type: "collect", target: 600 + lv * 350, moves: 24 - Math.min(6, round),
+             collect: { type: Math.floor(Math.random() * CAT_TYPES.length), need: 12 + round * 4 }, iceCount: 0 };
+  } else {
+    // —— 冰块关:打碎棋盘上所有冰块 ——
+    return { type: "ice", target: 600 + lv * 350, moves: 26 - Math.min(6, round),
+             collect: null, iceCount: Math.min(30, 8 + round * 4 + (lv % 3)) };
+  }
+}
+
 let soundOn = true;
+let bgmOn = true;          // 背景音乐开关
 let audioCtx = null;
 
 /* ============================================================
@@ -784,7 +1159,7 @@ function ensureAudio() {
   if (audioCtx && audioCtx.state === "suspended") audioCtx.resume();
 }
 function beep(freq, dur = 0.1, type = "sine", vol = 0.15) {
-  if (!soundOn || !audioCtx) return;
+  if (!soundOn || !audioCtx) return;   // soundOn 由声音三态按钮控制(仅音效)
   const o = audioCtx.createOscillator();
   const g = audioCtx.createGain();
   o.type = type; o.frequency.value = freq;
@@ -793,6 +1168,48 @@ function beep(freq, dur = 0.1, type = "sine", vol = 0.15) {
   o.connect(g); g.connect(audioCtx.destination);
   o.start(); o.stop(audioCtx.currentTime + dur);
 }
+
+/* ============================================================
+   背景音乐 BGM:Web Audio 合成的八音盒风格循环旋律
+   五声音阶(C大调),轻快甜美,不干扰音效
+   ============================================================ */
+// 主旋律(C5 E5 G5 A5 五声音阶,欢快跳跃)
+const BGM_MELODY = [
+  523, 659, 784, 880,  784, 659, 587, 659,
+  523, 659, 784, 1047, 988, 784, 659, 587,
+];
+// 低音伴奏(每 4 拍一个根音)
+const BGM_BASS = [131, 165, 196, 165];
+let bgmTimer = null;   // BGM 调度器句柄
+let bgmStep = 0;       // 当前播放到第几个音符
+function startBGM() {
+  if (bgmTimer || !bgmOn) return;   // 已在播放或被关闭
+  ensureAudio();
+  bgmTimer = setInterval(() => {
+    if (!bgmOn || !audioCtx) return;
+    // 主音符:triangle 波,音量很低,不抢戏
+    const f = BGM_MELODY[bgmStep % BGM_MELODY.length];
+    playTone(f, 0.22, "triangle", 0.025);
+    // 每 4 拍加一个低音根音
+    if (bgmStep % 4 === 0) playTone(BGM_BASS[(bgmStep / 4) % BGM_BASS.length], 0.4, "sine", 0.03);
+    bgmStep++;
+  }, 290);
+}
+function stopBGM() {
+  if (bgmTimer) { clearInterval(bgmTimer); bgmTimer = null; }
+}
+// 独立于 soundOn 开关的原始发声(BGM 内部使用,不受音效开关影响)
+function playTone(freq, dur, type, vol) {
+  if (!audioCtx) return;
+  const o = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  o.type = type; o.frequency.value = freq;
+  g.gain.setValueAtTime(vol, audioCtx.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+  o.connect(g); g.connect(audioCtx.destination);
+  o.start(); o.stop(audioCtx.currentTime + dur);
+}
+
 const sfx = {
   select: () => beep(660, 0.06, "square", 0.08),
   swap:   () => beep(880, 0.08, "sine", 0.12),
@@ -816,18 +1233,41 @@ function readCellSize() {
   CELL = parseInt(v) || 56;
 }
 
-/* 创建格子背景 */
+/* 创建格子背景(保存引用到 cellEls,便于后续更新冰块外观) */
 function buildCells() {
   boardEl.innerHTML = "";
+  cellEls = Array.from({ length: ROWS }, () => Array(COLS).fill(null));
   for (let r = 0; r < ROWS; r++)
     for (let c = 0; c < COLS; c++) {
       const cell = document.createElement("div");
       cell.className = "cell";
+      // 该格有冰层时加冰块样式(🧊 半透明覆盖)
+      if (iceLayer[r] && iceLayer[r][c] > 0) cell.classList.add("ice-1");
       const p = posOf(r, c);
       cell.style.left = p.left + "px";
       cell.style.top  = p.top + "px";
       boardEl.appendChild(cell);
+      cellEls[r][c] = cell;
     }
+}
+
+/* 打碎某格的一层冰:更新数据 + 样式 + 播放碎冰动画 */
+function breakIce(r, c) {
+  if (!iceLayer[r] || iceLayer[r][c] <= 0) return false;
+  iceLayer[r][c]--;
+  const cell = cellEls[r] && cellEls[r][c];
+  if (cell) cell.classList.toggle("ice-1", iceLayer[r][c] > 0);
+  // 碎冰视觉:❄️ 飞出
+  const frag = document.createElement("div");
+  frag.className = "ice-break";
+  frag.textContent = "❄️";
+  const p = posOf(r, c);
+  frag.style.left = (p.left + CELL / 2 - 11) + "px";
+  frag.style.top  = (p.top + CELL / 2 - 11) + "px";
+  boardEl.appendChild(frag);
+  setTimeout(() => frag.remove(), 520);
+  beep(1200, 0.08, "triangle", 0.1);   // 清脆碎冰音
+  return true;
 }
 
 /* 创建猫咪 DOM */
@@ -852,6 +1292,8 @@ function makeCatEl(r, c, data) {
   img.alt = CAT_TYPES[data.type].name;
   img.draggable = false;
   img.loading = "lazy";
+  // 待机浮动错相位:每只猫的浮动节奏随机,棋盘像活的一样
+  img.style.animationDelay = (-Math.random() * 2.6).toFixed(2) + "s";
   // 加载失败 → 切换到名字兜底
   img.addEventListener("error", () => el.classList.add("no-img"));
   el.appendChild(img);
@@ -862,7 +1304,7 @@ function makeCatEl(r, c, data) {
   fb.textContent = CAT_TYPES[data.type].name;
   el.appendChild(fb);
 
-  // 特殊道具叠加符号
+  // 特殊道具叠加符号:⚡条纹 / 🌈彩虹 / 💣炸弹
   if (data.special === "stripe-h" || data.special === "stripe-v") {
     const tag = document.createElement("span");
     tag.className = "emoji";
@@ -875,6 +1317,14 @@ function makeCatEl(r, c, data) {
     tag.textContent = "🌈";
     tag.style.cssText = "position:absolute;z-index:2;font-size:1.1em;top:-4px;right:-2px;text-shadow:0 0 6px #fff;pointer-events:none;";
     el.appendChild(tag);
+  } else if (data.special === "bomb") {
+    const tag = document.createElement("span");
+    tag.className = "emoji";
+    tag.textContent = "💣";
+    tag.style.cssText = "position:absolute;z-index:2;font-size:1.1em;top:-4px;right:-2px;filter:drop-shadow(0 0 6px #ff5555);pointer-events:none;";
+    el.appendChild(tag);
+    // 炸弹猫脉冲红光(提示危险又强力)
+    el.classList.add("special");
   }
 
   // 注意:不再把坐标写死进闭包。点击时从 dataset 实时读取,
@@ -1054,9 +1504,73 @@ async function attemptSwap(r1, c1, r2, c2) {
   // ③ 正常交换流程
   busy = true;
   sfx.swap();
-  // 处理特殊道具:彩虹猫与任意猫交换,清除该色所有
   const a = grid[r1][c1], b = grid[r2][c2];
-  if (a?.special === "rainbow" || b?.special === "rainbow") {
+  const sa = a?.special, sb = b?.special;
+
+  // —— 特殊道具组合系统:两只特殊猫交换 = 触发强力组合技!——
+  // 组合表(参考 Candy Crush):
+  //   彩虹+彩虹 → 全屏清除
+  //   彩虹+任意特殊 → 清除该色全部
+  //   条纹+条纹 → 十字(清1行+1列)
+  //   条纹+炸弹 → 大十字(清3行+3列)
+  //   炸弹+炸弹 → 5×5 大爆炸
+  if (sa && sb) {
+    clearAllStubborn();  // 组合技也算有效操作,大儿消气
+    moves--;
+    updateHUD();
+    await animateMove(r1, c1, r2, c2);
+    swapData(r1, c1, r2, c2); swapEls(r1, c1, r2, c2);
+    // 组合中心点(以移动后的 r1c1 为中心)
+    const toClear = new Set([`${r1},${c1}`, `${r2},${c2}`]);
+    const isRainbow = s => s === "rainbow";
+    const isStripe  = s => s === "stripe-h" || s === "stripe-v";
+    const isBomb    = s => s === "bomb";
+    if (isRainbow(sa) && isRainbow(sb)) {
+      // 🌈+🌈:全屏清除!
+      for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) toClear.add(`${r},${c}`);
+      showToast("🌈✨ 彩虹双重奏!全屏消除!");
+    } else if (isRainbow(sa) || isRainbow(sb)) {
+      // 🌈+特殊:清除该色全部(以非彩虹那只的颜色为准)
+      const otherAt = isRainbow(sa) ? { r: r2, c: c2 } : { r: r1, c: c1 };
+      const targetType = grid[otherAt.r][otherAt.c].type;
+      for (let r = 0; r < ROWS; r++)
+        for (let c = 0; c < COLS; c++)
+          if (grid[r][c] && grid[r][c].type === targetType) toClear.add(`${r},${c}`);
+      showToast("🌈 超级同色消除!");
+    } else if (isStripe(sa) && isStripe(sb)) {
+      // ⚡+⚡:十字消除(以中心格的行+列)
+      for (let c = 0; c < COLS; c++) toClear.add(`${r1},${c}`);
+      for (let r = 0; r < ROWS; r++) toClear.add(`${r},${c1}`);
+      showToast("⚡ 十字光波!");
+    } else if ((isStripe(sa) && isBomb(sb)) || (isBomb(sa) && isStripe(sb))) {
+      // ⚡+💣:大十字(3行+3列)
+      for (let dr = -1; dr <= 1; dr++) for (let c = 0; c < COLS; c++) toClear.add(`${r1+dr},${c}`);
+      for (let dc = -1; dc <= 1; dc++) for (let r = 0; r < ROWS; r++) toClear.add(`${r},${c1+dc}`);
+      showToast("💣⚡ 巨型十字爆发!");
+    } else if (isBomb(sa) && isBomb(sb)) {
+      // 💣+💣:5×5 大爆炸
+      for (let r = r1-2; r <= r1+2; r++)
+        for (let c = c1-2; c <= c1+2; c++)
+          if (r >= 0 && r < ROWS && c >= 0 && c < COLS) toClear.add(`${r},${c}`);
+      showToast("💣💥 核弹级爆炸!");
+    }
+    // 组合技都带屏幕震动 + 爆炸音
+    joltBoard();
+    sfx.special();
+    // 清掉这两只的 special,防止 expandSpecials 重复连锁放大范围
+    if (grid[r1][c1]) grid[r1][c1].special = null;
+    if (grid[r2][c2]) grid[r2][c2].special = null;
+    await resolveCascades(toClear, 1);
+    afterMove();
+    busy = false;
+    return;
+  }
+
+  // —— 单只彩虹猫:与普通猫交换,清除该色全部 ——
+  if (sa === "rainbow" || sb === "rainbow") {
+    clearAllStubborn();  // 有效操作,大儿消气
+    moves--;
+    updateHUD();
     await animateMove(r1, c1, r2, c2);
     swapData(r1, c1, r2, c2); swapEls(r1, c1, r2, c2);
     const rainbowAt = grid[r1][c1]?.special === "rainbow" ? {r:r1,c:c1} : {r:r2,c:c2};
@@ -1133,8 +1647,10 @@ async function resolveCascades(matched, combo) {
     addScore(gained);
     floatScoreAt(matched, gained);
 
-    // 触发特殊道具的连锁清除(条纹猫清整行/列)
+    // 触发特殊道具的连锁清除(条纹清行列 / 炸弹清3×3 / 彩虹清同色)
     const extra = expandSpecials(matched);
+    // 大范围消除时屏幕震动,增强打击感(combo>=3 或一次消 8 只以上)
+    if (combo >= 3 || matched.size >= 8) joltBoard();
 
     // 标记要消除的元素
     for (const key of matched) {
@@ -1145,15 +1661,24 @@ async function resolveCascades(matched, combo) {
         el.classList.add("popping");
       }
     }
-    await sleep(340);
+    await sleep(400);   // 等待 3D 翻转消除动画(0.4s)播完
 
-    // 3. 真正删除数据 & 元素
+    // 3. 真正删除数据 & 元素 + 处理冰块/收集目标
     for (const key of matched) {
       const [r, c] = key.split(",").map(Number);
+      const cellData = grid[r][c];
+      // —— 冰块:消除该格猫咪时打碎一层冰(冰附着在格子上,不随猫下落) ——
+      if (iceLayer[r] && iceLayer[r][c] > 0) breakIce(r, c);
+      // —— 收集目标:消除的猫咪与收集目标同类型时计数 ——
+      if (collectGoal && cellData && cellData.type === collectGoal.type) {
+        collectGoal.got++;
+      }
       grid[r][c] = null;
       catEls[r][c]?.remove();
       catEls[r][c] = null;
     }
+    // 冰块/收集进度变化后刷新 HUD(目标卡与进度条)
+    if (iceTotalAtStart > 0 || collectGoal) updateHUD();
 
     // 4. 放置生成的特殊道具
     for (const sp of specialsToPlace) {
@@ -1329,8 +1854,11 @@ function spawnAttackParticles(el) {
   }
 }
 
-/* 检测4连/5连,返回要放置的特殊道具列表
-   只在同一坐标同时属于横/纵 4+ 连时才生成,避免重复/泛滥 */
+/* 检测特殊道具生成点(参考 Candy Crush 规则):
+   ① 5 连直线        → 🌈 彩虹猫
+   ② L/T 形(横竖交叉)→ 💣 炸弹猫
+   ③ 4 连直线        → ⚡ 条纹猫
+   优先级从高到低,同一格只放一个道具(used 集合去重) */
 function detectSpecials(matched) {
   const result = [];
   const used = new Set(); // 已经放置道具的格子,避免一格放多个
@@ -1344,7 +1872,7 @@ function detectSpecials(matched) {
     (byCol[c] = byCol[c] || new Set()).add(r);
   }
 
-  // 从一个排序数组中提取连续段(长度>=minLen),返回 [[start, end]...]
+  // 从一个排序数组中提取连续段(长度>=minLen),返回 [[start, end, len]...]
   function runs(arr, minLen) {
     const out = [];
     const s = [...arr].sort((a,b)=>a-b);
@@ -1359,37 +1887,59 @@ function detectSpecials(matched) {
     }
     return out;
   }
+  // 判断格子 (r,c) 是否位于某条长度>=3 的横向/纵向段内(用于 L/T 交叉检测)
+  function inRunOf3(byMap, a, b) {
+    if (!byMap[a]) return false;
+    for (const [s, e] of runs(byMap[a], 3)) if (b >= s && b <= e) return true;
+    return false;
+  }
 
-  // 横向段(5连→彩虹,4连→横向条纹)
+  // —— ① 5 连直线 → 彩虹猫 ——
+  for (const r in byRow) {
+    for (const [cStart, cEnd] of runs(byRow[r], 5)) {
+      const mid = Math.floor((cStart + cEnd) / 2);
+      const key = `${r},${mid}`;
+      result.push({ r: +r, c: mid, type: grid[r][mid]?.type ?? 0, kind: "rainbow" });
+      used.add(key);
+    }
+  }
+  for (const c in byCol) {
+    for (const [rStart, rEnd] of runs(byCol[c], 5)) {
+      const mid = Math.floor((rStart + rEnd) / 2);
+      const key = `${mid},${c}`;
+      if (used.has(key)) continue;
+      result.push({ r: mid, c: +c, type: grid[mid][c]?.type ?? 0, kind: "rainbow" });
+      used.add(key);
+    }
+  }
+
+  // —— ② L/T 形交叉 → 炸弹猫(该格既在横 3+ 连又在纵 3+ 连中) ——
+  for (const key of matched) {
+    if (used.has(key)) continue;
+    const [r, c] = key.split(",").map(Number);
+    if (inRunOf3(byRow, r, c) && inRunOf3(byCol, c, r)) {
+      result.push({ r, c, type: grid[r][c]?.type ?? 0, kind: "bomb" });
+      used.add(key);
+    }
+  }
+
+  // —— ③ 4 连直线 → 条纹猫 ——
   for (const r in byRow) {
     for (const [cStart, cEnd, len] of runs(byRow[r], 4)) {
       const mid = Math.floor((cStart + cEnd) / 2);
       const key = `${r},${mid}`;
       if (used.has(key)) continue;
-      const type = grid[r][mid]?.type ?? 0;
-      if (len >= 5) {
-        result.push({ r: +r, c: mid, type, kind: "rainbow" });
-        used.add(key);
-      } else {
-        result.push({ r: +r, c: mid, type, kind: "stripe-h" });
-        used.add(key);
-      }
+      result.push({ r: +r, c: mid, type: grid[r][mid]?.type ?? 0, kind: "stripe-h" });
+      used.add(key);
     }
   }
-  // 纵向段(5连→彩虹,4连→纵向条纹)
   for (const c in byCol) {
     for (const [rStart, rEnd, len] of runs(byCol[c], 4)) {
       const mid = Math.floor((rStart + rEnd) / 2);
       const key = `${mid},${c}`;
       if (used.has(key)) continue;
-      const type = grid[mid][c]?.type ?? 0;
-      if (len >= 5) {
-        result.push({ r: mid, c: +c, type, kind: "rainbow" });
-        used.add(key);
-      } else {
-        result.push({ r: mid, c: +c, type, kind: "stripe-v" });
-        used.add(key);
-      }
+      result.push({ r: mid, c: +c, type: grid[mid][c]?.type ?? 0, kind: "stripe-v" });
+      used.add(key);
     }
   }
   return result;
@@ -1404,9 +1954,17 @@ function expandSpecials(matched) {
     if (!cell || !cell.special) continue;
     sfx.special();
     if (cell.special === "stripe-h") {
+      // 横向条纹:清除整行
       for (let cc = 0; cc < COLS; cc++) if (!matched.has(`${r},${cc}`)) toAdd.add(`${r},${cc}`);
     } else if (cell.special === "stripe-v") {
+      // 纵向条纹:清除整列
       for (let rr = 0; rr < ROWS; rr++) if (!matched.has(`${rr},${c}`)) toAdd.add(`${rr},${c}`);
+    } else if (cell.special === "bomb") {
+      // 炸弹:清除周围 3×3 区域
+      for (let rr = r - 1; rr <= r + 1; rr++)
+        for (let cc = c - 1; cc <= c + 1; cc++)
+          if (rr >= 0 && rr < ROWS && cc >= 0 && cc < COLS && !matched.has(`${rr},${cc}`))
+            toAdd.add(`${rr},${cc}`);
     } else if (cell.special === "rainbow") {
       // 彩虹被消除时随机清一种颜色
       const types = CAT_TYPES.map((_,i)=>i);
@@ -1533,12 +2091,31 @@ function addScore(n) {
 function updateHUD() {
   $("hud-score").textContent = score;
   $("hud-level").textContent = level;
-  $("hud-target").textContent = target;
+
+  // —— 目标卡动态内容:三种关卡类型显示不同目标 ——
+  const targetEl = $("hud-target");
+  let pct = 0;   // 进度条百分比
+  if (levelType === "collect" && collectGoal) {
+    // 收集关:显示「目标猫名 x 已收/需要」
+    targetEl.textContent = `${CAT_TYPES[collectGoal.type].name} ${collectGoal.got}/${collectGoal.need}`;
+    pct = (collectGoal.got / collectGoal.need) * 100;
+    targetEl.parentElement.style.fontSize = "";
+  } else if (levelType === "ice") {
+    // 冰块关:显示剩余冰块数
+    let left = 0;
+    for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) left += iceLayer[r][c] > 0 ? 1 : 0;
+    targetEl.textContent = `🧊 x ${left}`;
+    pct = iceTotalAtStart > 0 ? ((iceTotalAtStart - left) / iceTotalAtStart) * 100 : 100;
+  } else {
+    // 分数关:显示目标分数
+    targetEl.textContent = target;
+    pct = Math.min(100, (score / target) * 100);
+  }
+  $("progress").style.width = Math.max(0, Math.min(100, pct)) + "%";
+
   const m = $("hud-moves");
   m.textContent = moves;
   m.classList.toggle("warn", moves <= 5);
-  const pct = Math.min(100, (score / target) * 100);
-  $("progress").style.width = pct + "%";
   // 更新提示/重排按钮上的剩余次数徽章
   updateQuota("btn-hint", hintLeft);
   updateQuota("btn-shuffle", shuffleLeft);
@@ -1551,28 +2128,83 @@ function updateQuota(btnId, left) {
   span.classList.toggle("zero", left <= 0);
 }
 
+/* 屏幕震动打击感:棋盘抖一下(爆炸/大连击时调用) */
+function joltBoard() {
+  const f = document.querySelector(".board-frame");
+  if (!f) return;
+  f.classList.remove("jolt");
+  void f.offsetWidth;   // 强制重排以重启动画
+  f.classList.add("jolt");
+  setTimeout(() => f.classList.remove("jolt"), 320);
+}
+
+/* 判断本关主目标是否已达成(三种关卡类型各自判定) */
+function levelCleared() {
+  if (levelType === "collect" && collectGoal) return collectGoal.got >= collectGoal.need;
+  if (levelType === "ice") {
+    for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++)
+      if (iceLayer[r][c] > 0) return false;
+    return true;
+  }
+  return score >= target;   // 分数关
+}
+
 function afterMove() {
   // 检查死局
   if (!hasPossibleMove()) {
     showToast("😵 没有可消除的步了,自动重排!");
     setTimeout(() => shuffleBoard(false), 600);
   }
-  // 判定胜负
-  if (score >= target) {
+  // 判定胜负:主目标达成 → 过关;步数耗尽且未达成 → 失败
+  if (levelCleared()) {
     setTimeout(() => endLevel(true), 400);
   } else if (moves <= 0) {
     setTimeout(() => endLevel(false), 400);
   }
 }
 
+/* 计算星级:按得分 / 基准分的比例
+   ≥1 倍 → 1星,≥1.5 倍 → 2星,≥2 倍 → 3星 */
+function calcStars() {
+  if (score >= target * 2) return 3;
+  if (score >= target * 1.5) return 2;
+  return 1;
+}
+
 function endLevel(win) {
   stopIdle();  // 关卡结束,停止大儿计时
+  stopBGM();   // 停止背景音乐
   if (win) sfx.win(); else sfx.lose();
   $("modal-emoji").textContent = win ? "🎉" : "😿";
   $("modal-title").textContent = win ? `第 ${level} 关通过!` : "挑战失败";
-  $("modal-desc").textContent = win
-    ? "你成功收集了足够多的猫咪!"
-    : `差一点就成功了,目标 ${target} 分。`;
+
+  // —— 失败提示按关卡类型定制 ——
+  if (!win) {
+    let hint = `差一点就成功了!`;
+    if (levelType === "collect" && collectGoal) hint = `还差 ${collectGoal.need - collectGoal.got} 只${CAT_TYPES[collectGoal.type].name}!`;
+    else if (levelType === "ice") hint = "还有冰块没有打碎!";
+    $("modal-desc").textContent = hint;
+  } else {
+    $("modal-desc").textContent = "猫咪们为你欢呼!🎀";
+  }
+
+  // —— 星级结算(过关才有星):逐颗点亮动画 ——
+  const stars = win ? calcStars() : 0;
+  const starEls = document.querySelectorAll("#stars-row .star");
+  starEls.forEach(s => s.classList.remove("lit"));
+  if (win) {
+    starEls.forEach((s, i) => {
+      if (i < stars) setTimeout(() => { s.classList.add("lit"); beep(700 + i * 200, 0.15, "triangle", 0.12); }, 350 + i * 350);
+    });
+  }
+
+  // —— 存档:解锁下一关 + 记录最佳星级 ——
+  if (win) {
+    saveData.unlocked = Math.max(saveData.unlocked, level + 1);
+    saveData.stars[level] = Math.max(saveData.stars[level] || 0, stars);
+    writeSave();
+  }
+
   $("modal-stat").textContent = `本局得分:${score}`;
   $("modal-btn").textContent = win ? "下一关 ➜" : "重新挑战";
   $("modal-btn").onclick = () => {
@@ -1583,14 +2215,55 @@ function endLevel(win) {
     } else {
       startLevel(); // 同关重来
     }
+    startBGM();  // 重新开始背景音乐
   };
   overlay.classList.add("show");
 }
 
+/* ============================================================
+   开始界面:显示总星数与进度,提供继续/重开入口
+   ============================================================ */
+function showStartScreen() {
+  $("start-stars").textContent = `⭐ 已收集 ${totalStars()} 颗星星`;
+  $("btn-continue").textContent = `▶ 开始冒险(第 ${saveData.unlocked} 关)`;
+  $("start-overlay").classList.add("show");
+}
+$("btn-continue").onclick = () => {
+  level = saveData.unlocked;
+  $("start-overlay").classList.remove("show");
+  ensureAudio();
+  startLevel();
+  startBGM();
+};
+$("btn-reset").onclick = () => {
+  // 清空存档,从第 1 关重新开始
+  saveData = { unlocked: 1, stars: {} };
+  writeSave();
+  level = 1;
+  $("start-overlay").classList.remove("show");
+  startLevel();
+  startBGM();
+  showToast("✨ 新的冒险开始!");
+};
+
 function startLevel() {
-  // 难度递增
-  target = 1000 + (level - 1) * 600;
-  moves  = Math.max(12, 22 - Math.floor((level - 1) / 2));
+  // —— 读取关卡配置(类型/目标/步数/冰块/收集) ——
+  const cfg = levelConfig(level);
+  levelType = cfg.type;
+  target    = cfg.target;
+  moves     = Math.max(10, cfg.moves);
+  collectGoal = cfg.collect ? { ...cfg.collect, got: 0 } : null;
+
+  // —— 生成冰块层(仅冰块关) ——
+  iceLayer = Array.from({ length: ROWS }, () => Array(COLS).fill(0));
+  let placed = 0, guard = 0;
+  while (placed < cfg.iceCount && guard++ < 500) {
+    const r = Math.floor(Math.random() * ROWS);
+    const c = Math.floor(Math.random() * COLS);
+    if (iceLayer[r][c] === 0) { iceLayer[r][c] = 1; placed++; }
+  }
+  iceTotalAtStart = placed;
+
   score  = 0;
   selected = null;
   usedPasswords.clear();   // 新关重置已用密码记录
@@ -1598,7 +2271,7 @@ function startLevel() {
   shuffleLeft = FREE_QUOTA.shuffle; // 重置重排额度
   stubbornEls.clear();     // 新关重置倔强状态
   initBoard();
-  buildCells();
+  buildCells();   // buildCells 内部会按 iceLayer 绘制冰块
   renderAll();
   updateHUD();
   pokeIdle();  // 启动大儿空闲计时
@@ -1660,17 +2333,17 @@ const unlockOverlay = $("unlock-overlay");
 const pwdBoxes = document.querySelectorAll(".pwd-box");
 const pwdError = $("pwd-error");
 
-// 各动作的文案配置
+// 各动作的文案配置(肯德基疯狂星期四文学 🍗)
 const UNLOCK_TEXT = {
   hint: {
-    title: "提示次数已用完",
-    desc:  "本关免费提示已用完,扫码 V 我 50 继续获取提示 😼",
-    btn:   "确认解锁提示",
+    title: "疯狂星期四,想吃吮指原味鸡",
+    desc:  "刚才陈皮偷偷告诉我:今天是肯德基疯狂星期四!谁 V 她 50,她就偷偷告诉你提示的密码…",
+    btn:   "🍗 V50 看提示",
   },
   shuffle: {
-    title: "重排次数已用完",
-    desc:  "本关免费重排已用完,扫码 V 我 50 获得重排密码助力通关 😼",
-    btn:   "确认解锁重排",
+    title: "疯狂星期四,想吃黄金脆皮鸡",
+    desc:  "大儿蹲在棋盘上不走了,说今天是肯德基疯狂星期四,不 V 50 吃个脆皮鸡,它才不帮你重排!",
+    btn:   "🍗 V50 重排",
   },
 };
 
@@ -1693,18 +2366,19 @@ function closeUnlockModal() {
 }
 
 // 校验密码:4位数字 + 含 2 + 含 8 + 本关未使用过
+// 错误提示全部疯四化 🍗
 function checkUnlockPwd() {
   const code = Array.from(pwdBoxes).map(b => b.value).join("");
   if (!/^\d{4}$/.test(code)) {
-    pwdError.textContent = "请输入完整的 4 位密码";
+    pwdError.textContent = "吮指原味鸡还没吃上?先把 4 位密码输完!";
     shakePwd(); sfx.bad(); return false;
   }
   if (!code.includes("2") || !code.includes("8")) {
-    pwdError.textContent = "密码不正确,记得扫码 V50 哦 😼";
+    pwdError.textContent = "肯德基爷爷摇了摇头:密码不对,V50 再想想 🍗";
     shakePwd(); sfx.bad(); return false;
   }
   if (usedPasswords.has(code)) {
-    pwdError.textContent = "这个密码已经用过了,请换一个 😼";
+    pwdError.textContent = "这口鸡已经被吃掉了!疯狂星期四一人一份,换个密码 🍗";
     shakePwd(); sfx.bad(); return false;
   }
   return true;
@@ -1926,13 +2600,38 @@ $("help-close").onclick = () => { $("help-overlay").classList.remove("show"); sf
 $("help-overlay").addEventListener("click", (e) => {
   if (e.target.id === "help-overlay") $("help-overlay").classList.remove("show");
 });
-$("btn-sound").onclick = (e) => {
-  soundOn = !soundOn;
-  e.target.textContent = soundOn ? "🔊 音效" : "🔇 静音";
-  e.target.classList.toggle("on", !soundOn);
-  if (soundOn) ensureAudio();
+
+/* ============================================================
+   声音总控:🔊按钮循环三态(全开 → 仅BGM → 仅音效 → 全关)
+   ============================================================ */
+// 声音模式:0=全开 1=仅BGM 2=仅音效 3=全关
+let soundMode = 0;
+const SOUND_MODES = [
+  { icon: "🔊", label: "声音",  sfx: true,  bgm: true  },
+  { icon: "🎵", label: "BGM",  sfx: false, bgm: true  },
+  { icon: "🔔", label: "音效",  sfx: true,  bgm: false },
+  { icon: "🔇", label: "静音",  sfx: false, bgm: false },
+];
+function applySoundMode() {
+  const m = SOUND_MODES[soundMode];
+  soundOn = m.sfx;
+  bgmOn = m.bgm;
+  const btn = $("btn-sound");
+  btn.textContent = `${m.icon} ${m.label}`;
+  btn.classList.toggle("on", soundMode === 3);   // 全关时高亮提醒
+  if (soundOn || bgmOn) ensureAudio();
+  if (!bgmOn) stopBGM(); else startBGM();
+}
+$("btn-sound").onclick = () => {
+  soundMode = (soundMode + 1) % SOUND_MODES.length;
+  applySoundMode();
 };
-$("btn-restart").onclick = () => { level = 1; startLevel(); };
+
+// 游戏内重开:重打当前关(不清存档进度,比旧版「回到第1关」更友好)
+$("btn-restart").onclick = () => {
+  startLevel();
+  showToast("🔄 本关重新开始!");
+};
 
 window.addEventListener("resize", () => {
   readCellSize();
@@ -1940,12 +2639,39 @@ window.addEventListener("resize", () => {
   renderAll();
 });
 
+/* ============================================================
+   鼠标视差:棋盘随鼠标位置轻微 3D 倾斜,营造立体空间感
+   (触屏设备无 mousemove,棋盘保持默认 9° 后仰姿态)
+   ============================================================ */
+const boardFrameEl = document.getElementById("board-frame");
+let parallaxRaf = null;
+document.addEventListener("mousemove", (e) => {
+  if (parallaxRaf) return;               // rAF 节流,一帧最多更新一次
+  parallaxRaf = requestAnimationFrame(() => {
+    // 归一化到 -0.5 ~ 0.5
+    const nx = e.clientX / window.innerWidth - 0.5;
+    const ny = e.clientY / window.innerHeight - 0.5;
+    // 水平移动→左右旋转(±4°),垂直移动→俯仰(基础9° ±3°)
+    boardFrameEl.style.setProperty("--ry", (nx * 8).toFixed(2) + "deg");
+    boardFrameEl.style.setProperty("--rx", (9 - ny * 6).toFixed(2) + "deg");
+    parallaxRaf = null;
+  });
+});
+// 弹窗 3D 入场(见 CSS .modal 的 transform 变化)
 // 首次交互激活音频
 document.addEventListener("click", ensureAudio, { once: true });
 
-// 启动
+/* ============================================================
+   启动流程:先显示开始界面(带存档进度),点「开始冒险」进游戏
+   ============================================================ */
 readCellSize();
-startLevel();
+loadSave();
+level = saveData.unlocked;
+initBoard();          // 先铺一张背景棋盘(开始界面后面可见)
+buildCells();
+renderAll();
+updateHUD();
+showStartScreen();    // 显示开始界面,等待玩家点击
 
 </script>
 </body>
