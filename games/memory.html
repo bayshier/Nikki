@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>🃏 猫咪配对 · Nikki 游戏合集</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='0.9em' font-size='90'%3E%F0%9F%8E%80%3C/text%3E%3C/svg%3E">
 <style>
   :root {
     --hk-pink: #ff9ec4; --hk-deep: #ff6b9d; --hk-light: #ffeef4;
@@ -151,6 +152,19 @@ const board = document.getElementById("board");
 let deck = [], first = null, lock = false, steps = 0, pairs = 0, sec = 0, timer = null;
 
 function $(id) { return document.getElementById(id); }
+// 音效(Web Audio 合成)
+let ac = null;
+function ensureAudio() { if (!ac) { try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} } if (ac && ac.state === "suspended") ac.resume(); }
+function beep(f, d, t, v) {
+  ensureAudio();
+  if (!ac) return;
+  const o = ac.createOscillator(), g = ac.createGain();
+  o.type = t; o.frequency.value = f;
+  g.gain.setValueAtTime(v, ac.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + d);
+  o.connect(g); g.connect(ac.destination);
+  o.start(); o.stop(ac.currentTime + d);
+}
 
 function init() {
   // 生成并洗牌
@@ -177,6 +191,8 @@ function init() {
 
 function flip(el, c) {
   if (lock || el.classList.contains("open") || el.classList.contains("done")) return;
+  ensureAudio();
+  beep(520, 0.06, "triangle", 0.1);   // 翻牌音
   el.classList.add("open");
   if (!first) { first = { el, c }; return; }   // 第一张
   // 第二张:判定
@@ -187,6 +203,7 @@ function flip(el, c) {
     first.el.classList.remove("open"); el.classList.remove("open");
     first.el.classList.add("done"); el.classList.add("done");
     pairs++; $("hud-pairs").textContent = pairs + "/8";
+    beep(920, 0.14, "triangle", 0.13);   // 配对成功音
     first = null;
     if (pairs === 8) win();
   } else {
@@ -194,6 +211,7 @@ function flip(el, c) {
     lock = true;
     const a = first.el; first = null;
     a.classList.add("wrong"); el.classList.add("wrong");
+    beep(240, 0.18, "sawtooth", 0.1);   // 失败音
     setTimeout(() => {
       a.classList.remove("open", "wrong"); el.classList.remove("open", "wrong");
       lock = false;

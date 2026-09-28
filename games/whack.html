@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>🐾 猫咪打地鼠 · Nikki 游戏合集</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='0.9em' font-size='90'%3E%F0%9F%8E%80%3C/text%3E%3C/svg%3E">
 <style>
   :root { --hk-deep: #ff6b9d; --hk-red: #e94560; --hk-muted: #c98ba0; --hk-yellow: #ffd56b; }
   * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
@@ -108,6 +109,9 @@
   }
   .btn.sec { background: #fff; color: var(--hk-deep); border: 2px solid #ff9ec4; box-shadow: 0 3px 0 -1px #f3b7cc; text-decoration: none; display: inline-block; }
 </style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Nunito:wght@400;700;800&display=swap" rel="stylesheet">
 </head>
 <body>
   <div class="top">
@@ -141,6 +145,7 @@ const CATS = [
 const DAER = { name: "大儿", file: "daer" };   // 点他会扣分!
 const field = document.getElementById("field");
 let score = 0, timeLeft = 30, gameTimer, moleTimer, running = false;
+let fedCount = 0;             // 本局喂了几只猫(统计用)
 let popDuration = 900;        // 冒头停留时长,随时间变短(加速)
 
 function get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } }
@@ -202,6 +207,7 @@ function hit(h) {
   fx.className = "hit-fx";
   if (h.dataset.type === "cat") {
     // 喂猫 +10
+    fedCount++;
     score += 10;
     fx.textContent = "+10 🐟";
     beep(900, 0.08, "triangle", 0.12);
@@ -235,7 +241,7 @@ function showToast(msg) {
 
 function startGame() {
   // 复位
-  score = 0; timeLeft = 30; popDuration = 900; running = true;
+  score = 0; timeLeft = 30; popDuration = 900; running = true; fedCount = 0;
   holes.forEach(h => { h.classList.remove("up", "daer"); h.dataset.type = ""; });
   document.getElementById("hud-score").textContent = 0;
   document.getElementById("hud-time").textContent = 30;
@@ -264,7 +270,7 @@ function endGame() {
   let isBest = false;
   if (score > best) { set("nikki_whack_best", score); isBest = true; document.getElementById("hud-best").textContent = score; }
   document.getElementById("over-detail").innerHTML =
-    `本局 <b>${score}</b> 分<br>` + (isBest ? "🏆 <b>新纪录!</b>" : `最高纪录:${best} 分`);
+    `本局 <b>${score}</b> 分 · 喂了 <b>${fedCount}</b> 只猫<br>` + (isBest ? "🏆 <b>新纪录!</b>" : `最高纪录:${best} 分`);
   document.getElementById("over").classList.add("show");
 }
 

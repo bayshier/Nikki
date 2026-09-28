@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>🎀 Nikki 游戏合集</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='0.9em' font-size='90'%3E%F0%9F%8E%80%3C/text%3E%3C/svg%3E">
 <style>
   :root {
     --hk-pink: #ff9ec4; --hk-deep: #ff6b9d; --hk-light: #ffeef4;
@@ -52,6 +53,42 @@
     filter: drop-shadow(0 2px 0 #d15683) drop-shadow(0 6px 10px rgba(255,107,157,0.4));
   }
   .hero .sub { font-size: 13px; color: var(--hk-muted); font-weight: 700; margin-top: 4px; }
+
+  .assets-bar {
+    display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;
+    margin-bottom: 20px;
+  }
+  .assets-bar .chip {
+    font-size: 12px; font-weight: 800; color: var(--hk-text);
+    background: rgba(255,255,255,0.85);
+    border: 2px solid rgba(255,158,196,0.5);
+    padding: 5px 16px; border-radius: 99px;
+    box-shadow: 0 3px 0 -1px #f3b7cc;
+  }
+  .assets-bar .chip b { color: var(--hk-deep); }
+
+  .card .icon { animation: iconFloat 2.6s ease-in-out infinite alternate; }
+  @keyframes iconFloat {
+    from { transform: translateY(0) rotate(-2deg); }
+    to   { transform: translateY(-5px) rotate(2deg); }
+  }
+  /* 真图图标:2×2 猫图拼贴 / 单图 */
+  .icon .mini-grid {
+    display: grid; grid-template-columns: 1fr 1fr;
+    width: 100%; height: 100%;
+  }
+  .icon .mini-grid img {
+    width: 100%; height: 100%; object-fit: cover;
+  }
+  .icon .mini-grid img:nth-child(1) { border-radius: 14px 0 0 0; }
+  .icon .mini-grid img:nth-child(2) { border-radius: 0 14px 0 0; }
+  .icon .mini-grid img:nth-child(3) { border-radius: 0 0 0 14px; }
+  .icon .mini-grid img:nth-child(4) { border-radius: 0 0 14px 0; }
+  .icon .duo { display: flex; width: 100%; height: 100%; }
+  .icon .duo img { width: 50%; height: 100%; object-fit: cover; }
+  .icon .duo img:first-child { border-radius: 12px 0 0 12px; }
+  .icon .duo img:last-child { border-radius: 0 12px 12px 0; }
+  .icon .solo { width: 78%; height: 78%; object-fit: cover; border-radius: 50%; border: 3px solid #fff; }
 
   .grid {
     display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -116,9 +153,18 @@
     <div class="sub">💕 和猫咪们一起玩遍所有小游戏 ✨</div>
   </div>
 
+  <div class="assets-bar" id="assets-bar">
+    <span class="chip">💰 金币 <b id="sum-coins">0</b></span>
+    <span class="chip">⭐ 星星 <b id="sum-stars">0</b></span>
+    <span class="chip">🎮 已解锁 <b id="sum-level">1</b> 关</span>
+  </div>
+
   <div class="grid">
     <a class="card" href="games/match3/index.html">
-      <div class="icon">🐱</div>
+      <div class="icon"><div class="mini-grid">
+        <img src="assets/cats/chenpi.png" alt=""><img src="assets/cats/baozi.png" alt="">
+        <img src="assets/cats/niannian.png" alt=""><img src="assets/cats/songlu.png" alt="">
+      </div></div>
       <h2>猫咪消消乐</h2>
       <p>三连消除 · 4连⚡ 5连🌈 L形💣<br>马里奥补位 · 疯狂星期四解锁</p>
       <div class="best" id="best-match3">⭐ 加载中…</div><br>
@@ -126,7 +172,9 @@
     </a>
 
     <a class="card" href="games/memory.html">
-      <div class="icon">🃏</div>
+      <div class="icon"><div class="duo">
+        <img src="assets/cats/youyu.png" alt=""><img src="assets/cats/ali.png" alt="">
+      </div></div>
       <h2>猫咪配对</h2>
       <p>翻开卡片寻找相同的猫咪<br>考验记忆力的休闲小游戏</p>
       <div class="best" id="best-memory">⭐ 加载中…</div><br>
@@ -150,7 +198,7 @@
     </a>
 
     <a class="card" href="games/whack.html">
-      <div class="icon">🐾</div>
+      <div class="icon"><img class="solo" src="assets/cats/daer.png" alt=""></div>
       <h2>猫咪打地鼠</h2>
       <p>猫咪冒头快点它喂小鱼干<br>小心别点到大儿,他会反击!</p>
       <div class="best" id="best-whack">⭐ 加载中…</div><br>
@@ -181,6 +229,10 @@ document.getElementById("best-flappy").textContent = flappy ? `🏆 最高 ${fla
 // 打地鼠
 const whack = get("nikki_whack_best", 0);
 document.getElementById("best-whack").textContent = whack ? `🏆 最高 ${whack} 分` : "⭐ 尚无纪录";
+// 总资产条
+document.getElementById("sum-coins").textContent = save.coins || 0;
+document.getElementById("sum-stars").textContent = stars;
+document.getElementById("sum-level").textContent = save.unlocked || 1;
 </script>
 </body>
 </html>
