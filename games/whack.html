@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🐾 猫咪打地鼠 · Nikki 游戏合集</title>
+<style>
+  :root { --hk-deep: #ff6b9d; --hk-red: #e94560; --hk-muted: #c98ba0; --hk-yellow: #ffd56b; }
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
+  body {
+    font-family: "Nunito", -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    color: #8b4a5e;
+    background: linear-gradient(135deg, #ffd6e8 0%, #ffeef4 40%, #fff9fb 100%) fixed;
+    min-height: 100dvh;
+    display: flex; flex-direction: column; align-items: center;
+    padding: 14px;
+  }
+  .top { display: flex; gap: 10px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; justify-content: center; }
+  .hud {
+    background: rgba(255,255,255,0.9); border: 2px solid rgba(255,158,196,0.5);
+    border-radius: 14px; padding: 5px 16px; text-align: center;
+    box-shadow: 0 3px 0 -1px #f3b7cc;
+  }
+  .hud .l { font-size: 10px; color: var(--hk-muted); font-weight: 800; }
+  .hud .v { font-size: 18px; font-weight: 800; color: var(--hk-deep); }
+  .hud .v.warn { color: var(--hk-red); animation: pulse 0.6s infinite alternate; }
+  @keyframes pulse { to { transform: scale(1.15); } }
+  .home {
+    text-decoration: none; font-size: 13px; font-weight: 800; color: var(--hk-deep);
+    background: #fff; border: 2px solid rgba(255,158,196,0.5); border-radius: 12px; padding: 8px 14px;
+    box-shadow: 0 3px 0 -1px #f3b7cc;
+  }
+
+  /* 3×3 草地洞穴 */
+  .field {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    width: 100%; max-width: 440px;
+    background: linear-gradient(180deg, #c6ec8e, #9fd968);
+    border-radius: 24px;
+    padding: 20px;
+    border: 4px solid rgba(255,255,255,0.8);
+    box-shadow: 0 8px 0 -2px #7cb552, 0 18px 30px rgba(140,190,90,0.35);
+  }
+  .hole {
+    aspect-ratio: 1;
+    position: relative;
+    border-radius: 50%;
+    background: radial-gradient(circle at 50% 42%, #6b4a2a 0%, #4a3018 65%, #35220f 100%);
+    box-shadow: inset 0 6px 12px rgba(0,0,0,0.45);
+    overflow: hidden;
+    cursor: pointer;
+  }
+  /* 冒头的角色:从洞里升起 */
+  .mole {
+    position: absolute; inset: 8% 12% -30% 12%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 44px;
+    transition: transform 0.18s cubic-bezier(.3,1.4,.5,1);
+    transform: translateY(110%);
+  }
+  .hole.up .mole { transform: translateY(6%); }
+  .mole img { width: 78%; height: 78%; object-fit: cover; border-radius: 16px; border: 3px solid #fff; box-shadow: 0 3px 8px rgba(0,0,0,0.3); pointer-events: none; }
+  .mole .face { font-size: 46px; pointer-events: none; }
+  /* 大儿:红色警告边框 */
+  .hole.daer .mole img, .hole.daer .mole .face { filter: drop-shadow(0 0 8px #ff3838); }
+  .mole .angry {
+    position: absolute; top: -4px; right: 0;
+    font-size: 20px; pointer-events: none;
+  }
+  /* 点中特效 */
+  .hit-fx {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 34px; font-weight: 900; color: #fff;
+    text-shadow: 0 0 8px #ff6b9d, 0 2px 4px rgba(0,0,0,0.4);
+    pointer-events: none;
+    animation: hitPop 0.4s ease-out forwards;
+    z-index: 5;
+  }
+  @keyframes hitPop { 0% { transform: scale(0.4); opacity: 1; } 100% { transform: scale(1.8) translateY(-24px); opacity: 0; } }
+
+  .tip { margin-top: 12px; font-size: 12px; font-weight: 800; color: var(--hk-muted); text-align: center; line-height: 1.7; }
+
+  .overlay {
+    position: fixed; inset: 0; z-index: 50;
+    background: rgba(255,158,196,0.4); backdrop-filter: blur(6px);
+    display: none; align-items: center; justify-content: center;
+  }
+  .overlay.show { display: flex; }
+  .modal {
+    background: linear-gradient(160deg, #fff5f8, #fff);
+    border: 3px solid rgba(255,158,196,0.6);
+    border-radius: 24px; padding: 30px 36px; text-align: center;
+    box-shadow: 0 16px 40px rgba(255,107,157,0.35);
+    animation: pop 0.4s cubic-bezier(.34,1.56,.64,1);
+  }
+  @keyframes pop { from { transform: scale(0.7); } }
+  .modal .e { font-size: 52px; }
+  .modal h2 { color: var(--hk-deep); margin: 6px 0; }
+  .modal p { color: var(--hk-muted); font-size: 14px; margin-bottom: 16px; }
+  .btn {
+    border: none; cursor: pointer; font-family: inherit;
+    font-size: 14px; font-weight: 800; color: #fff;
+    background: linear-gradient(135deg, var(--hk-deep), #ff9ec4);
+    padding: 10px 26px; border-radius: 99px; margin: 0 5px;
+    box-shadow: 0 4px 0 -1px #d15683;
+  }
+  .btn.sec { background: #fff; color: var(--hk-deep); border: 2px solid #ff9ec4; box-shadow: 0 3px 0 -1px #f3b7cc; text-decoration: none; display: inline-block; }
+</style>
+</head>
+<body>
+  <div class="top">
+    <a class="home" href="../index.html">🏠 大厅</a>
+    <div class="hud"><div class="l">分数</div><div class="v" id="hud-score">0</div></div>
+    <div class="hud"><div class="l">时间</div><div class="v" id="hud-time">30</div></div>
+    <div class="hud"><div class="l">最高</div><div class="v" id="hud-best">0</div></div>
+  </div>
+
+  <div class="field" id="field"></div>
+  <div class="tip">🐱 点猫咪喂小鱼干 +10 · 😾 <b style="color:var(--hk-red)">大儿捣乱时别点他</b>(-15)!<br>越到后面冒头越快!</div>
+
+  <div class="overlay" id="over">
+    <div class="modal">
+      <div class="e">🏆</div>
+      <h2>时间到!</h2>
+      <p id="over-detail"></p>
+      <button class="btn" onclick="startGame()">🔄 再来一局</button>
+      <a class="btn sec" href="../index.html">🏠 回大厅</a>
+    </div>
+  </div>
+
+<script>
+// ===== 猫咪打地鼠 =====
+const CATS = [
+  { name: "陈皮", file: "chenpi" }, { name: "包子", file: "baozi" },
+  { name: "年年", file: "niannian" }, { name: "松露", file: "songlu" },
+  { name: "警长", file: "jinzhang" }, { name: "有鱼", file: "youyu" },
+  { name: "阿狸", file: "ali" },
+];
+const DAER = { name: "大儿", file: "daer" };   // 点他会扣分!
+const field = document.getElementById("field");
+let score = 0, timeLeft = 30, gameTimer, moleTimer, running = false;
+let popDuration = 900;        // 冒头停留时长,随时间变短(加速)
+
+function get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } }
+function set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+function beep(f, d, t, v) {
+  if (!window.__ac) return;
+  const o = window.__ac.createOscillator(), g = window.__ac.createGain();
+  o.type = t; o.frequency.value = f;
+  g.gain.setValueAtTime(v, window.__ac.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.001, window.__ac.currentTime + d);
+  o.connect(g); g.connect(window.__ac.destination);
+  o.start(); o.stop(window.__ac.currentTime + d);
+}
+window.addEventListener("click", () => {
+  if (!window.__ac) { try { window.__ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} }
+  if (window.__ac && window.__ac.state === "suspended") window.__ac.resume();
+}, { once: true });
+
+// 构建 9 个洞穴
+for (let i = 0; i < 9; i++) {
+  const h = document.createElement("div");
+  h.className = "hole";
+  h.dataset.i = i;
+  h.innerHTML = `<div class="mole"></div>`;
+  h.addEventListener("pointerdown", () => hit(h));
+  field.appendChild(h);
+}
+const holes = [...document.querySelectorAll(".hole")];
+
+function randomCat() { return CATS[Math.floor(Math.random() * CATS.length)]; }
+
+/* 冒头:70% 好猫(可点得分),30% 大儿(点了扣分) */
+function popMole() {
+  if (!running) return;
+  const idle = holes.filter(h => !h.classList.contains("up"));
+  if (idle.length === 0) return;
+  const h = idle[Math.floor(Math.random() * idle.length)];
+  const isDaer = Math.random() < 0.3;
+  const cat = isDaer ? DAER : randomCat();
+  const mole = h.querySelector(".mole");
+  h.classList.toggle("daer", isDaer);
+  mole.innerHTML =
+    `<img src="../../assets/cats/${cat.file}.png" alt="">` +
+    (isDaer ? `<span class="angry">💢</span>` : ``);
+  h.dataset.type = isDaer ? "daer" : "cat";
+  h.dataset.cat = cat.name;
+  h.classList.add("up");
+  // 停留后缩回
+  setTimeout(() => { h.classList.remove("up"); h.dataset.type = ""; }, popDuration);
+  // 下一次冒头:间隔随剩余时间缩短(加速)
+  const urgency = 30 - timeLeft;                 // 0~30
+  const gap = Math.max(320, 850 - urgency * 20);
+  moleTimer = setTimeout(popMole, gap + Math.random() * 200);
+}
+
+function hit(h) {
+  if (!running || !h.classList.contains("up")) return;
+  const fx = document.createElement("div");
+  fx.className = "hit-fx";
+  if (h.dataset.type === "cat") {
+    // 喂猫 +10
+    score += 10;
+    fx.textContent = "+10 🐟";
+    beep(900, 0.08, "triangle", 0.12);
+  } else if (h.dataset.type === "daer") {
+    // 惹大儿 -15
+    score = Math.max(0, score - 15);
+    fx.textContent = "-15 😾";
+    beep(200, 0.2, "sawtooth", 0.12);
+    showToast("😾 别惹大儿!他挠你了 -15");
+  } else return;
+  document.getElementById("hud-score").textContent = score;
+  h.appendChild(fx);
+  setTimeout(() => fx.remove(), 420);
+  h.classList.remove("up");       // 点完缩回
+  h.dataset.type = "";
+}
+
+/* toast 轻提示 */
+let toastEl = null;
+function showToast(msg) {
+  if (!toastEl) {
+    toastEl = document.createElement("div");
+    toastEl.style.cssText = "position:fixed;left:50%;top:14%;transform:translateX(-50%);background:rgba(0,0,0,0.78);color:#fff;padding:9px 18px;border-radius:12px;font-size:13px;font-weight:700;z-index:99;pointer-events:none;";
+    document.body.appendChild(toastEl);
+  }
+  toastEl.textContent = msg;
+  toastEl.style.opacity = "1";
+  clearTimeout(toastEl._t);
+  toastEl._t = setTimeout(() => toastEl.style.opacity = "0", 1400);
+}
+
+function startGame() {
+  // 复位
+  score = 0; timeLeft = 30; popDuration = 900; running = true;
+  holes.forEach(h => { h.classList.remove("up", "daer"); h.dataset.type = ""; });
+  document.getElementById("hud-score").textContent = 0;
+  document.getElementById("hud-time").textContent = 30;
+  document.getElementById("over").classList.remove("show");
+  // 计时
+  clearInterval(gameTimer);
+  gameTimer = setInterval(() => {
+    timeLeft--;
+    document.getElementById("hud-time").textContent = timeLeft;
+    document.getElementById("hud-time").classList.toggle("warn", timeLeft <= 5);
+    if (timeLeft <= 0) endGame();
+  }, 1000);
+  // 第一只冒头
+  clearTimeout(moleTimer);
+  popMole();
+}
+
+function endGame() {
+  running = false;
+  clearTimeout(moleTimer);
+  clearInterval(gameTimer);
+  holes.forEach(h => h.classList.remove("up"));
+  beep(520, 0.15, "triangle", 0.12);
+  setTimeout(() => beep(760, 0.2, "triangle", 0.12), 160);
+  const best = get("nikki_whack_best", 0);
+  let isBest = false;
+  if (score > best) { set("nikki_whack_best", score); isBest = true; document.getElementById("hud-best").textContent = score; }
+  document.getElementById("over-detail").innerHTML =
+    `本局 <b>${score}</b> 分<br>` + (isBest ? "🏆 <b>新纪录!</b>" : `最高纪录:${best} 分`);
+  document.getElementById("over").classList.add("show");
+}
+
+// 启动
+document.getElementById("hud-best").textContent = get("nikki_whack_best", 0);
+startGame();
+</script>
+</body>
+</html>

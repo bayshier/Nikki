@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>🐦 飞飞猫 · Nikki 游戏合集</title>
+<style>
+  :root { --hk-deep: #ff6b9d; --hk-muted: #c98ba0; }
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
+  body {
+    font-family: "Nunito", -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    color: #8b4a5e;
+    background: linear-gradient(135deg, #ffd6e8 0%, #ffeef4 40%, #fff9fb 100%) fixed;
+    min-height: 100dvh;
+    display: flex; flex-direction: column; align-items: center;
+    padding: 14px;
+  }
+  .top { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; }
+  .hud {
+    background: rgba(255,255,255,0.9); border: 2px solid rgba(255,158,196,0.5);
+    border-radius: 14px; padding: 5px 16px; text-align: center;
+    box-shadow: 0 3px 0 -1px #f3b7cc;
+  }
+  .hud .l { font-size: 10px; color: var(--hk-muted); font-weight: 800; }
+  .hud .v { font-size: 18px; font-weight: 800; color: var(--hk-deep); }
+  .home {
+    text-decoration: none; font-size: 13px; font-weight: 800; color: var(--hk-deep);
+    background: #fff; border: 2px solid rgba(255,158,196,0.5); border-radius: 12px; padding: 8px 14px;
+    box-shadow: 0 3px 0 -1px #f3b7cc;
+  }
+  canvas {
+    border-radius: 20px;
+    border: 4px solid rgba(255,158,196,0.6);
+    box-shadow: 0 8px 0 -2px #f3b7cc, 0 18px 30px rgba(255,158,196,0.35);
+    cursor: pointer;
+    touch-action: none;
+    max-width: 100%;
+  }
+  .tip { margin-top: 10px; font-size: 12px; font-weight: 800; color: var(--hk-muted); }
+  .overlay {
+    position: fixed; inset: 0; z-index: 50;
+    background: rgba(255,158,196,0.4); backdrop-filter: blur(6px);
+    display: none; align-items: center; justify-content: center;
+  }
+  .overlay.show { display: flex; }
+  .modal {
+    background: linear-gradient(160deg, #fff5f8, #fff);
+    border: 3px solid rgba(255,158,196,0.6);
+    border-radius: 24px; padding: 30px 36px; text-align: center;
+    box-shadow: 0 16px 40px rgba(255,107,157,0.35);
+    animation: pop 0.4s cubic-bezier(.34,1.56,.64,1);
+  }
+  @keyframes pop { from { transform: scale(0.7); } }
+  .modal .e { font-size: 52px; }
+  .modal h2 { color: var(--hk-deep); margin: 6px 0; }
+  .modal p { color: var(--hk-muted); font-size: 14px; margin-bottom: 16px; }
+  .btn {
+    border: none; cursor: pointer; font-family: inherit;
+    font-size: 14px; font-weight: 800; color: #fff;
+    background: linear-gradient(135deg, var(--hk-deep), #ff9ec4);
+    padding: 10px 26px; border-radius: 99px; margin: 0 5px;
+    box-shadow: 0 4px 0 -1px #d15683;
+  }
+  .btn.sec { background: #fff; color: var(--hk-deep); border: 2px solid #ff9ec4; box-shadow: 0 3px 0 -1px #f3b7cc; text-decoration: none; display: inline-block; }
+</style>
+</head>
+<body>
+  <div class="top">
+    <a class="home" href="../index.html">🏠 大厅</a>
+    <div class="hud"><div class="l">分数</div><div class="v" id="hud-score">0</div></div>
+    <div class="hud"><div class="l">最高</div><div class="v" id="hud-best">0</div></div>
+  </div>
+
+  <canvas id="cv" width="400" height="540"></canvas>
+  <div class="tip">点击画面 / 空格 → 猫咪振翅起飞!</div>
+
+  <div class="overlay" id="over">
+    <div class="modal">
+      <div class="e">😿</div>
+      <h2>摔下来了…</h2>
+      <p id="over-detail"></p>
+      <button class="btn" onclick="restart()">🔄 再来一局</button>
+      <a class="btn sec" href="../index.html">🏠 回大厅</a>
+    </div>
+  </div>
+
+<script>
+// ===== 飞飞猫(Flappy)=====
+const cv = document.getElementById("cv"), ctx = cv.getContext("2d");
+const W = 400, H = 540, GROUND = 30;
+let cat, pipes, score, state;   // state: ready / play / dead
+let frame = 0;
+const GRAV = 0.45, FLAP = -7.6, PIPE_W = 62, GAP = 150, PIPE_EVERY = 95;
+
+// 云朵背景(固定几朵,视差滚动)
+const clouds = [
+  { x: 60, y: 80, s: 1.0 }, { x: 220, y: 150, s: 0.7 }, { x: 340, y: 60, s: 0.85 }, { x: 140, y: 210, s: 0.6 },
+];
+
+function get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } }
+function set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+
+function reset() {
+  cat = { x: 90, y: H / 2 - 40, v: 0, r: 16 };
+  pipes = [];
+  score = 0; frame = 0;
+  state = "ready";
+  document.getElementById("hud-score").textContent = 0;
+  document.getElementById("over").classList.remove("show");
+}
+
+function flap() {
+  ensureAudio();
+  if (state === "ready") { state = "play"; }
+  if (state === "play") { cat.v = FLAP; beep(760, 0.07, "triangle", 0.09); }
+}
+
+function gameOver() {
+  state = "dead";
+  beep(280, 0.3, "sawtooth", 0.12);
+  const best = get("nikki_flappy_best", 0);
+  let isBest = false;
+  if (score > best) { set("nikki_flappy_best", score); isBest = true; document.getElementById("hud-best").textContent = score; }
+  document.getElementById("over-detail").innerHTML =
+    `飞过 <b>${score}</b> 根管道<br>` + (isBest ? "🏆 <b>新纪录!</b>" : `最高纪录:${best} 分`);
+  setTimeout(() => document.getElementById("over").classList.add("show"), 400);
+}
+
+function update() {
+  frame++;
+  // 云朵视差
+  clouds.forEach(c => { c.x -= 0.3 * c.s; if (c.x < -70) c.x = W + 40; });
+  if (state !== "play") { if (state === "ready") { cat.y = H / 2 - 40 + Math.sin(frame / 18) * 8; } return; }
+
+  cat.v += GRAV;
+  cat.y += cat.v;
+  // 管道生成
+  if (frame % PIPE_EVERY === 0) {
+    const gapY = 70 + Math.random() * (H - GROUND - GAP - 140);
+    pipes.push({ x: W + 20, gapY, passed: false });
+  }
+  pipes.forEach(p => p.x -= 2.4);
+  pipes = pipes.filter(p => p.x + PIPE_W > -10);
+  // 碰撞:管道
+  for (const p of pipes) {
+    if (cat.x + cat.r > p.x && cat.x - cat.r < p.x + PIPE_W) {
+      if (cat.y - cat.r < p.gapY || cat.y + cat.r > p.gapY + GAP) return gameOver();
+    }
+    if (!p.passed && p.x + PIPE_W < cat.x - cat.r) { p.passed = true; score++; document.getElementById("hud-score").textContent = score; beep(1000, 0.07, "triangle", 0.09); }
+  }
+  // 碰撞:地面 / 天花板
+  if (cat.y + cat.r > H - GROUND) return gameOver();
+  if (cat.y - cat.r < 0) { cat.y = cat.r; cat.v = 0; }
+}
+
+function draw() {
+  // 天空
+  const sky = ctx.createLinearGradient(0, 0, 0, H);
+  sky.addColorStop(0, "#a8e0ff"); sky.addColorStop(0.6, "#ffe8f2"); sky.addColorStop(1, "#ffd9ea");
+  ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H);
+  // 云朵
+  clouds.forEach(c => {
+    ctx.fillStyle = "rgba(255,255,255,0.9)";
+    ctx.beginPath();
+    ctx.arc(c.x, c.y, 18 * c.s, 0, 7);
+    ctx.arc(c.x + 20 * c.s, c.y - 8 * c.s, 14 * c.s, 0, 7);
+    ctx.arc(c.x + 38 * c.s, c.y, 16 * c.s, 0, 7);
+    ctx.fill();
+  });
+  // 管道:粉色糖果柱
+  pipes.forEach(p => {
+    const g = ctx.createLinearGradient(p.x, 0, p.x + PIPE_W, 0);
+    g.addColorStop(0, "#ff8fb8"); g.addColorStop(0.5, "#ffb9d4"); g.addColorStop(1, "#ff8fb8");
+    ctx.fillStyle = g;
+    ctx.fillRect(p.x, 0, PIPE_W, p.gapY);
+    ctx.fillRect(p.x, p.gapY + GAP, PIPE_W, H - GROUND - p.gapY - GAP);
+    // 管道口
+    ctx.fillStyle = "#ff6b9d";
+    ctx.fillRect(p.x - 4, p.gapY - 18, PIPE_W + 8, 18);
+    ctx.fillRect(p.x - 4, p.gapY + GAP, PIPE_W + 8, 18);
+  });
+  // 地面:草地
+  ctx.fillStyle = "#b8e986";
+  ctx.fillRect(0, H - GROUND, W, GROUND);
+  ctx.fillStyle = "#9fd968";
+  for (let x = -(frame % 24); x < W; x += 24) ctx.fillRect(x, H - GROUND, 12, 6);
+  // 猫咪:圆脸 + 耳朵 + 眼睛(翅膀 = 挥动的小爪)
+  const cx = cat.x, cy = cat.y;
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(Math.max(-0.5, Math.min(1.1, cat.v / 12)));
+  // 耳朵
+  ctx.fillStyle = "#ff6b9d";
+  ctx.beginPath(); ctx.moveTo(-12, -8); ctx.lineTo(-16, -20); ctx.lineTo(-2, -12); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(12, -8); ctx.lineTo(16, -20); ctx.lineTo(2, -12); ctx.fill();
+  // 脸
+  ctx.fillStyle = "#fff0f6";
+  ctx.beginPath(); ctx.arc(0, 0, cat.r + 2, 0, 7); ctx.fill();
+  ctx.strokeStyle = "#ff9ec4"; ctx.lineWidth = 2.5; ctx.stroke();
+  // 眼睛
+  ctx.fillStyle = "#333";
+  ctx.beginPath(); ctx.arc(5, -3, 2.2, 0, 7); ctx.fill();
+  // 腮红
+  ctx.fillStyle = "rgba(255,120,160,0.5)";
+  ctx.beginPath(); ctx.arc(-7, 4, 3.5, 0, 7); ctx.fill();
+  // 翅膀爪(挥动)
+  ctx.fillStyle = "#ff9ec4";
+  ctx.beginPath(); ctx.ellipse(-6, 6 + Math.sin(frame / 4) * 3, 9, 5.5, -0.4, 0, 7); ctx.fill();
+  ctx.restore();
+  // 分数大字
+  if (state === "play") {
+    ctx.fillStyle = "rgba(255,107,157,0.9)";
+    ctx.font = "bold 42px Fredoka, Nunito, sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText(score, W / 2, 70);
+  }
+  // 就绪提示
+  if (state === "ready") {
+    ctx.fillStyle = "rgba(255,107,157,0.95)";
+    ctx.font = "bold 20px Nunito, sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("点击画面起飞!", W / 2, H / 2 + 60);
+  }
+}
+
+// ===== 音效 =====
+let ac = null;
+function ensureAudio() { if (!ac) { try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} } if (ac && ac.state === "suspended") ac.resume(); }
+function beep(f, d, t, v) {
+  if (!ac) return;
+  const o = ac.createOscillator(), g = ac.createGain();
+  o.type = t; o.frequency.value = f;
+  g.gain.setValueAtTime(v, ac.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + d);
+  o.connect(g); g.connect(ac.destination);
+  o.start(); o.stop(ac.currentTime + d);
+}
+
+// ===== 主循环 =====
+function loop() { update(); draw(); requestAnimationFrame(loop); }
+
+// ===== 输入 =====
+cv.addEventListener("mousedown", flap);
+cv.addEventListener("touchstart", e => { e.preventDefault(); flap(); }, { passive: false });
+window.addEventListener("keydown", e => { if (e.key === " ") { e.preventDefault(); ensureAudio(); flap(); } });
+document.addEventListener("click", ensureAudio, { once: true });
+
+// 启动
+document.getElementById("hud-best").textContent = get("nikki_flappy_best", 0);
+reset();
+loop();
+</script>
+</body>
+</html>

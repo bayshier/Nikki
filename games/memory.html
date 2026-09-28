@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🃏 猫咪配对 · Nikki 游戏合集</title>
+<style>
+  :root {
+    --hk-pink: #ff9ec4; --hk-deep: #ff6b9d; --hk-light: #ffeef4;
+    --hk-cream: #fff5f8; --hk-red: #e94560; --hk-yellow: #ffd56b; --hk-muted: #c98ba0;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
+  body {
+    font-family: "Nunito", -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    color: #8b4a5e;
+    background: linear-gradient(135deg, #ffd6e8 0%, #ffeef4 40%, #fff9fb 100%) fixed;
+    min-height: 100dvh;
+    display: flex; flex-direction: column; align-items: center;
+    padding: 16px;
+  }
+  body::before {
+    content: "🎀 💕 ✨ 🌸"; position: fixed; inset: -15%;
+    color: rgba(255,158,196,0.15); font-size: 38px; line-height: 100px; word-spacing: 60px;
+    pointer-events: none; animation: drift 40s linear infinite;
+  }
+  @keyframes drift { from { transform: translateY(-80px); } to { transform: translateY(100px); } }
+
+  .top { display: flex; gap: 10px; align-items: center; margin-bottom: 14px; flex-wrap: wrap; justify-content: center; }
+  .hud {
+    background: rgba(255,255,255,0.9); border: 2px solid rgba(255,158,196,0.5);
+    border-radius: 14px; padding: 6px 16px; text-align: center;
+    box-shadow: 0 3px 0 -1px #f3b7cc;
+  }
+  .hud .l { font-size: 10px; color: var(--hk-muted); font-weight: 800; }
+  .hud .v { font-size: 18px; font-weight: 800; color: var(--hk-deep); }
+  .home {
+    text-decoration: none; font-size: 13px; font-weight: 800; color: var(--hk-deep);
+    background: #fff; border: 2px solid rgba(255,158,196,0.5); border-radius: 12px; padding: 8px 14px;
+    box-shadow: 0 3px 0 -1px #f3b7cc;
+  }
+
+  /* 4×4 牌桌 */
+  .board {
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    width: 100%; max-width: 420px;
+    perspective: 900px;
+  }
+  .card {
+    aspect-ratio: 3/4;
+    cursor: pointer;
+    position: relative;
+    transform-style: preserve-3d;
+    transition: transform 0.4s cubic-bezier(.34,1.3,.5,1);
+  }
+  .card.open, .card.done { transform: rotateY(180deg); }
+  .face {
+    position: absolute; inset: 0;
+    backface-visibility: hidden;
+    border-radius: 14px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .back {
+    /* 牌背:粉色 + 蝴蝶结 */
+    background: linear-gradient(145deg, var(--hk-deep), var(--hk-pink));
+    border: 3px solid #fff;
+    font-size: 34px;
+    box-shadow: 0 4px 0 -1px #d15683, 0 8px 14px rgba(255,107,157,0.3);
+  }
+  .front {
+    transform: rotateY(180deg);
+    background: #fff;
+    border: 3px solid var(--hk-pink);
+    overflow: hidden;
+    box-shadow: 0 4px 10px rgba(255,158,196,0.35);
+  }
+  .front img { width: 100%; height: 100%; object-fit: cover; }
+  .front .nm {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    font-size: 10px; font-weight: 800; color: #fff;
+    background: rgba(255,107,157,0.75);
+    padding: 2px 0;
+  }
+  .card.done .front { border-color: var(--hk-yellow); box-shadow: 0 0 12px rgba(255,213,107,0.7); }
+  .card.done { animation: donePop 0.4s; }
+  @keyframes donePop { 40% { transform: rotateY(180deg) scale(1.12); } }
+  .card.wrong .front { border-color: var(--hk-red); }
+  .card.wrong { animation: shake 0.4s; }
+  @keyframes shake { 25% { transform: rotateY(180deg) translateX(-6px); } 75% { transform: rotateY(180deg) translateX(6px); } }
+
+  .msg { margin-top: 16px; font-size: 14px; font-weight: 800; color: var(--hk-muted); min-height: 20px; }
+
+  /* 结算弹窗 */
+  .overlay {
+    position: fixed; inset: 0; z-index: 50;
+    background: rgba(255,158,196,0.4); backdrop-filter: blur(6px);
+    display: none; align-items: center; justify-content: center;
+  }
+  .overlay.show { display: flex; }
+  .modal {
+    background: linear-gradient(160deg, var(--hk-cream), #fff);
+    border: 3px solid rgba(255,158,196,0.6);
+    border-radius: 24px; padding: 30px 34px; text-align: center;
+    box-shadow: 0 16px 40px rgba(255,107,157,0.35);
+    animation: pop 0.4s cubic-bezier(.34,1.56,.64,1);
+  }
+  @keyframes pop { from { transform: scale(0.7); } }
+  .modal .e { font-size: 52px; }
+  .modal h2 { font-family: "Fredoka", sans-serif; color: var(--hk-deep); margin: 6px 0; }
+  .modal p { color: var(--hk-muted); font-size: 14px; margin-bottom: 16px; line-height: 1.6; }
+  .btn {
+    border: none; cursor: pointer;
+    font-size: 14px; font-weight: 800; color: #fff; font-family: inherit;
+    background: linear-gradient(135deg, var(--hk-deep), var(--hk-pink));
+    padding: 10px 26px; border-radius: 99px; margin: 0 5px;
+    box-shadow: 0 4px 0 -1px #d15683;
+  }
+  .btn.sec { background: #fff; color: var(--hk-deep); border: 2px solid var(--hk-pink); box-shadow: 0 3px 0 -1px #f3b7cc; text-decoration: none; display: inline-block; }
+</style>
+</head>
+<body>
+  <div class="top">
+    <a class="home" href="../index.html">🏠 大厅</a>
+    <div class="hud"><div class="l">步数</div><div class="v" id="hud-steps">0</div></div>
+    <div class="hud"><div class="l">配对</div><div class="v" id="hud-pairs">0/8</div></div>
+    <div class="hud"><div class="l">时间</div><div class="v" id="hud-time">0s</div></div>
+  </div>
+
+  <div class="board" id="board"></div>
+  <div class="msg" id="msg">翻开两张卡片,找出相同的猫咪!</div>
+
+  <div class="overlay" id="win">
+    <div class="modal">
+      <div class="e">🎉</div>
+      <h2>全部配对成功!</h2>
+      <p id="win-detail"></p>
+      <button class="btn" onclick="location.reload()">🔄 再来一局</button>
+      <a class="btn sec" href="../index.html">🏠 回大厅</a>
+    </div>
+  </div>
+
+<script>
+// 8 只猫咪 × 2 = 16 张牌
+const CATS = [
+  { name: "陈皮", file: "chenpi" }, { name: "包子", file: "baozi" },
+  { name: "年年", file: "niannian" }, { name: "松露", file: "songlu" },
+  { name: "大儿", file: "daer" }, { name: "警长", file: "jinzhang" },
+  { name: "有鱼", file: "youyu" }, { name: "阿狸", file: "ali" },
+];
+const board = document.getElementById("board");
+let deck = [], first = null, lock = false, steps = 0, pairs = 0, sec = 0, timer = null;
+
+function $(id) { return document.getElementById(id); }
+
+function init() {
+  // 生成并洗牌
+  deck = [...CATS, ...CATS].map((c, i) => ({ ...c, key: i }));
+  for (let i = deck.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [deck[i], deck[j]] = [deck[j], deck[i]];
+  }
+  // 渲染
+  board.innerHTML = "";
+  deck.forEach((c, idx) => {
+    const el = document.createElement("div");
+    el.className = "card";
+    el.dataset.idx = idx;
+    el.innerHTML =
+      `<div class="face back">🎀</div>` +
+      `<div class="face front"><img src="../../assets/cats/${c.file}.png" alt=""><div class="nm">${c.name}</div></div>`;
+    el.addEventListener("click", () => flip(el, c));
+    board.appendChild(el);
+  });
+  // 计时
+  timer = setInterval(() => { sec++; $("hud-time").textContent = sec + "s"; }, 1000);
+}
+
+function flip(el, c) {
+  if (lock || el.classList.contains("open") || el.classList.contains("done")) return;
+  el.classList.add("open");
+  if (!first) { first = { el, c }; return; }   // 第一张
+  // 第二张:判定
+  steps++; $("hud-steps").textContent = steps;
+  if (first.c.name === c.name) {
+    // 配对成功
+    first.el.classList.add("done"); el.classList.add("done");
+    first.el.classList.remove("open"); el.classList.remove("open");
+    first.el.classList.add("done"); el.classList.add("done");
+    pairs++; $("hud-pairs").textContent = pairs + "/8";
+    first = null;
+    if (pairs === 8) win();
+  } else {
+    // 配对失败:晃动后翻回
+    lock = true;
+    const a = first.el; first = null;
+    a.classList.add("wrong"); el.classList.add("wrong");
+    setTimeout(() => {
+      a.classList.remove("open", "wrong"); el.classList.remove("open", "wrong");
+      lock = false;
+    }, 650);
+  }
+}
+
+function win() {
+  clearInterval(timer);
+  // 最高纪录:步数最少
+  const best = (() => { try { const v = localStorage.getItem("nikki_memory_best"); return v === null ? null : JSON.parse(v); } catch (e) { return null; } })();
+  let isBest = false;
+  if (best === null || steps < best) {
+    try { localStorage.setItem("nikki_memory_best", JSON.stringify(steps)); isBest = true; } catch (e) {}
+  }
+  $("win-detail").innerHTML =
+    `用时 <b>${sec} 秒</b> · 步数 <b>${steps}</b><br>` +
+    (isBest ? "🏆 <b>新纪录!</b>" : `最佳纪录:${best} 步`);
+  document.getElementById("win").classList.add("show");
+}
+
+init();
+</script>
+</body>
+</html>
