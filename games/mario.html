@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>🐱🍄 猫猫马里奥 · Nikki 游戏合集</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='0.9em' font-size='90'%3E🐱%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Nunito:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+  :root { --hk-deep: #ff6b9d; --hk-muted: #c98ba0; }
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
+  body {
+    font-family: "Nunito", -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    color: #8b4a5e;
+    background: linear-gradient(135deg, #ffd6e8 0%, #ffeef4 40%, #fff9fb 100%) fixed;
+    min-height: 100dvh;
+    display: flex; flex-direction: column; align-items: center;
+    padding: 12px;
+  }
+  .top { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; flex-wrap: wrap; justify-content: center; }
+  .hud {
+    background: rgba(255,255,255,0.92); border: 2px solid rgba(255,158,196,0.5);
+    border-radius: 12px; padding: 4px 14px; text-align: center;
+    box-shadow: 0 3px 0 -1px #f3b7cc;
+  }
+  .hud .l { font-size: 10px; color: var(--hk-muted); font-weight: 800; }
+  .hud .v { font-size: 17px; font-weight: 800; color: var(--hk-deep); }
+  .hud .v.warn { color: var(--hk-red); }
+  .home {
+    text-decoration: none; font-size: 13px; font-weight: 800; color: var(--hk-deep);
+    background: #fff; border: 2px solid rgba(255,158,196,0.5); border-radius: 12px; padding: 8px 14px;
+    box-shadow: 0 3px 0 -1px #f3b7cc;
+  }
+  canvas {
+    border-radius: 18px;
+    border: 4px solid rgba(255,158,196,0.6);
+    box-shadow: 0 8px 0 -2px #f3b7cc, 0 18px 30px rgba(255,158,196,0.35);
+    max-width: 100%;
+  }
+  /* 移动端/鼠标控制按钮 */
+  .pad { margin-top: 12px; display: flex; gap: 14px; align-items: center; }
+  .pad button {
+    border: none; cursor: pointer; user-select: none;
+    width: 76px; height: 60px; font-size: 26px;
+    border-radius: 18px; color: #fff;
+    background: linear-gradient(135deg, #ff6b9d, #ff9ec4);
+    box-shadow: 0 5px 0 -1px #d15683;
+  }
+  .pad button:active { transform: translateY(4px); box-shadow: none; }
+  .pad .jump { width: 96px; background: linear-gradient(135deg, #ffd56b, #ffb937); box-shadow: 0 5px 0 -1px #d99a1f; }
+  .tip { margin-top: 10px; font-size: 12px; font-weight: 800; color: var(--hk-muted); text-align: center; }
+  .overlay {
+    position: fixed; inset: 0; z-index: 50;
+    background: rgba(255,158,196,0.45); backdrop-filter: blur(6px);
+    display: none; align-items: center; justify-content: center;
+  }
+  .overlay.show { display: flex; }
+  .modal {
+    background: linear-gradient(160deg, #fff5f8, #fff);
+    border: 3px solid rgba(255,158,196,0.6);
+    border-radius: 24px; padding: 30px 38px; text-align: center;
+    box-shadow: 0 16px 40px rgba(255,107,157,0.35);
+    animation: pop 0.4s cubic-bezier(.34,1.56,.64,1);
+  }
+  @keyframes pop { from { transform: scale(0.7); } }
+  .modal .e { font-size: 54px; }
+  .modal h2 { color: var(--hk-deep); margin: 6px 0; }
+  .modal p { color: #c98ba0; font-size: 14px; margin-bottom: 16px; line-height: 1.7; }
+  .btn {
+    border: none; cursor: pointer; font-family: inherit;
+    font-size: 14px; font-weight: 800; color: #fff;
+    background: linear-gradient(135deg, var(--hk-deep), #ff9ec4);
+    padding: 10px 26px; border-radius: 99px; margin: 0 5px;
+    box-shadow: 0 4px 0 -1px #d15683;
+  }
+  .btn.sec { background: #fff; color: var(--hk-deep); border: 2px solid #ff9ec4; box-shadow: 0 3px 0 -1px #f3b7cc; text-decoration: none; display: inline-block; }
+</style>
+</head>
+<body>
+  <div class="top">
+    <a class="home" href="../index.html">🏠 大厅</a>
+    <div class="hud"><div class="l">分数</div><div class="v" id="hud-score">0</div></div>
+    <div class="hud"><div class="l">💰 金币</div><div class="v" id="hud-coin">0</div></div>
+    <div class="hud"><div class="l">生命</div><div class="v" id="hud-life">❤❤❤</div></div>
+    <div class="hud"><div class="l">最高</div><div class="v" id="hud-best">0</div></div>
+  </div>
+
+  <canvas id="cv" width="960" height="540"></canvas>
+
+  <div class="pad">
+    <button id="btn-left">⬅</button>
+    <button id="btn-jump" class="jump">🐱⬆</button>
+    <button id="btn-right">➡</button>
+  </div>
+  <div class="tip">⬅➡ 跑动 · 空格/⬆ 跳跃 · 踩扁捣蛋猫 +100 · 🪙 金币全场通用 · 抵达🚩通关!</div>
+
+  <div class="overlay" id="over">
+    <div class="modal">
+      <div class="e" id="over-e">😿</div>
+      <h2 id="over-title">游戏结束</h2>
+      <p id="over-detail"></p>
+      <button class="btn" onclick="location.reload()">🔄 再来一局</button>
+      <a class="btn sec" href="../index.html">🏠 回大厅</a>
+    </div>
+  </div>
+
+<script src="../../shared/common.js"></script>
+<script>
+// ============================================================
+// 🐱🍄 猫猫马里奥:横版平台跳跃
+// ============================================================
+const cv = document.getElementById("cv"), ctx = cv.getContext("2d");
+const W = 960, H = 540, TILE = 36, ROWS = 14;
+const GRAV = 0.55, JUMP = -11.5, SPD = 3.4;
+
+// ---------- 关卡(程序化生成) ----------
+const COLS = 150;
+const T_EMPTY = 0, T_SOLID = 1, T_BRICK = 2, T_COIN = 3, T_FISH = 4, T_SPIKE = 5, T_FLAG = 6;
+let world = [];
+let flagX = 0;
+
+function buildLevel() {
+  world = Array.from({ length: ROWS }, () => new Array(COLS).fill(T_EMPTY));
+  const G = ROWS - 2;                       // 地面行(12、13 两层)
+  const ground = (x1, x2) => { for (let x = x1; x <= x2; x++) { world[G][x] = T_SOLID; world[G + 1][x] = T_SOLID; } };
+  const pit = (x1, x2) => { for (let x = x1; x <= x2; x++) { world[G][x] = T_EMPTY; world[G + 1][x] = T_EMPTY; } };
+  const brickRow = (x1, x2, y) => { for (let x = x1; x <= x2; x++) world[y][x] = T_BRICK; };
+  const coinRow = (x1, x2, y) => { for (let x = x1; x <= x2; x++) world[y][x] = T_COIN; };
+  const spikes = (x1, x2) => { for (let x = x1; x <= x2; x++) world[G][x] = T_SPIKE; };
+  const coinAt = (x, y) => world[y][x] = T_COIN;
+  const fishAt = (x, y) => world[y][x] = T_FISH;
+
+  ground(0, COLS - 1);
+  // —— 教学区:金币引导 ——
+  coinRow(8, 12, G - 3);
+  brickRow(14, 17, G - 4); coinRow(14, 17, G - 5);
+  // —— 第一个坑 ——
+  pit(24, 26);
+  coinRow(24, 26, G - 4);
+  // —— 阶梯砖 ——
+  world[G - 4][32] = T_BRICK; world[G - 4][33] = T_BRICK;
+  world[G - 6][34] = T_BRICK; world[G - 6][35] = T_BRICK;
+  coinAt(34, G - 7); coinAt(35, G - 7); fishAt(35, G - 3);
+  // —— 浮砖跳跃段 ——
+  brickRow(40, 43, G - 5); coinRow(40, 43, G - 6);
+  pit(40, 43);                              // 下方挖空,必须走浮砖
+  brickRow(46, 48, G - 7); coinRow(46, 48, G - 8);
+  // —— 尖刺走廊(上方有砖桥) ——
+  spikes(54, 57);
+  brickRow(54, 57, G - 4); coinRow(54, 57, G - 5);
+  // —— 敌人平原 ——
+  brickRow(64, 66, G - 4); coinRow(64, 66, G - 5);
+  // —— 宽坑 + 高低浮砖 ——
+  pit(72, 76);
+  brickRow(72, 73, G - 4); brickRow(75, 76, G - 6);
+  coinAt(72, G - 5); coinAt(73, G - 5); coinAt(75, G - 7); coinAt(76, G - 7);
+  fishAt(74, G - 4);
+  // —— 尖刺 + 砖桥 ——
+  spikes(82, 85);
+  brickRow(82, 85, G - 4); coinRow(82, 85, G - 5);
+  // —— 金币雨 ——
+  coinRow(90, 96, G - 3);
+  brickRow(92, 94, G - 6); coinRow(92, 94, G - 7);
+  // —— 最后冲刺:宽坑 + 浮砖 ——
+  pit(100, 104);
+  brickRow(100, 101, G - 4); brickRow(103, 104, G - 6);
+  coinAt(100, G - 5); coinAt(101, G - 5); coinAt(103, G - 7); coinAt(104, G - 7);
+  // —— 终点阶梯 + 旗 ——
+  for (let i = 0; i < 4; i++) for (let x = 110; x <= 110 + i; x++) world[G - 1 - i][x] = T_SOLID;
+  flagX = 118;
+  world[G - 1][flagX] = T_FLAG;
+  world[G - 2][flagX] = T_FLAG;             // 旗杆两格
+}
+
+// ---------- 敌人 ----------
+let enemies = [];
+function buildEnemies() {
+  enemies = [
+    { x: 29 * TILE, y: 0, min: 27 * TILE, max: 33 * TILE, alive: true },
+    { x: 60 * TILE, y: 0, min: 58 * TILE, max: 64 * TILE, alive: true },
+    { x: 68 * TILE, y: 0, min: 66 * TILE, max: 71 * TILE, alive: true },
+    { x: 96 * TILE, y: 0, min: 89 * TILE, max: 98 * TILE, alive: true },
+  ].map(e => ({ ...e, y: findFloor(e.x) - 34, w: 30, h: 34, dir: 1, spd: 1.1 }));
+}
+function findFloor(px) {
+  const col = Math.floor(px / TILE);
+  for (let r = 0; r < ROWS; r++) if (world[r] && world[r][col] === T_SOLID) return r * TILE;
+  return (ROWS - 2) * TILE;
+}
+
+// ---------- 玩家 ----------
+let player, cam = { x: 0 }, coinsGot, score, lives, state, flagDone;
+let best = (() => { try { const v = localStorage.getItem("nikki_mario_best"); return v === null ? 0 : JSON.parse(v); } catch (e) { return 0; } })();
+
+function resetPlayer() {
+  player = { x: 2 * TILE, y: 0, w: 26, h: 34, vx: 0, vy: 0, onGround: false, dir: 1, inv: 0 };
+  player.y = findFloor(player.x) - player.h;
+}
+
+function startLevel() {
+  buildLevel();
+  buildEnemies();
+  resetPlayer();
+  coinsGot = 0; score = 0; lives = 3; state = "play"; flagDone = false;
+  cam.x = 0;
+  updateHUD();
+}
+
+// ---------- 输入 ----------
+const keys = { left: false, right: false };
+window.addEventListener("keydown", e => {
+  ensureAudio();
+  const k = e.key.toLowerCase();
+  if (k === "arrowleft" || k === "a") keys.left = true;
+  if (k === "arrowright" || k === "d") keys.right = true;
+  if (k === " " || k === "arrowup" || k === "w") {
+    e.preventDefault();
+    if (!player) return;
+    if (player.onGround) { player.vy = JUMP; beep(720, 0.12, "square", 0.08); }
+  }
+});
+window.addEventListener("keyup", e => {
+  const k = e.key.toLowerCase();
+  if (k === "arrowleft" || k === "a") keys.left = false;
+  if (k === "arrowright" || k === "d") keys.right = false;
+});
+// 按钮(按住持续移动)
+function bindHold(id, key) {
+  const b = document.getElementById(id);
+  b.addEventListener("pointerdown", e => { e.preventDefault(); ensureAudio(); keys[key] = true; });
+  b.addEventListener("pointerup", () => keys[key] = false);
+  b.addEventListener("pointerleave", () => keys[key] = false);
+}
+bindHold("btn-left", "left");
+bindHold("btn-right", "right");
+document.getElementById("btn-jump").addEventListener("pointerdown", e => {
+  e.preventDefault(); ensureAudio();
+  if (state === "play" && player.onGround) { player.vy = JUMP; beep(720, 0.12, "square", 0.08); }
+});
+
+// ---------- 物理 ----------
+function solidAt(px, py) {
+  const c = Math.floor(px / TILE), r = Math.floor(py / TILE);
+  if (c < 0 || c >= COLS) return true;                 // 关卡左右边界视为墙
+  if (r < 0 || r >= ROWS) return false;
+  const t = world[r][c];
+  return t === T_SOLID || t === T_BRICK;
+}
+
+function updatePlayer() {
+  const p = player;
+  // 水平
+  if (keys.left) { p.vx = -SPD; p.dir = -1; }
+  else if (keys.right) { p.vx = SPD; p.dir = 1; }
+  else p.vx = 0;
+  p.x += p.vx;
+  // 水平碰撞
+  if (p.vx > 0) {
+    if (solidAt(p.x + p.w, p.y + 4) || solidAt(p.x + p.w, p.y + p.h - 4) || solidAt(p.x + p.w, p.y + p.h / 2)) {
+      p.x = Math.floor((p.x + p.w) / TILE) * TILE - p.w - 0.01;
+    }
+  } else if (p.vx < 0) {
+    if (solidAt(p.x, p.y + 4) || solidAt(p.x, p.y + p.h - 4) || solidAt(p.x, p.y + p.h / 2)) {
+      p.x = Math.floor(p.x / TILE) * TILE + TILE + 0.01;
+    }
+  }
+  // 垂直
+  p.vy += GRAV;
+  p.y += p.vy;
+  p.onGround = false;
+  if (p.vy > 0) {
+    if (solidAt(p.x + 4, p.y + p.h) || solidAt(p.x + p.w - 4, p.y + p.h)) {
+      p.y = Math.floor((p.y + p.h) / TILE) * TILE - p.h - 0.01;
+      p.vy = 0; p.onGround = true;
+    }
+  } else if (p.vy < 0) {
+    if (solidAt(p.x + 4, p.y) || solidAt(p.x + p.w - 4, p.y)) {
+      p.y = Math.floor(p.y / TILE) * TILE + TILE + 0.01;
+      p.vy = 0;
+    }
+  }
+  // 掉出世界 → 死亡
+  if (p.y > H + 80) hurt(true);
+  // 尖刺
+  const fx = p.x + p.w / 2, fy = p.y + p.h - 2;
+  const c = Math.floor(fx / TILE), r = Math.floor(fy / TILE);
+  if (world[r] && world[r][c] === T_SPIKE) hurt();
+  // 收集物
+  collectAt(p.x + p.w / 2, p.y + p.h / 2);
+  collectAt(p.x + p.w / 2, p.y + 6);
+  // 终点旗
+  if (!flagDone && p.x + p.w / 2 > flagX * TILE) {
+    flagDone = true;
+    score += 500 + lives * 200;
+    updateHUD();
+    win();
+  }
+  // 摄像机
+  cam.x = Math.max(0, Math.min(p.x - W / 2 + 40, COLS * TILE - W));
+  if (p.inv > 0) p.inv--;
+}
+
+function collectAt(px, py) {
+  const c = Math.floor(px / TILE), r = Math.floor(py / TILE);
+  const cell = world[r] && world[r][c];
+  if (cell === T_COIN) {
+    world[r][c] = T_EMPTY; coinsGot++; score += 10;
+    beep(1050, 0.08, "square", 0.1);
+    updateHUD();
+  } else if (cell === T_FISH) {
+    world[r][c] = T_EMPTY; score += 50;
+    beep(1300, 0.1, "triangle", 0.11);
+    updateHUD();
+  }
+}
+
+function updateEnemies() {
+  enemies.forEach(e => {
+    if (!e.alive) return;
+    e.x += e.dir * e.spd;
+    if (e.x < e.min || e.x + e.w > e.max) { e.dir *= -1; e.x = Math.max(e.min, Math.min(e.max - e.w, e.x)); }
+    // 与玩家碰撞
+    const p = player;
+    if (p.x < e.x + e.w && p.x + p.w > e.x && p.y < e.y + e.h && p.y + p.h > e.y) {
+      // 从上方踩踏?
+      if (p.vy > 1.5 && p.y + p.h - p.vy <= e.y + 8) {
+        e.alive = false;
+        p.vy = JUMP * 0.72;                // 踩踏弹起
+        score += 100;
+        beep(300, 0.12, "square", 0.12);
+        updateHUD();
+      } else if (p.inv <= 0) {
+        hurt();
+      }
+    }
+  });
+}
+
+function hurt(fall) {
+  const p = player;
+  if (p.inv > 0 && !fall) return;
+  lives--;
+  updateHUD();
+  beep(220, 0.28, "sawtooth", 0.13);
+  if (lives <= 0) return endGame(false);
+  // 重生
+  resetPlayer();
+  p.inv = 90;
+  if (fall) { resetPlayer(); }
+}
+
+// ---------- 绘制 ----------
+function drawTile(t, x, y) {
+  const px = x * TILE - cam.x, py = y * TILE;
+  if (px < -TILE || px > W) return;
+  if (t === T_SOLID) {
+    ctx.fillStyle = "#c98d4e";
+    ctx.fillRect(px, py, TILE, TILE);
+    ctx.fillStyle = "#8fd96a";                       // 草皮
+    ctx.fillRect(px, py, TILE, 10);
+    ctx.fillStyle = "rgba(120,70,20,0.35)";
+    ctx.fillRect(px, py + TILE - 4, TILE, 4);
+  } else if (t === T_BRICK) {
+    ctx.fillStyle = "#f4a460";
+    ctx.fillRect(px, py, TILE, TILE);
+    ctx.strokeStyle = "rgba(150,80,30,0.6)"; ctx.lineWidth = 2;
+    ctx.strokeRect(px + 1, py + 1, TILE - 2, TILE - 2);
+    ctx.beginPath(); ctx.moveTo(px, py + TILE / 2); ctx.lineTo(px + TILE, py + TILE / 2); ctx.stroke();
+  } else if (t === T_COIN) {
+    const bob = Math.sin(Date.now() / 200 + x) * 3;
+    ctx.fillStyle = "#ffd23b";
+    ctx.beginPath(); ctx.arc(px + TILE / 2, py + TILE / 2 + bob, 9, 0, 7); ctx.fill();
+    ctx.strokeStyle = "#e8a000"; ctx.lineWidth = 2.5; ctx.stroke();
+    ctx.fillStyle = "#ff8fb8";
+    ctx.beginPath(); ctx.ellipse(px + TILE / 2, py + TILE / 2 + bob, 4, 3.2, 0, 0, 7); ctx.fill();
+  } else if (t === T_FISH) {
+    ctx.font = "22px serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText("🐟", px + TILE / 2, py + TILE / 2);
+  } else if (t === T_SPIKE) {
+    ctx.fillStyle = "#e94560";
+    for (let i = 0; i < 3; i++) {
+      ctx.beginPath();
+      ctx.moveTo(px + i * 12, py + TILE);
+      ctx.lineTo(px + i * 12 + 6, py + TILE - 16);
+      ctx.lineTo(px + i * 12 + 12, py + TILE);
+      ctx.fill();
+    }
+  } else if (t === T_FLAG) {
+    ctx.fillStyle = "#c9a227";
+    ctx.fillRect(px + TILE / 2 - 3, py - 40, 6, TILE + 40);
+    ctx.fillStyle = "#ff6b9d";
+    ctx.beginPath();
+    ctx.moveTo(px + TILE / 2 + 3, py - 38);
+    ctx.lineTo(px + TILE / 2 + 40, py - 26);
+    ctx.lineTo(px + TILE / 2 + 3, py - 14);
+    ctx.fill();
+  }
+}
+
+function drawCatMario(px, py, dir, onGround) {
+  ctx.save();
+  ctx.translate(px + 13, py);
+  ctx.scale(dir, 1);
+  const run = Math.floor(Date.now() / 120) % 2;
+  // 尾巴
+  ctx.fillStyle = "#ff9ec4";
+  ctx.beginPath(); ctx.ellipse(-14 + (run ? 2 : -2), 22, 9, 5, run ? -0.5 : 0.4, 0, 7); ctx.fill();
+  // 腿
+  ctx.fillStyle = "#2a56c6";
+  if (onGround && run) {
+    ctx.fillRect(-4, 26, 9, 9); ctx.fillRect(9, 26, 9, 9);
+    ctx.fillStyle = "#7a3b12";
+    ctx.fillRect(-6, 31, 12, 5); ctx.fillRect(8, 31, 12, 5);
+  } else {
+    ctx.fillRect(-2, 26, 8, 9); ctx.fillRect(8, 26, 8, 9);
+    ctx.fillStyle = "#7a3b12";
+    ctx.fillRect(-4, 31, 12, 5); ctx.fillRect(6, 31, 12, 5);
+  }
+  // 身体(蓝背带裤)
+  ctx.fillStyle = "#2a56c6";
+  ctx.beginPath(); ctx.roundRect(-8, 12, 22, 18, 5); ctx.fill();
+  // 红衣
+  ctx.fillStyle = "#e52521";
+  ctx.fillRect(-8, 10, 22, 8);
+  ctx.fillRect(-9, 8, 7, 12); ctx.fillRect(10, 8, 7, 12);
+  // 脸
+  ctx.fillStyle = "#ffc8a0";
+  ctx.beginPath(); ctx.arc(3, 2, 11, 0, 7); ctx.fill();
+  // 猫耳(帽子里探出的耳朵)
+  ctx.fillStyle = "#ff9ec4";
+  ctx.beginPath(); ctx.moveTo(-8, -8); ctx.lineTo(-11, -18); ctx.lineTo(-1, -11); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(10, -8); ctx.lineTo(14, -17); ctx.lineTo(4, -11); ctx.fill();
+  // 红帽
+  ctx.fillStyle = "#e52521";
+  ctx.beginPath(); ctx.arc(3, -8, 10, Math.PI, 0); ctx.fill();
+  ctx.fillRect(-8, -10, 23, 4);
+  // 白圈 M
+  ctx.fillStyle = "#fff";
+  ctx.beginPath(); ctx.arc(3, -12, 5, 0, 7); ctx.fill();
+  ctx.fillStyle = "#e52521";
+  ctx.font = "bold 8px sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.fillText("M", 3, -11.5);
+  // 眼睛
+  ctx.fillStyle = "#2a2a2a";
+  ctx.beginPath(); ctx.ellipse(8, 1, 2, 3, 0, 0, 7); ctx.fill();
+  // 胡须
+  ctx.strokeStyle = "#8b5a3a"; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(12, 2); ctx.lineTo(18, 1); ctx.moveTo(12, 5); ctx.lineTo(18, 6); ctx.stroke();
+  ctx.restore();
+}
+
+function drawEnemy(e) {
+  if (!e.alive) return;
+  const px = e.x - cam.x;
+  if (px < -40 || px > W) return;
+  ctx.save();
+  ctx.translate(px + e.w / 2, e.y + e.h / 2);
+  ctx.scale(e.dir, 1);
+  // 捣蛋猫:紫色圆 + 怒眉 + 耳
+  ctx.fillStyle = "#9b6bd6";
+  ctx.beginPath(); ctx.arc(0, 2, 15, 0, 7); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(-13, -6); ctx.lineTo(-16, -17); ctx.lineTo(-5, -10); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(13, -6); ctx.lineTo(16, -17); ctx.lineTo(5, -10); ctx.fill();
+  ctx.fillStyle = "#fff";
+  ctx.beginPath(); ctx.ellipse(5, -2, 3, 4, 0, 0, 7); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(-5, -2, 3, 4, 0, 0, 7); ctx.fill();
+  ctx.fillStyle = "#2a2a2a";
+  ctx.beginPath(); ctx.ellipse(5.5, -1, 1.4, 2.2, 0, 0, 7); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(-4.5, -1, 1.4, 2.2, 0, 0, 7); ctx.fill();
+  // 怒眉
+  ctx.strokeStyle = "#5a2e8a"; ctx.lineWidth = 2.5;
+  ctx.beginPath(); ctx.moveTo(1, -7); ctx.lineTo(9, -4); ctx.moveTo(-1, -7); ctx.lineTo(-9, -4); ctx.stroke();
+  ctx.restore();
+}
+
+function draw() {
+  // 天空
+  const sky = ctx.createLinearGradient(0, 0, 0, H);
+  sky.addColorStop(0, "#a8e0ff"); sky.addColorStop(0.65, "#ffe8f2"); sky.addColorStop(1, "#ffd9ea");
+  ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H);
+  // 远景山丘(视差)
+  ctx.fillStyle = "rgba(255,194,220,0.5)";
+  ctx.beginPath(); ctx.ellipse(200 - cam.x * 0.2, H - 40, 180, 120, 0, Math.PI, 0); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(700 - cam.x * 0.2, H - 20, 220, 150, 0, Math.PI, 0); ctx.fill();
+  // 砖块/物品(可见列)
+  const c0 = Math.floor(cam.x / TILE), c1 = Math.ceil((cam.x + W) / TILE);
+  for (let r = 0; r < ROWS; r++)
+    for (let c = c0; c <= c1; c++)
+      if (world[r] && world[r][c]) drawTile(world[r][c], c, r);
+  // 敌人
+  enemies.forEach(drawEnemy);
+  // 玩家(受击闪烁)
+  if (!(player.inv > 0 && Math.floor(player.inv / 6) % 2)) {
+    drawCatMario(player.x - cam.x, player.y, player.dir, player.onGround);
+  }
+}
+
+// ---------- 音效 ----------
+let ac = null;
+function ensureAudio() { if (!ac) { try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} } if (ac && ac.state === "suspended") ac.resume(); }
+function beep(f, d, t, v) {
+  if (!ac) return;
+  const o = ac.createOscillator(), g = ac.createGain();
+  o.type = t; o.frequency.value = f;
+  g.gain.setValueAtTime(v, ac.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + d);
+  o.connect(g); g.connect(ac.destination);
+  o.start(); o.stop(ac.currentTime + d);
+}
+
+// ---------- HUD / 结算 ----------
+function get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } }
+function set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+function updateHUD() {
+  document.getElementById("hud-score").textContent = score;
+  document.getElementById("hud-coin").textContent = coinsGot;
+  document.getElementById("hud-life").textContent = "❤".repeat(Math.max(0, lives)) || "💔";
+}
+
+function endGame(winFlag) {
+  state = "over";
+  // 💰 金币入统一钱包
+  Nikki.Wallet.add(coinsGot);
+  // 📅 每日挑战
+  const dailyGain = Nikki.Daily.report("mario", { score: 1 });
+  // 🏆 最高分
+  const isBest = score > best;
+  if (isBest) { best = score; set("nikki_mario_best", score); }
+  document.getElementById("over-e").textContent = winFlag ? "🏁" : "😿";
+  document.getElementById("over-title").textContent = winFlag ? "通关啦!" : "游戏结束";
+  document.getElementById("over-detail").innerHTML =
+    `分数 <b>${score}</b> · 金币 <b>${coinsGot}</b> 枚(已入钱包 💰)<br>` +
+    (dailyGain ? `📅 每日挑战完成!+${dailyGain.reward} 金币<br>` : "") +
+    (isBest ? "🏆 <b>新纪录!</b>" : `最高分:${best}`);
+  document.getElementById("over").classList.add("show");
+  beep(winFlag ? 880 : 220, 0.3, winFlag ? "triangle" : "sawtooth", 0.12);
+}
+
+function win() {
+  beep(660, 0.12, "triangle", 0.12);
+  setTimeout(() => beep(880, 0.12, "triangle", 0.12), 140);
+  setTimeout(() => beep(1100, 0.2, "triangle", 0.12), 280);
+  endGame(true);
+}
+
+// ---------- 主循环 ----------
+function loop() {
+  if (state === "play") { updatePlayer(); updateEnemies(); }
+  draw();
+  requestAnimationFrame(loop);
+}
+
+// 启动
+document.getElementById("hud-best").textContent = best;
+startLevel();
+loop();
+</script>
+</body>
+</html>

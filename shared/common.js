@@ -34,6 +34,7 @@ const Nikki = (() => {
     { gameId: "snake",  game: "猫吃小鱼",   desc: "单局拿到 60 分",      metric: "score", cmp: "gte", goal: 60,  reward: 100 },
     { gameId: "flappy", game: "飞飞猫",     desc: "单局飞过 6 根管道",   metric: "score", cmp: "gte", goal: 6,   reward: 100 },
     { gameId: "whack",  game: "猫咪打地鼠", desc: "单局拿到 120 分",     metric: "score", cmp: "gte", goal: 120, reward: 100 },
+    { gameId: "mario",  game: "猫猫马里奥", desc: "跑过一次终点线 🏁",   metric: "score", cmp: "gte", goal: 1,   reward: 100 },
   ];
   function hash(str) { let h = 0; for (const ch of str) h = (h * 31 + ch.charCodeAt(0)) | 0; return Math.abs(h); }
   function dailyInfo() {

@@ -236,6 +236,14 @@
       <span class="play">▶ 开始</span>
     </a>
 
+    <a class="card" href="games/mario.html">
+      <div class="icon">🍄</div>
+      <h2>猫猫马里奥</h2>
+      <p>戴红帽的猫猫跑酷闯关<br>踩捣蛋猫 · 收金币 · 抵达旗帜!</p>
+      <div class="best" id="best-mario">⭐ 加载中…</div><br>
+      <span class="play">▶ 开始</span>
+    </a>
+
     <a class="card" href="dex.html">
       <div class="icon">📖</div>
       <h2>猫咪图鉴</h2>
@@ -290,6 +298,9 @@ if (daily.done) {
 }
 // 📖 图鉴计数
 document.getElementById("best-dex").textContent = `🐱 ${Nikki.Dex.count()} / 8 已收集`;
+// 猫猫马里奥
+const mario = get("nikki_mario_best", 0);
+document.getElementById("best-mario").textContent = mario ? `🏆 最高 ${mario} 分` : "⭐ 尚无纪录";
 </script>
 </body>
 </html>
