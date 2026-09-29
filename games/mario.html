@@ -140,6 +140,27 @@ const STOMP_V = 6.0;                           // 踩扁敌人反弹(按住跳�
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
 // ============================================================
+// 图标贴图加载(probe-and-fallback):assets/icons 里的 256×256 道具图
+// 加载成功 → 游戏里用真图;加载失败 → 自动退回代码画的兜底画法,永不白屏
+// ============================================================
+const SPR = {};
+const SPR_FILES = {
+  coin: "paw_coin",       // 💰 金币 → 猫爪金币
+  fish: "fish_snack",     // 🐟 小鱼干 → 鱼干零食
+  treat: "cat_cookie",    // 🍪 场地小点心 → 猫饼干
+  milk: "milk_bottle",    // 🥛 问号砖生命奖励 → 牛奶瓶
+  crown: "cat_crown",     // 👑 旗杆顶 / 冠军 → 猫皇冠
+};
+(function loadSprites() {
+  for (const [key, file] of Object.entries(SPR_FILES)) {
+    const img = new Image();
+    img.onload = () => { SPR[key] = img; };
+    img.onerror = () => { /* 缺图不报错,走兜底 */ };
+    img.src = "../assets/icons/" + file + ".png";
+  }
+})();
+
+// ============================================================
 // 音频引擎:包络合成音效 + 前瞻调度 BGM
 // ============================================================
 let ac = null;
@@ -251,7 +272,7 @@ btnJump.addEventListener("pointerleave", () => jumpHeld = false);
 // 关卡:瓦片地图(布局沿用已逐帧验证可通关的 v3 设计)
 // ============================================================
 const COLS = 150;
-const T_EMPTY = 0, T_SOLID = 1, T_BRICK = 2, T_COIN = 3, T_FISH = 4, T_SPIKE = 5, T_FLAG = 6, T_Q = 7;
+const T_EMPTY = 0, T_SOLID = 1, T_BRICK = 2, T_COIN = 3, T_FISH = 4, T_SPIKE = 5, T_FLAG = 6, T_Q = 7, T_TREAT = 8;
 let world = [], qContents = {}, bumps = {};   // qContents:问号砖奖励表("r,c"→coin/life);bumps:顶砖弹跳时间戳
 let brHazards = [];                            // 🏆 大逃杀:AI 猫的预埋起跳点(像素 x)
 let flagX = 0;
@@ -274,7 +295,9 @@ function buildLevel() {
   ground(0, COLS - 1);
   // —— 教学区:金币引导 + 第一排问号砖 ——
   coinRow(8, 12, G - 3);
-  qRow(14, 17, G - 4); qLife(16, G - 4); coinRow(14, 17, G - 5);   // 顶❓出金币,16 号砖藏🍄蘑菇(生命+1)
+  qRow(14, 17, G - 4); qLife(16, G - 4); coinRow(14, 17, G - 5);   // 顶❓出金币,16 号砖藏🥛牛奶(生命+1)
+  // 🍪 场地小点心(猫饼干,+30 分):放在地面上随手可捡的位置
+  [30, 52, 68, 86, 98].forEach(x => { world[G - 1][x] = T_TREAT; });
   pipe(20);                                 // 🌺 第一根管道:食人花的家
   // —— 第一个坑 ——
   pit(24, 26);
@@ -348,6 +371,7 @@ function spawnParts(x, y, n, opt) {
       size: (opt.size ?? 4) * (0.6 + Math.random() * 0.8),
       color: Array.isArray(opt.color) ? opt.color[(Math.random() * opt.color.length) | 0] : opt.color,
       shape: opt.shape ?? "circle",
+      spr: opt.spr,                        // 图标贴图键(shape="icon" 时用,如牛奶瓶)
     });
   }
 }
@@ -484,6 +508,11 @@ function collectAt(px, py) {
     sparkle(c * TILE + TILE / 2, r * TILE + TILE / 2);
     sfx("fish");
     updateHUD();
+  } else if (cell === T_TREAT) {
+    world[r][c] = T_EMPTY; score += 30;       // 🍪 猫饼干:跑过就捡
+    sparkle(c * TILE + TILE / 2, r * TILE + TILE / 2);
+    sfx("coin");
+    updateHUD();
   }
 }
 
@@ -500,14 +529,16 @@ function bumpHead(px, py) {
     delete qContents[key];
     if (content === "life") {
       lives = Math.min(3, lives + 1);
-      floatText("🍄 生命+1", c * TILE, r * TILE);
+      floatText("🥛 生命+1", c * TILE, r * TILE);
+      // 🥛 牛奶瓶从砖里弹出的弧线(贴图加载失败时粒子画白色圆兜底)
+      spawnParts(c * TILE + TILE / 2, r * TILE, 1, { color: "#fdfdfd", vx0: 0, vx1: 0, vy0: -5.5, vy1: -5.5, g: 0.3, life: 34, size: 10, shape: "icon", spr: "milk" });
       sfx("life");
     } else {
       coinsGot++; score += 10;
       floatText("💰+10", c * TILE, r * TILE);
       sfx("coin");
     }
-    // 金币从砖里弹出的弧线动画
+    // 金币从砖里弹出的弧线动画(优先用猫爪金币贴图)
     spawnParts(c * TILE + TILE / 2, r * TILE, 1, { color: "#ffd23b", vx0: 0, vx1: 0, vy0: -5.5, vy1: -5.5, g: 0.3, life: 32, size: 9, shape: "coin" });
     shakeT = Math.max(shakeT, 4);
     updateHUD();
@@ -902,15 +933,33 @@ function drawTile(t, x, y) {
     ctx.beginPath(); ctx.moveTo(px, py + TILE / 2); ctx.lineTo(px + TILE, py + TILE / 2); ctx.stroke();
   } else if (t === T_COIN) {
     const bob = Math.sin(Date.now() / 200 + x) * 3;
-    const sq = Math.abs(Math.sin(Date.now() / 260 + x));   // 金币旋转(宽度 oscillate)
-    ctx.fillStyle = "#ffd23b";
-    ctx.beginPath(); ctx.ellipse(px + TILE / 2, py + TILE / 2 + bob, 9 * (0.35 + 0.65 * sq), 9, 0, 0, 7); ctx.fill();
-    ctx.strokeStyle = "#e8a000"; ctx.lineWidth = 2.5; ctx.stroke();
-    ctx.fillStyle = "#ff8fb8";
-    ctx.beginPath(); ctx.ellipse(px + TILE / 2, py + TILE / 2 + bob, 4 * sq, 3.2, 0, 0, 7); ctx.fill();
+    if (SPR.coin) {
+      // 猫爪金币贴图:旋转用宽度压缩模拟
+      const s = 30, sq = Math.max(0.35, Math.abs(Math.sin(Date.now() / 260 + x)));
+      ctx.drawImage(SPR.coin, px + TILE / 2 - (s * sq) / 2, py + TILE / 2 - s / 2 + bob, s * sq, s);
+    } else {
+      const sq = Math.abs(Math.sin(Date.now() / 260 + x));   // 金币旋转(宽度 oscillate)
+      ctx.fillStyle = "#ffd23b";
+      ctx.beginPath(); ctx.ellipse(px + TILE / 2, py + TILE / 2 + bob, 9 * (0.35 + 0.65 * sq), 9, 0, 0, 7); ctx.fill();
+      ctx.strokeStyle = "#e8a000"; ctx.lineWidth = 2.5; ctx.stroke();
+      ctx.fillStyle = "#ff8fb8";
+      ctx.beginPath(); ctx.ellipse(px + TILE / 2, py + TILE / 2 + bob, 4 * sq, 3.2, 0, 0, 7); ctx.fill();
+    }
   } else if (t === T_FISH) {
-    ctx.font = "22px serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-    ctx.fillText("🐟", px + TILE / 2, py + TILE / 2 + Math.sin(Date.now() / 300 + x) * 3);
+    if (SPR.fish) {
+      ctx.drawImage(SPR.fish, px + 4, py + 4 + Math.sin(Date.now() / 300 + x) * 3, TILE - 8, TILE - 8);
+    } else {
+      ctx.font = "22px serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillText("🐟", px + TILE / 2, py + TILE / 2 + Math.sin(Date.now() / 300 + x) * 3);
+    }
+  } else if (t === T_TREAT) {
+    // 🍪 地面小点心:上下轻浮
+    const bob = Math.sin(Date.now() / 240 + x) * 2;
+    if (SPR.treat) ctx.drawImage(SPR.treat, px + 5, py + 5 + bob, TILE - 10, TILE - 10);
+    else {
+      ctx.font = "18px serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillText("🍪", px + TILE / 2, py + TILE / 2 + bob);
+    }
   } else if (t === T_SPIKE) {
     ctx.fillStyle = "#e94560";
     for (let i = 0; i < 3; i++) {
@@ -941,6 +990,12 @@ function drawTile(t, x, y) {
     ctx.lineTo(px + TILE / 2 + 40 + wave, py - 26);
     ctx.lineTo(px + TILE / 2 + 3, py - 14);
     ctx.fill();
+    // 👑 旗杆顶戴猫皇冠(贴图加载失败就画个金球兜底)
+    if (SPR.crown) ctx.drawImage(SPR.crown, px + TILE / 2 - 14, py - 66, 28, 26);
+    else {
+      ctx.fillStyle = "#ffd23b";
+      ctx.beginPath(); ctx.arc(px + TILE / 2, py - 52, 7, 0, 7); ctx.fill();
+    }
   }
 }
 
@@ -1099,9 +1154,18 @@ function drawParticles() {
     const px = p.x - cam.x;
     if (p.shape === "rect") ctx.fillRect(px - p.size / 2, p.y - p.size / 2, p.size, p.size);
     else if (p.shape === "coin") {
+      // 弹出的金币:有贴图用猫爪金币,没有就画椭圆金币
       const sq = Math.abs(Math.sin(p.t / 4));
-      ctx.beginPath(); ctx.ellipse(px, p.y, 9 * sq, 9, 0, 0, 7); ctx.fill();
-      ctx.strokeStyle = "#e8a000"; ctx.lineWidth = 2; ctx.stroke();
+      if (SPR.coin) {
+        ctx.drawImage(SPR.coin, px - 9 * sq, p.y - 9, 18 * sq, 18);
+      } else {
+        ctx.beginPath(); ctx.ellipse(px, p.y, 9 * sq, 9, 0, 0, 7); ctx.fill();
+        ctx.strokeStyle = "#e8a000"; ctx.lineWidth = 2; ctx.stroke();
+      }
+    } else if (p.shape === "icon") {
+      // 道具弹出(牛奶瓶等):有贴图用图,没有画圆兜底
+      if (p.spr && SPR[p.spr]) ctx.drawImage(SPR[p.spr], px - p.size, p.y - p.size, p.size * 2, p.size * 2);
+      else { ctx.beginPath(); ctx.arc(px, p.y, p.size, 0, 7); ctx.fill(); }
     } else {
       ctx.beginPath(); ctx.arc(px, p.y, p.size * a, 0, 7); ctx.fill();
     }
