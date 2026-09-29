@@ -85,6 +85,7 @@
     <div class="hud"><div class="l">💰 金币</div><div class="v" id="hud-coin">0</div></div>
     <div class="hud"><div class="l">生命</div><div class="v" id="hud-life">❤❤❤</div></div>
     <div class="hud"><div class="l">⏰ 时间</div><div class="v" id="hud-time">300</div></div>
+    <div class="hud" id="hud-br" style="display:none"><div class="l">🏅 排名</div><div class="v" id="hud-rank">-</div></div>
     <div class="hud"><div class="l">最高</div><div class="v" id="hud-best">0</div></div>
   </div>
 
@@ -131,6 +132,7 @@ const STOMP_V = 6.0;                          // 踩扁敌人后的反弹力度(
 const COLS = 150;
 const T_EMPTY = 0, T_SOLID = 1, T_BRICK = 2, T_COIN = 3, T_FISH = 4, T_SPIKE = 5, T_FLAG = 6, T_Q = 7;
 let world = [], qContents = {}, bumps = {};   // qContents:问号砖奖励表("r,c"→coin/life);bumps:砖块被顶弹跳的动画时间戳
+let brHazards = [];                            // 🏆 大逃杀:AI 猫的预埋起跳点(像素 x)
 let flagX = 0;
 
 function buildLevel() {
@@ -192,6 +194,8 @@ function buildLevel() {
   flagX = 118;
   world[G - 1][flagX] = T_FLAG;
   world[G - 2][flagX] = T_FLAG;             // 旗杆两格
+  // 🏆 大逃杀:AI 猫的起跳点(坑/管道/尖刺前 2~2.5 格,终点前一大跳)——与玩家验证过的安全起跳点一致
+  brHazards = [17.4, 21.8, 37.8, 69.8, 80.3, 85.4, 97.8, 108.5].map(v => v * TILE).sort((a, b) => a - b);
 }
 
 // ---------- 敌人 ----------
@@ -206,7 +210,7 @@ function buildEnemies() {
 }
 function findFloor(px) {
   const col = Math.floor(px / TILE);
-  for (let r = 0; r < ROWS; r++) if (world[r] && world[r][col] === T_SOLID) return r * TILE;
+  for (let r = 0; r < ROWS; r++) if (world[r] && (world[r][col] === T_SOLID || world[r][col] === T_SPIKE)) return r * TILE;
   return (ROWS - 2) * TILE;
 }
 
@@ -248,16 +252,29 @@ function resetPlayer() {
   player.y = findFloor(player.x) - player.h;
 }
 
-function startLevel() {
+function startLevel(mode) {
   buildLevel();
   buildEnemies();
   buildPlants();
   resetPlayer();
-  coinsGot = 0; score = 0; lives = 3; timeLeft = 300; flagDone = false;
-  timeoutDeath = false;
-  state = "menu";                           // 先进标题菜单,按任意键再开跑(jyMario 式完整流程)
+  coinsGot = 0; score = 0; timeLeft = 300; flagDone = false;
+  timeoutDeath = false; brResultRank = 0;
+  br = null; brFeed = [];
+  document.getElementById("hud-br").style.display = "none";
+  if (mode === "br") { lives = 1; startBR(); }     // 大逃杀:一击出局,所以只有 1 条命
+  else lives = 3;                                   // 经典:3 条命
+  state = "menu";                                   // 回到标题菜单等待选择/开始
   cam.x = 0;
   updateHUD();
+}
+
+// 从菜单选择模式正式开局(重 build 一遍,保证数据干净)
+function beginGame(mode) {
+  startLevel(mode);
+  state = "play";
+  jumpLock = Date.now() + 300;                      // 开局这次按键不立即触发跳跃
+  jumpPressed = false; jumpHeld = false;
+  startBGM();
 }
 
 // ---------- 输入 ----------
@@ -265,7 +282,10 @@ const keys = { left: false, right: false, run: false };
 let jumpPressed = false, jumpHeld = false;   // 跳跃键:本帧刚按下(边缘触发起跳)/ 按住中(变高跳跃)
 window.addEventListener("keydown", e => {
   ensureAudio();
-  tryStart();                                // 菜单状态下按任意键开始游戏
+  const k0 = e.key.toLowerCase();
+  // 菜单里按 2 = 直接开大逃杀(其余任意键 = 经典模式)
+  if (state === "menu" && k0 === "2") { beginGame("br"); return; }
+  tryStart();                                // 菜单状态下按任意键开始游戏(经典模式)
   const k = e.key.toLowerCase();
   if (k === "arrowleft" || k === "a") keys.left = true;
   if (k === "arrowright" || k === "d") keys.right = true;
@@ -303,8 +323,16 @@ btnJump.addEventListener("pointerdown", e => {
 });
 btnJump.addEventListener("pointerup", () => jumpHeld = false);
 btnJump.addEventListener("pointerleave", () => jumpHeld = false);
-// 点击画面任意处也能从菜单开始
-cv.addEventListener("pointerdown", () => { ensureAudio(); tryStart(); });
+// 点击画面:菜单态命中模式按钮就开局
+cv.addEventListener("pointerdown", e => {
+  ensureAudio();
+  if (state !== "menu") return;
+  const rect = cv.getBoundingClientRect();
+  const mx = (e.clientX - rect.left) * (cv.width / rect.width);
+  const my = (e.clientY - rect.top) * (cv.height / rect.height);
+  const hit = MENU_BTNS.find(b => mx >= b.x && mx <= b.x + b.w && my >= b.y && my <= b.y + b.h);
+  if (hit) beginGame(hit.mode);
+});
 
 // ---------- 菜单 → 游戏 ----------
 function tryStart() {
@@ -448,6 +476,87 @@ function bumpHead(px, py) {
   return true;
 }
 
+// ---------- 🏆 大逃杀模式(16 猫同关竞速:跑在最前,别被烟雾追上) ----------
+const AI_POOL = [
+  ["陈皮", "#f5a742"], ["包子", "#f7f3ea"], ["年年", "#9aa0a6"], ["松露", "#8b5a3a"],
+  ["警长", "#3d6be0"], ["有鱼", "#ffd23b"], ["阿狸", "#e5484d"], ["大儿", "#ff6b9d"],
+];
+let br = null;                    // null = 经典模式;对象 = 大逃杀进行中
+let brFeed = [];                  // 左上角滚动播报
+let brResultRank = 0;             // 结算名次(0 = 非大逃杀)
+function brSay(txt) { brFeed.push({ txt, t0: Date.now() }); if (brFeed.length > 4) brFeed.shift(); }
+
+function startBR() {
+  br = { racers: [], smokeX: -300, finished: 0 };
+  // 15 只 AI 猫:各自速度系数不同;大儿永远是最快的那只(彩蛋)
+  const spd = [1.02, 0.94, 0.99, 0.9, 0.96, 0.92, 0.97, 1.04, 0.93, 0.98, 0.95, 0.91, 1.0, 0.97, 1.0];
+  const order = [0, 1, 2, 3, 4, 5, 6, 7, 0, 3, 2, 5, 1, 4, 6];      // 8 只猫混排凑 15
+  for (let i = 0; i < 15; i++) {
+    const [name, color] = AI_POOL[order[i]];
+    const r = {
+      name, color, x: (2 + (i % 5) * 0.8 - 1.5) * TILE, y: 0, vx: 0, vy: 0,
+      dir: 1, spd: spd[i], ji: 0, off: 1.9 + (i % 7) * 0.15,        // off:起跳提前量的个体差异
+      out: false, done: false, onGround: true, cool: 0, lastX: 0, stuck: 0,
+    };
+    r.y = findFloor(r.x + 13) - 34;
+    br.racers.push(r);
+  }
+  document.getElementById("hud-br").style.display = "";
+  brSay("🏆 16 猫大逃杀开始!冲向旗子,别被烟雾追上!");
+}
+
+// 名次 = 完赛数 + 还在你前面的活猫数 + 1
+function brRankOf(x) {
+  let ahead = br.finished;
+  br.racers.forEach(r => { if (!r.out && !r.done && r.x > x) ahead++; });
+  return ahead + 1;
+}
+
+// AI 猫逐帧模拟:与玩家同一套物理常数,按预埋跳点自动起跳
+function updateRacers() {
+  br.racers.forEach(r => {
+    if (r.out || r.done) return;
+    if (r.cool > 0) r.cool--;
+    // 目标极速 = 玩家跑步极速 × 个人系数;落地小硬直 + 空中略慢,保证人类玩家有机会
+    const target = RUN_MAX * r.spd * (r.onGround ? (r.cool > 0 ? 0.6 : 1) : 0.93);
+    r.vx += Math.max(-0.125, Math.min(0.125, target - r.vx));
+    r.x += r.vx;
+    // 预埋跳点起跳
+    if (r.onGround && r.ji < brHazards.length && r.x >= brHazards[r.ji] - r.off * TILE) {
+      r.vy = -JUMP_V * 1.16; r.onGround = false; r.ji++;
+    }
+    // 卡墙自救:1 秒没挪窝就原地跳一下
+    if (Math.abs(r.x - r.lastX) < 0.3) { if (++r.stuck > 60) { r.vy = -JUMP_V; r.onGround = false; r.stuck = 0; } }
+    else { r.stuck = 0; r.lastX = r.x; }
+    // 重力与落地(脚底对齐第一块实心地面)
+    r.vy = Math.min(r.vy + (r.vy < 0 ? G_RISE : G_FALL), MAX_FALL);
+    r.y += r.vy;
+    const floor = findFloor(r.x + 13);
+    if (r.vy >= 0 && r.y + 34 >= floor) {
+      r.y = floor - 34; r.vy = 0;
+      if (!r.onGround) { r.onGround = true; r.cool = 10; }
+    } else if (r.y + 34 < floor - 2) r.onGround = false;
+    // 烟雾淘汰
+    if (br.smokeX > r.x + 20) { r.out = true; brSay(`💨 ${r.name} 被烟雾淘汰!`); }
+    // 完赛
+    if (!r.done && r.x >= flagX * TILE) { r.done = true; br.finished++; brSay(`🏁 ${r.name} 完赛!(第 ${br.finished} 名)`); }
+  });
+  // 烟雾圈:贴着领跑者身后约一屏推进,只进不退;追上谁谁出局
+  const alive = br.racers.filter(r => !r.out && !r.done).map(r => r.x);
+  const leader = Math.max(player.x, ...(alive.length ? alive : [player.x]));
+  const want = leader - 940;
+  if (want > br.smokeX) br.smokeX += Math.min(4.5, want - br.smokeX);
+  if (br.smokeX > player.x + 20) brElim();
+}
+
+// 玩家被淘汰(烟雾 / 被敌人碰到 / 掉坑 / 时间到——大逃杀一击出局)
+function brElim() {
+  if (state !== "play") return;
+  brResultRank = brRankOf(player.x);
+  brSay(`💨 你被淘汰了!第 ${brResultRank} 名`);
+  endGame(false);
+}
+
 // ---------- 飘字提示(顶砖奖励等) ----------
 let floats = [];
 function floatText(txt, wx, wy) { floats.push({ x: wx + TILE / 2, y: wy, txt, t0: Date.now() }); }
@@ -475,6 +584,7 @@ function updateEnemies() {
 }
 
 function hurt(fall) {
+  if (br) { brElim(); return; }              // 🏆 大逃杀:一击淘汰,没有重生
   const p = player;
   if (p.inv > 0 && !fall) return;
   lives--;
@@ -555,7 +665,8 @@ function drawTile(t, x, y) {
   }
 }
 
-function drawCatMario(px, py, dir, onGround) {
+function drawCatMario(px, py, dir, onGround, tint) {
+  const shirt = tint || "#e52521";           // 衣服/帽子主色:玩家红,AI 猫按毛色
   ctx.save();
   ctx.translate(px + 13, py);
   ctx.scale(dir, 1);
@@ -578,7 +689,7 @@ function drawCatMario(px, py, dir, onGround) {
   ctx.fillStyle = "#2a56c6";
   ctx.beginPath(); ctx.roundRect(-8, 12, 22, 18, 5); ctx.fill();
   // 红衣
-  ctx.fillStyle = "#e52521";
+  ctx.fillStyle = shirt;
   ctx.fillRect(-8, 10, 22, 8);
   ctx.fillRect(-9, 8, 7, 12); ctx.fillRect(10, 8, 7, 12);
   // 脸
@@ -589,13 +700,13 @@ function drawCatMario(px, py, dir, onGround) {
   ctx.beginPath(); ctx.moveTo(-8, -8); ctx.lineTo(-11, -18); ctx.lineTo(-1, -11); ctx.fill();
   ctx.beginPath(); ctx.moveTo(10, -8); ctx.lineTo(14, -17); ctx.lineTo(4, -11); ctx.fill();
   // 红帽
-  ctx.fillStyle = "#e52521";
+  ctx.fillStyle = shirt;
   ctx.beginPath(); ctx.arc(3, -8, 10, Math.PI, 0); ctx.fill();
   ctx.fillRect(-8, -10, 23, 4);
   // 白圈 M
   ctx.fillStyle = "#fff";
   ctx.beginPath(); ctx.arc(3, -12, 5, 0, 7); ctx.fill();
-  ctx.fillStyle = "#e52521";
+  ctx.fillStyle = shirt;
   ctx.font = "bold 8px sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
   ctx.fillText("M", 3, -11.5);
   // 眼睛
@@ -695,11 +806,61 @@ function draw() {
     ctx.fillStyle = "#ff6b9d"; ctx.fillText(f.txt, fx, fy);
     ctx.globalAlpha = 1;
   });
+  // 🏆 大逃杀层:AI 猫 / 烟雾墙 / 顶部进度条 / 播报
+  if (br) {
+    // AI 猫(画在玩家身后层)
+    br.racers.forEach(r => {
+      if (r.out || r.done) return;
+      const rx = r.x - cam.x;
+      if (rx < -60 || rx > W + 60) return;
+      drawCatMario(rx, r.y, r.dir, r.onGround, r.color);
+      ctx.font = "800 10px Nunito, sans-serif"; ctx.textAlign = "center";
+      ctx.fillStyle = "rgba(255,255,255,0.85)";
+      ctx.fillText(r.name, rx + 13, r.y - 7);
+    });
+    // 烟雾墙(从左边吞过来)
+    const sx = br.smokeX - cam.x;
+    if (sx > -90) {
+      const sg = ctx.createLinearGradient(sx - 90, 0, sx, 0);
+      sg.addColorStop(0, "rgba(233,69,96,0)");
+      sg.addColorStop(1, "rgba(233,69,96,0.5)");
+      ctx.fillStyle = sg; ctx.fillRect(sx - 90, 0, 90, H);
+      ctx.fillStyle = "rgba(233,69,96,0.75)"; ctx.fillRect(sx, 0, 5, H);
+    }
+    // 顶部进度条:金点=完赛 · 灰点=AI · 粉点=你 · 红条=烟雾
+    const bw = W - 200, bx = 100, by = 10, total = flagX * TILE;
+    ctx.fillStyle = "rgba(255,255,255,0.65)"; ctx.fillRect(bx, by, bw, 6);
+    ctx.fillStyle = "#e94560"; ctx.fillRect(bx, by, bw * Math.max(0, Math.min(1, br.smokeX / total)), 6);
+    br.racers.forEach(r => {
+      if (r.out) return;
+      ctx.fillStyle = r.done ? "#c9a227" : "rgba(90,90,110,0.75)";
+      ctx.fillRect(bx + bw * Math.min(1, r.x / total) - 1, by - 2, 2.5, 10);
+    });
+    const pdx = bx + bw * Math.min(1, player.x / total);
+    ctx.fillStyle = "#ff6b9d"; ctx.beginPath(); ctx.arc(pdx, by + 3, 5, 0, 7); ctx.fill();
+    ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.stroke();
+    // 播报(左上角滚动,3 秒淡出)
+    const now3 = Date.now();
+    brFeed = brFeed.filter(f => now3 - f.t0 < 3200);
+    ctx.font = "800 13px Nunito, sans-serif"; ctx.textAlign = "left";
+    brFeed.forEach((f, i2) => {
+      ctx.globalAlpha = Math.min(1, (3200 - (now3 - f.t0)) / 800);
+      ctx.fillStyle = "#8b4a5e";
+      ctx.fillText(f.txt, 14, 40 + i2 * 18);
+      ctx.globalAlpha = 1;
+    });
+    // 排名 HUD
+    document.getElementById("hud-rank").textContent = `${brRankOf(player.x)}/16`;
+  }
   // 标题菜单(游戏最上层)
   if (state === "menu") drawMenu();
 }
 
-// ---------- 标题菜单 ----------
+// ---------- 标题菜单(双模式按钮) ----------
+const MENU_BTNS = [
+  { x: W / 2 - 240, y: 296, w: 230, h: 60, label: "🎮 经典闯关", sub: "3 条命 · 300 秒 · 踩猫顶砖", mode: "classic" },
+  { x: W / 2 + 10, y: 296, w: 230, h: 60, label: "🏆 大逃杀", sub: "16 猫竞速 · 一击淘汰", mode: "br" },
+];
 function drawMenu() {
   ctx.fillStyle = "rgba(255,214,232,0.9)";
   ctx.fillRect(0, 0, W, H);
@@ -707,19 +868,27 @@ function drawMenu() {
   ctx.fillStyle = "#ff6b9d";
   ctx.font = "800 62px Fredoka, Nunito, sans-serif";
   ctx.strokeStyle = "#fff"; ctx.lineWidth = 10;
-  ctx.strokeText("🐱🍄 猫猫马里奥", W / 2, 190);
-  ctx.fillText("🐱🍄 猫猫马里奥", W / 2, 190);
+  ctx.strokeText("🐱🍄 猫猫马里奥", W / 2, 160);
+  ctx.fillText("🐱🍄 猫猫马里奥", W / 2, 160);
   ctx.font = "700 20px Nunito, sans-serif";
   ctx.fillStyle = "#8b4a5e";
-  ctx.fillText("⬅➡ 走动 · 长按跳跃跳更高 · Shift/🏃 加速跑(跑越快跳越高) · 顶❓砖块有惊喜 · 当心食人花🌺 · 300 秒内抵达🚩", W / 2, 255);
-  if (Math.floor(Date.now() / 500) % 2) {
-    ctx.font = "800 30px Nunito, sans-serif";
-    ctx.fillStyle = "#e94560";
-    ctx.fillText("按任意键 / 点击画面 开始!", W / 2, 330);
-  }
-  ctx.font = "700 16px Nunito, sans-serif";
+  ctx.fillText("长按跳跃跳更高 · Shift 加速跑 · 顶❓砖块有惊喜 · 当心食人花🌺", W / 2, 225);
+  // 模式按钮
+  MENU_BTNS.forEach(b => {
+    const hov = b.mode === "br";
+    ctx.fillStyle = hov ? "#ff6b9d" : "#fff";
+    ctx.strokeStyle = "#ff9ec4"; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.roundRect(b.x, b.y, b.w, b.h, 18); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = hov ? "#fff" : "#ff6b9d";
+    ctx.font = "800 22px Nunito, sans-serif";
+    ctx.fillText(b.label, b.x + b.w / 2, b.y + 23);
+    ctx.font = "700 13px Nunito, sans-serif";
+    ctx.fillStyle = hov ? "rgba(255,255,255,0.9)" : "#c98ba0";
+    ctx.fillText(b.sub, b.x + b.w / 2, b.y + 45);
+  });
+  ctx.font = "700 15px Nunito, sans-serif";
   ctx.fillStyle = "#c98ba0";
-  ctx.fillText(`最高分:${best} · 💰 金币全场通用 · 收集猫咪图鉴`, W / 2, 385);
+  ctx.fillText(`按任意键 = 经典模式 · 按 2 = 大逃杀 · 最高分:${best} · 💰 金币全场通用`, W / 2, 400);
 }
 
 // ---------- 音效 ----------
@@ -770,6 +939,7 @@ function updateTimeHUD() {
 }
 
 function endGame(winFlag) {
+  if (state === "over") return;              // 防重复结算(奖金不能发双份)
   state = "over";
   stopBGM();
   // 💰 金币入统一钱包
@@ -779,10 +949,14 @@ function endGame(winFlag) {
   // 🏆 最高分
   const isBest = score > best;
   if (isBest) { best = score; set("nikki_mario_best", score); }
-  document.getElementById("over-e").textContent = winFlag ? "🏁" : "😿";
-  document.getElementById("over-title").textContent = winFlag ? "通关啦!" : (timeoutDeath ? "⏰ 时间到!" : "游戏结束");
+  const isBR = !!br;                         // 🏆 大逃杀结算文案
+  document.getElementById("over-e").textContent = winFlag ? (isBR && brResultRank === 1 ? "🏆" : "🏁") : (timeoutDeath ? "⏰" : "💨");
+  document.getElementById("over-title").textContent =
+    winFlag ? (isBR ? (brResultRank === 1 ? "🏆 皇家胜利!" : `🏁 第 ${brResultRank} 名`) : "通关啦!")
+            : (timeoutDeath ? "⏰ 时间到!" : (isBR ? "💨 被淘汰了" : "游戏结束"));
   document.getElementById("over-detail").innerHTML =
     `分数 <b>${score}</b> · 金币 <b>${coinsGot}</b> 枚(已入钱包 💰)<br>` +
+    (isBR && brResultRank ? `🏅 大逃杀名次:第 <b>${brResultRank}</b> / 16 名<br>` : "") +
     (dailyGain ? `📅 每日挑战完成!+${dailyGain.reward} 金币<br>` : "") +
     (isBest ? "🏆 <b>新纪录!</b>" : `最高分:${best}`);
   document.getElementById("over").classList.add("show");
@@ -790,6 +964,12 @@ function endGame(winFlag) {
 }
 
 function win() {
+  if (br) {
+    // 🏆 大逃杀:名次越前奖励越肥(冠军 100 金币 + 3000 分)
+    brResultRank = brRankOf(player.x);
+    coinsGot += Math.max(20, 100 - (brResultRank - 1) * 8);
+    score += Math.max(300, 3000 - (brResultRank - 1) * 170);
+  }
   score += Math.floor(timeLeft) * 2;         // ⏰ 剩余时间奖励:每秒 2 分,跑得快赚得多
   updateHUD();
   beep(660, 0.12, "triangle", 0.12);
@@ -802,9 +982,10 @@ function win() {
 function loop() {
   if (state === "play") {
     updatePlayer(); updateEnemies(); updatePlants();
+    if (br) updateRacers();                  // 🏆 大逃杀:AI 猫 + 烟雾圈
     // ⏰ 倒计时(约 60fps,每帧减 1/60 秒),归零判负
     timeLeft -= 1 / 60;
-    if (timeLeft <= 0) { timeLeft = 0; updateTimeHUD(); timeoutDeath = true; endGame(false); }
+    if (timeLeft <= 0) { timeLeft = 0; updateTimeHUD(); timeoutDeath = true; br ? brElim() : endGame(false); }
     else updateTimeHUD();
   }
   draw();
