@@ -162,6 +162,32 @@ const SPR_FILES = {
     img.src = "../assets/icons/" + file + ".png";
   }
 })();
+// ============================================================
+// 🐱 猫咪真实照片头像(assets/cats 里的 8 只猫)
+// 全部猫角色的脸都用真照片:主角=大儿,AI 猫/捣蛋猫按名字对应;
+// 圆形裁剪 + 居中裁方(非正方形照片不变形);缺图自动退回手绘脸
+// ============================================================
+const SPRC = {};
+const CAT_FILES = ["chenpi", "baozi", "niannian", "songlu", "daer", "jinzhang", "youyu", "ali"];
+(function loadCatPhotos() {
+  CAT_FILES.forEach(key => {
+    const img = new Image();
+    img.onload = () => { SPRC[key] = img; };
+    img.onerror = () => { /* 缺图退回手绘脸 */ };
+    img.src = "../assets/cats/" + key + ".png";
+  });
+})();
+// 把照片居中裁方后画进圆形头像框(等比 cover,不拉伸变形)
+function drawCatFace(img, cx, cy, r) {
+  const s = Math.min(img.width, img.height);
+  const sx = (img.width - s) / 2, sy = (img.height - s) / 2;
+  ctx.save();
+  ctx.beginPath(); ctx.arc(cx, cy, r, 0, 7); ctx.clip();
+  ctx.drawImage(img, sx, sy, s, s, cx - r, cy - r, r * 2, r * 2);
+  ctx.restore();
+  ctx.strokeStyle = "rgba(255,255,255,0.85)"; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.arc(cx, cy, r, 0, 7); ctx.stroke();
+}
 
 // ============================================================
 // 音频引擎:包络合成音效 + 前瞻调度 BGM
@@ -412,7 +438,7 @@ function resetPlayer() {
   player = {
     x: 2 * TILE, y: 0, px: 2 * TILE, py: 0, w: 26, h: 34,
     vx: 0, vy: 0, dir: 1, onGround: false, inv: 0,
-    runPhase: 0, sqX: 1, sqY: 1, skidding: false, wasGround: false, slipT: 0, wasPuddle: false,
+    runPhase: 0, sqX: 1, sqY: 1, skidding: false, wasGround: false, slipT: 0, wasPuddle: false, catKey: "daer",   // 主角 = 大儿!
   };
   player.y = findFloor(player.x) - player.h;
   player.py = player.y;
@@ -591,11 +617,11 @@ function bumpHead(px, py) {
 // ============================================================
 function buildEnemies() {
   enemies = [
-    { x: 29 * TILE, y: 0, min: 27 * TILE, max: 33 * TILE, alive: true },
-    { x: 60 * TILE, y: 0, min: 58 * TILE, max: 64 * TILE, alive: true },
-    { x: 68 * TILE, y: 0, min: 66 * TILE, max: 71 * TILE, alive: true },
-    { x: 94 * TILE, y: 0, min: 91 * TILE, max: 98 * TILE, alive: true },
-    { x: 92 * TILE, y: 0, min: 89 * TILE, max: 98 * TILE, alive: true, type: "vacuum" },   // 吸尘器:靠近会加速追人
+    { x: 29 * TILE, y: 0, min: 27 * TILE, max: 33 * TILE, alive: true, face: "niannian" },
+    { x: 60 * TILE, y: 0, min: 58 * TILE, max: 64 * TILE, alive: true, face: "youyu" },
+    { x: 68 * TILE, y: 0, min: 66 * TILE, max: 71 * TILE, alive: true, face: "baozi" },
+    { x: 94 * TILE, y: 0, min: 91 * TILE, max: 98 * TILE, alive: true, face: "ali" },
+    { x: 92 * TILE, y: 0, min: 89 * TILE, max: 98 * TILE, alive: true, type: "vacuum", face: "chenpi" },   // 吸尘器:靠近会加速追人
   ].map(e => ({ ...e, type: e.type || "cat", y: findFloor(e.x) - 34, py: findFloor(e.x) - 34, w: 30, h: 34, dir: 1, spd: 1.1 }));
 }
 function updateEnemies() {
@@ -657,20 +683,21 @@ function updatePlants() {
 // 🏆 大逃杀模式(16 猫同关竞速:跑在最前,别被烟雾追上)
 // ============================================================
 const AI_POOL = [
-  ["陈皮", "#f5a742"], ["包子", "#f7f3ea"], ["年年", "#9aa0a6"], ["松露", "#8b5a3a"],
-  ["警长", "#3d6be0"], ["有鱼", "#ffd23b"], ["阿狸", "#e5484d"], ["大儿", "#ff6b9d"],
+  ["陈皮", "#f5a742", "chenpi"], ["包子", "#f7f3ea", "baozi"], ["年年", "#9aa0a6", "niannian"], ["松露", "#8b5a3a", "songlu"],
+  ["警长", "#3d6be0", "jinzhang"], ["有鱼", "#ffd23b", "youyu"], ["阿狸", "#e5484d", "ali"], ["大儿", "#ff6b9d", "daer"],
 ];
 let br = null, brFeed = [], brResultRank = 0;
 function brSay(txt) { brFeed.push({ txt, t0: Date.now() }); if (brFeed.length > 4) brFeed.shift(); }
 
 function startBR() {
   br = { racers: [], smokeX: -300, finished: 0 };
+  // 玩家扮演大儿,所以 AI 里没有大儿——最快的 1.04 系数给警长(警长追捕大儿!)
   const spd = [1.02, 0.94, 0.99, 0.9, 0.96, 0.92, 0.97, 1.04, 0.93, 0.98, 0.95, 0.91, 1.0, 0.97, 1.0];
-  const order = [0, 1, 2, 3, 4, 5, 6, 7, 0, 3, 2, 5, 1, 4, 6];
+  const order = [0, 1, 2, 3, 4, 5, 6, 4, 0, 3, 2, 5, 1, 6, 2];
   for (let i = 0; i < 15; i++) {
-    const [name, color] = AI_POOL[order[i]];
+    const [name, color, face] = AI_POOL[order[i]];
     const r = {
-      name, color, x: (2 + (i % 5) * 0.8 - 1.5) * TILE, y: 0, px: 0, py: 0, vx: 0, vy: 0,
+      name, color, catKey: face, x: (2 + (i % 5) * 0.8 - 1.5) * TILE, y: 0, px: 0, py: 0, vx: 0, vy: 0,
       dir: 1, spd: spd[i], ji: 0, off: 1.9 + (i % 7) * 0.15,
       out: false, done: false, onGround: true, cool: 0, lastX: 0, stuck: 0, runPhase: 0, sqX: 1, sqY: 1,
     };
@@ -679,7 +706,7 @@ function startBR() {
     br.racers.push(r);
   }
   document.getElementById("hud-br").style.display = "";
-  brSay("🏆 16 猫大逃杀开始!冲向旗子,别被烟雾追上!");
+  brSay("🏆 你扮演大儿!冲向旗子,警长带队追捕!");
 }
 function brRankOf(x) {
   let ahead = br.finished;
@@ -1097,12 +1124,18 @@ function drawGoomba(e, alpha) {
   ctx.beginPath(); ctx.arc(0, 2, 15, 0, 7); ctx.fill();
   ctx.beginPath(); ctx.moveTo(-13, -6); ctx.lineTo(-16, -17); ctx.lineTo(-5, -10); ctx.fill();
   ctx.beginPath(); ctx.moveTo(13, -6); ctx.lineTo(16, -17); ctx.lineTo(5, -10); ctx.fill();
-  ctx.fillStyle = "#fff";
-  ctx.beginPath(); ctx.ellipse(5, -2, 3, 4, 0, 0, 7); ctx.fill();
-  ctx.beginPath(); ctx.ellipse(-5, -2, 3, 4, 0, 0, 7); ctx.fill();
-  ctx.fillStyle = "#2a2a2a";
-  ctx.beginPath(); ctx.ellipse(5.5, -1, 1.4, 2.2, 0, 0, 7); ctx.fill();
-  ctx.beginPath(); ctx.ellipse(-4.5, -1, 1.4, 2.2, 0, 0, 7); ctx.fill();
+  // 真实猫脸(捣蛋猫也是猫!缺图退回手绘白眼)
+  const gPhoto = e.face && SPRC[e.face];
+  if (gPhoto) {
+    drawCatFace(gPhoto, 0, 1, 12);
+  } else {
+    ctx.fillStyle = "#fff";
+    ctx.beginPath(); ctx.ellipse(5, -2, 3, 4, 0, 0, 7); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(-5, -2, 3, 4, 0, 0, 7); ctx.fill();
+    ctx.fillStyle = "#2a2a2a";
+    ctx.beginPath(); ctx.ellipse(5.5, -1, 1.4, 2.2, 0, 0, 7); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(-4.5, -1, 1.4, 2.2, 0, 0, 7); ctx.fill();
+  }
   ctx.strokeStyle = "#5a2e8a"; ctx.lineWidth = 2.5;
   ctx.beginPath(); ctx.moveTo(1, -7); ctx.lineTo(9, -4); ctx.moveTo(-1, -7); ctx.lineTo(-9, -4); ctx.stroke();
   // 小脚交替
@@ -1170,9 +1203,14 @@ function drawCat({ o, ix, iy }) {
   // ---- 前腿 ----
   ctx.fillStyle = "#2a56c6";
   drawLeg(5, 0);
-  // ---- 头 ----
-  ctx.fillStyle = skin;
-  ctx.beginPath(); ctx.arc(2, -33, 11, 0, 7); ctx.fill();
+  // ---- 头(有真实猫照片就用照片头像,缺图退回手绘) ----
+  const catPhoto = o.catKey && SPRC[o.catKey];
+  if (catPhoto) {
+    drawCatFace(catPhoto, 2, -33, 11);
+  } else {
+    ctx.fillStyle = skin;
+    ctx.beginPath(); ctx.arc(2, -33, 11, 0, 7); ctx.fill();
+  }
   // 耳朵(从帽子里探出)
   ctx.fillStyle = "#ff9ec4";
   ctx.beginPath(); ctx.moveTo(-8, -40); ctx.lineTo(-11, -50); ctx.lineTo(-1, -43); ctx.fill();
@@ -1186,22 +1224,24 @@ function drawCat({ o, ix, iy }) {
   ctx.fillStyle = shirt;
   ctx.font = "bold 8px sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
   ctx.fillText("M", 2, -44.5);
-  // 脸:眼睛(周期眨眼)/ 鼻子 / 胡须 / 腮红
-  const blink = (tickCount % 190) < 7;
-  ctx.fillStyle = "#2a2a2a";
-  if (blink || (!o.onGround && o.vy > 4)) {
-    ctx.fillRect(4, -35, 4, 1.6);                     // 眨眼 / 高速下落眯眼
-  } else {
-    ctx.beginPath(); ctx.ellipse(6, -35, 2, 3, 0, 0, 7); ctx.fill();
+  // 脸:眼睛(周期眨眼)/ 鼻子 / 胡须 / 腮红 —— 有真实照片头像时跳过,不叠在真脸上
+  if (!catPhoto) {
+    const blink = (tickCount % 190) < 7;
+    ctx.fillStyle = "#2a2a2a";
+    if (blink || (!o.onGround && o.vy > 4)) {
+      ctx.fillRect(4, -35, 4, 1.6);                     // 眨眼 / 高速下落眯眼
+    } else {
+      ctx.beginPath(); ctx.ellipse(6, -35, 2, 3, 0, 0, 7); ctx.fill();
+    }
+    ctx.fillStyle = "#ff8fb8";
+    ctx.beginPath(); ctx.arc(11, -31, 1.6, 0, 7); ctx.fill();
+    ctx.beginPath(); ctx.arc(-2, -31, 2.6, 0, 7); ctx.globalAlpha = 0.55; ctx.fill(); ctx.globalAlpha = 1;
+    ctx.beginPath(); ctx.arc(9, -29, 2.6, 0, 7); ctx.fill();
+    ctx.strokeStyle = "#8b5a3a"; ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(12, -32); ctx.lineTo(18, -33); ctx.moveTo(12, -30); ctx.lineTo(18, -29);
+    ctx.stroke();
   }
-  ctx.fillStyle = "#ff8fb8";
-  ctx.beginPath(); ctx.arc(11, -31, 1.6, 0, 7); ctx.fill();
-  ctx.beginPath(); ctx.arc(-2, -31, 2.6, 0, 7); ctx.globalAlpha = 0.55; ctx.fill(); ctx.globalAlpha = 1;
-  ctx.beginPath(); ctx.arc(9, -29, 2.6, 0, 7); ctx.fill();
-  ctx.strokeStyle = "#8b5a3a"; ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(12, -32); ctx.lineTo(18, -33); ctx.moveTo(12, -30); ctx.lineTo(18, -29);
-  ctx.stroke();
   ctx.restore();
 }
 
