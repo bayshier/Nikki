@@ -1,0 +1,1100 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="description" content="多巴算术祭：每答对一题算术，画面和音乐就再嗨一层的算术祭典。灵感致敬 dopa-drill（MIT），非官方中文复刻。">
+    <meta name="theme-color" content="#ff97bf">
+    <title>🧮 多巴算术祭</title>
+    <!-- 通用样式沿用合集主题变量 -->
+    <link rel="stylesheet" href="../style.css">
+    <style>
+        /* ============================================================
+           多巴算术祭 · 汉化复刻版
+           灵感致敬 grmchn/dopa-drill (MIT) · 吉祥物与名称为本项目原创
+           核心公式严格对齐原版 SPEC：
+             多巴值 L（对数）: B(f)=2.3·f^1.15, X(n)=2.3+3(1-e^(-n/10))
+             连击倍率 M(c)=1+min(1,c/20), 上限 L=9.08
+             演出强度 E=0.08+0.92·(i/(N-1))^1.3, BPM=112+min(1,E)·16
+           ============================================================ */
+        :root {
+            --dp-pink: #ff97bf;
+            --dp-cream: #fff3e4;
+            --dp-blue: #2f79f7;
+            --dp-red: #e94560;
+            --bg-hue: 0;                /* 随演出强度旋转的背景色相 */
+            --shake: 0px;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+        body {
+            font-family: "Nunito", -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+            color: #5a2a3a;
+            min-height: 100dvh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            user-select: none;
+            /* 背景色相随演出强度旋转：换个阶段就是换个世界 */
+            background: linear-gradient(135deg,
+                hsl(calc(340 + var(--bg-hue)), 100%, 92%) 0%,
+                hsl(calc(28 + var(--bg-hue)), 90%, 90%) 100%) fixed;
+            animation: bgshift calc(9s / max(var(--spd, 1), 0.4)) ease-in-out infinite alternate;
+        }
+        @keyframes bgshift {
+            from { background-position: 0% 0%; }
+            to { background-position: 100% 100%; }
+        }
+        /* 世界震屏（打击/里程碑） */
+        .world {
+            width: 100%; max-width: 560px;
+            padding: 14px;
+            transform: translate(var(--shake), var(--shake));
+        }
+
+        /* ---------- 屏幕 ---------- */
+        .screen { display: none; text-align: center; }
+        .screen.on { display: block; animation: pop 0.3s ease; }
+        @keyframes pop { from { transform: scale(0.94); opacity: 0; } }
+
+        /* ---------- 标题屏 ---------- */
+        .logo {
+            font-size: clamp(34px, 9vw, 54px);
+            font-weight: 900;
+            letter-spacing: 3px;
+            background: linear-gradient(90deg, var(--dp-red), var(--dp-pink), #ffd56b);
+            -webkit-background-clip: text; background-clip: text; color: transparent;
+            filter: drop-shadow(0 3px 0 rgba(255, 107, 157, 0.35));
+        }
+        .tagline { font-size: 13px; color: #9a5a72; margin: 4px 0 16px; }
+
+        /* ---------- 多巴仔（原创吉祥物：圆头天线仔） ---------- */
+        .mascot {
+            position: relative;
+            width: 110px; height: 120px;
+            margin: 0 auto 10px;
+            transition: transform 0.25s cubic-bezier(.3, 1.6, .5, 1);
+        }
+        .mascot .body {
+            position: absolute; bottom: 14px; left: 15px;
+            width: 80px; height: 78px;
+            background: var(--dp-pink);
+            border: 3px solid #5a2a3a;
+            border-radius: 42% 42% 46% 46%;
+        }
+        .mascot .face {
+            position: absolute; bottom: 22px; left: 19px;
+            width: 72px; height: 56px;
+            background: var(--dp-cream);
+            border-radius: 46%;
+        }
+        .mascot .eye {
+            position: absolute; top: 18px;
+            width: 13px; height: 13px;
+            background: #fff; border: 3px solid #222;
+            border-radius: 50%;
+        }
+        .mascot .eye.l { left: 12px; }
+        .mascot .eye.r { right: 12px; }
+        .mascot .mouth {
+            position: absolute; top: 38px; left: 50%;
+            width: 14px; height: 7px;
+            margin-left: -7px;
+            background: #5a2a3a;
+            border-radius: 0 0 8px 8px;
+        }
+        .mascot .antenna {
+            position: absolute; top: -16px; left: 52px;
+            width: 4px; height: 18px;
+            background: #5a2a3a; border-radius: 2px;
+        }
+        .mascot .antenna::after {
+            content: "✨"; position: absolute; top: -12px; left: -6px;
+            font-size: 16px;
+            animation: twinkle 1.2s ease-in-out infinite alternate;
+        }
+        @keyframes twinkle { from { transform: scale(0.7) rotate(-15deg); } to { transform: scale(1.2) rotate(15deg); } }
+        .mascot .feet {
+            position: absolute; bottom: 4px; left: 22px;
+            width: 66px; height: 12px;
+            display: flex; justify-content: space-between;
+        }
+        .mascot .feet span {
+            width: 26px; height: 12px;
+            background: var(--dp-blue);
+            border: 2px solid #5a2a3a; border-radius: 8px 8px 4px 4px;
+        }
+        /* 动作 */
+        .mascot.jump { animation: mjump 0.5s cubic-bezier(.3, 1.8, .5, 1); }
+        @keyframes mjump {
+            0% { transform: translateY(0) scale(1); }
+            35% { transform: translateY(-26px) scale(1.08, 0.94); }
+            70% { transform: translateY(0) scale(0.96, 1.06); }
+            100% { transform: translateY(0) scale(1); }
+        }
+        .mascot.wobble { animation: mwobble 0.6s ease; }
+        @keyframes mwobble {
+            0%, 100% { transform: rotate(0); }
+            25% { transform: rotate(-10deg) translateY(4px); }
+            55% { transform: rotate(9deg); }
+            80% { transform: rotate(-5deg); }
+        }
+        .mascot .arm {
+            position: absolute; top: 46px;
+            width: 20px; height: 6px;
+            background: var(--dp-pink);
+            border: 2px solid #5a2a3a; border-radius: 4px;
+        }
+        .mascot .arm.l { left: -12px; transform: rotate(28deg); }
+        .mascot .arm.r { right: -12px; transform: rotate(-28deg); }
+        .mascot.cheer .arm.l { transform: rotate(-65deg) translate(-3px, -8px); }
+        .mascot.cheer .arm.r { transform: rotate(65deg) translate(3px, -8px); }
+
+        /* ---------- 按钮 ---------- */
+        .btn {
+            display: block;
+            width: 100%; max-width: 300px;
+            margin: 10px auto;
+            padding: 14px;
+            background: var(--dp-pink);
+            color: #fff; font-weight: 800; font-size: 17px;
+            border: 3px solid #5a2a3a; border-radius: 16px;
+            box-shadow: 0 4px 0 #5a2a3a;
+            cursor: pointer;
+            font-family: inherit;
+            transition: transform 0.08s, box-shadow 0.08s;
+        }
+        .btn:active { transform: translateY(4px); box-shadow: 0 0 0 #5a2a3a; }
+        .btn.blue { background: var(--dp-blue); }
+        .btn.yellow { background: #ffd56b; color: #5a3a00; }
+        .btn.ghost { background: var(--dp-cream); color: #9a5a72; font-size: 14px; padding: 10px; box-shadow: 0 3px 0 #d8b8c4; border-color: #d8b8c4; }
+
+        .gradepick { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; max-width: 320px; margin: 12px auto; }
+        .gradepick button {
+            padding: 12px 4px;
+            background: var(--dp-cream);
+            border: 3px solid #5a2a3a; border-radius: 14px;
+            font-weight: 800; font-size: 15px;
+            cursor: pointer; font-family: inherit;
+            box-shadow: 0 3px 0 #5a2a3a;
+            color: #5a2a3a;
+        }
+        .gradepick button:active { transform: translateY(3px); box-shadow: none; }
+
+        .hint { font-size: 12px; color: #b08098; line-height: 1.9; margin-top: 14px; }
+
+        /* ---------- 游戏屏 ---------- */
+        .hud {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 8px;
+            font-weight: 800;
+        }
+        .hud .dopa {
+            font-size: 24px;
+            color: var(--dp-red);
+            text-shadow: 0 2px 0 #fff;
+            white-space: nowrap;
+        }
+        .hud .dopa small { font-size: 12px; color: #9a5a72; display: block; letter-spacing: 2px; }
+        .hud .combo {
+            text-align: right;
+            font-size: 15px;
+            color: var(--dp-blue);
+            white-space: nowrap;
+        }
+        .hud .combo.max { color: var(--dp-red); animation: cpulse 0.4s ease-in-out infinite alternate; }
+        @keyframes cpulse { to { transform: scale(1.12); } }
+        .hud .qcount { font-size: 13px; color: #9a5a72; }
+
+        /* 时间条 */
+        .timebar {
+            width: 100%; height: 12px;
+            background: rgba(255, 255, 255, 0.7);
+            border: 2px solid #5a2a3a; border-radius: 99px;
+            overflow: hidden; margin-bottom: 12px;
+        }
+        .timebar i {
+            display: block; height: 100%; width: 100%;
+            background: linear-gradient(90deg, #6ee7a8, #ffd56b);
+            border-radius: 99px;
+        }
+        .timebar i.warn { background: linear-gradient(90deg, #ff8c8c, var(--dp-red)); }
+
+        /* 题目 */
+        .question {
+            background: rgba(255, 255, 255, 0.9);
+            border: 3px solid #5a2a3a; border-radius: 18px;
+            padding: 20px 12px;
+            font-size: clamp(26px, 7vw, 36px);
+            font-weight: 900;
+            font-family: "SF Mono", monospace;
+            margin-bottom: 12px;
+            min-height: 76px;
+            display: flex; align-items: center; justify-content: center;
+            position: relative;
+        }
+        .question .wrongmark {
+            position: absolute; top: -14px; right: -10px;
+            font-size: 34px;
+            transform: rotate(14deg);
+        }
+
+        /* 输入格 */
+        .answerbox {
+            display: flex; align-items: center; justify-content: center;
+            gap: 4px;
+            min-height: 58px;
+            margin-bottom: 12px;
+            font-size: 40px; font-weight: 900;
+            font-family: "SF Mono", monospace;
+        }
+        .answerbox .cell {
+            min-width: 44px; height: 54px;
+            line-height: 54px;
+            background: #fff;
+            border: 3px solid #5a2a3a; border-radius: 12px;
+            text-align: center;
+        }
+        .answerbox .cell.cur { border-color: var(--dp-red); background: #fff0f4; }
+        .answerbox .cell.minus { min-width: 30px; }
+        .answerbox.ok .cell { background: #e2fce9; border-color: #27a35c; color: #1a7a3a; }
+        .answerbox.bad .cell { background: #ffe4e4; border-color: var(--dp-red); color: var(--dp-red); animation: shakeX 0.4s; }
+        @keyframes shakeX { 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
+
+        /* 数字键盘 */
+        .keypad {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            max-width: 320px;
+            margin: 0 auto;
+        }
+        .keypad button {
+            padding: 15px 0;
+            font-size: 22px; font-weight: 800;
+            font-family: "SF Mono", monospace;
+            background: #fff;
+            border: 3px solid #5a2a3a; border-radius: 14px;
+            box-shadow: 0 4px 0 #5a2a3a;
+            cursor: pointer; color: #5a2a3a;
+            font-family: inherit;
+            transition: transform 0.05s, box-shadow 0.05s;
+        }
+        .keypad button:active { transform: translateY(4px); box-shadow: none; background: var(--dp-cream); }
+
+        /* 多巴仔在游戏屏的舞台位 */
+        .stage {
+            display: flex; align-items: flex-end; justify-content: center;
+            gap: 8px;
+            min-height: 128px;
+            margin-bottom: 4px;
+            position: relative;
+        }
+        .stage .mascot { margin: 0; transform-origin: bottom center; }
+        /* 搬运的数字：从题目飞向答案格 */
+        .flydigit {
+            position: fixed;
+            font-size: 30px; font-weight: 900; color: var(--dp-red);
+            z-index: 50; pointer-events: none;
+            transition: all 0.45s cubic-bezier(.3, 1.4, .5, 1);
+            text-shadow: 0 2px 0 #fff;
+        }
+
+        /* ---------- 结算 ---------- */
+        .bigscore {
+            font-size: clamp(48px, 14vw, 72px);
+            font-weight: 900;
+            color: var(--dp-red);
+            text-shadow: 0 4px 0 #fff, 0 8px 0 rgba(255, 107, 157, 0.3);
+            margin: 6px 0;
+        }
+        .result-rows {
+            background: rgba(255, 255, 255, 0.85);
+            border: 3px solid #5a2a3a; border-radius: 16px;
+            padding: 14px;
+            max-width: 320px;
+            margin: 12px auto;
+            font-size: 14px;
+            line-height: 2.1;
+            text-align: left;
+            font-weight: 700;
+        }
+        .result-rows b { color: var(--dp-red); }
+
+        /* ---------- 提示 toast ---------- */
+        #toast {
+            position: fixed;
+            top: 16%; left: 50%;
+            transform: translateX(-50%);
+            background: linear-gradient(135deg, #ff6b9d, #ffd56b);
+            color: #fff; font-weight: 900; font-size: 17px;
+            padding: 12px 28px; border-radius: 99px;
+            z-index: 90; display: none;
+            white-space: nowrap;
+            box-shadow: 0 8px 24px rgba(255, 107, 157, 0.5);
+        }
+
+        /* 粒子画布 */
+        #fx {
+            position: fixed; inset: 0;
+            pointer-events: none; z-index: 80;
+        }
+
+        /* ---------- 设置 ---------- */
+        .setting-row {
+            display: flex; align-items: center; justify-content: space-between;
+            max-width: 320px; margin: 14px auto;
+            font-weight: 700; font-size: 15px;
+            gap: 10px;
+        }
+        .setting-row input[type="range"] { flex: 1; }
+        .backline { margin-top: 18px; }
+
+        @media (max-width: 380px) {
+            .hud .dopa { font-size: 20px; }
+            .answerbox .cell { min-width: 38px; height: 48px; line-height: 48px; font-size: 34px; }
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="fx"></canvas>
+    <div id="toast"></div>
+
+    <div class="world" id="world">
+
+        <!-- ===== 标题屏 ===== -->
+        <div class="screen on" id="scr-title">
+            <div class="mascot" id="mascot-title">
+                <div class="antenna"></div>
+                <div class="body"></div>
+                <div class="face">
+                    <div class="eye l"></div><div class="eye r"></div>
+                    <div class="mouth"></div>
+                </div>
+                <div class="arm l"></div><div class="arm r"></div>
+                <div class="feet"><span></span><span></span></div>
+            </div>
+            <div class="logo">多巴算术祭</div>
+            <div class="tagline">答对一题 · 嗨上一层 —— 直到整个画面变成祭典</div>
+
+            <div class="gradepick" id="gradepick">
+                <button data-g="1">1年级</button>
+                <button data-g="2">2年级</button>
+                <button data-g="3">3年级</button>
+                <button data-g="4">4年级</button>
+                <button data-g="5">5年级</button>
+                <button data-g="6">6年级</button>
+            </div>
+
+            <button class="btn ghost" id="btn-how">📖 怎么玩？</button>
+            <button class="btn ghost" id="btn-set">⚙ 设置</button>
+
+            <div class="hint">
+                历史最佳：<b id="best">0</b> 分 · 通关次数：<b id="cleared">0</b> 次<br>
+                PC：数字键输入 / Backspace 删除 / Enter 确认
+            </div>
+        </div>
+
+        <!-- ===== 玩法说明 ===== -->
+        <div class="screen" id="scr-how">
+            <h2 style="margin-bottom:12px;">📖 怎么玩</h2>
+            <div class="result-rows">
+                ① 一组 <b>10 道</b>算术题，输入答案按确认<br>
+                ② 每答对一题，<b>画面和音乐就再嗨一层</b><br>
+                ③ <b>多巴值</b>一路暴涨，冲上一亿有专属庆典<br>
+                ④ 连击越高涨得越快，20 连击 = 多巴 ×2 MAX<br>
+                ⑤ 答错不清势头、没有结束，稳住别慌<br>
+                ⑥ 10 题全对得 <b>100 分</b>；首答正确率 ≥80%<br>
+                　　解锁<b>加时赛</b>，每题 10+5k 分往上狂飙
+            </div>
+            <button class="btn" id="btn-how-back">明白了！</button>
+        </div>
+
+        <!-- ===== 设置 ===== -->
+        <div class="screen" id="scr-set">
+            <h2 style="margin-bottom:8px;">⚙ 设置</h2>
+            <div class="setting-row">
+                <span>动感强度</span>
+                <input type="range" id="set-motion" min="0.4" max="1" step="0.1" value="1">
+                <b id="motion-val">1.0</b>
+            </div>
+            <div class="setting-row">
+                <span>静音</span>
+                <input type="checkbox" id="set-mute" style="width:22px;height:22px;">
+            </div>
+            <button class="btn ghost" id="btn-set-reset">清空全部记录</button>
+            <div class="backline"><button class="btn" id="btn-set-back">返回</button></div>
+        </div>
+
+        <!-- ===== 游戏屏 ===== -->
+        <div class="screen" id="scr-play">
+            <div class="hud">
+                <div class="dopa"><small>多巴</small><span id="dopa-val">0</span></div>
+                <div class="qcount"><span id="q-now">1</span> / <span id="q-total">10</span> 题<br>
+                    <span id="mode-tag">基础</span></div>
+                <div class="combo" id="combo-box" style="visibility:hidden;">
+                    <span id="combo-n">0</span> 连击<br>
+                    <span id="combo-max" style="font-size:12px;"></span>
+                </div>
+            </div>
+            <div class="timebar"><i id="time-fill"></i></div>
+
+            <div class="stage">
+                <div class="mascot" id="mascot-play">
+                    <div class="antenna"></div>
+                    <div class="body"></div>
+                    <div class="face">
+                        <div class="eye l"></div><div class="eye r"></div>
+                        <div class="mouth"></div>
+                    </div>
+                    <div class="arm l"></div><div class="arm r"></div>
+                    <div class="feet"><span></span><span></span></div>
+                </div>
+            </div>
+
+            <div class="question" id="q-box"><span id="q-text"></span></div>
+            <div class="answerbox" id="a-box"></div>
+            <div class="keypad" id="keypad"></div>
+        </div>
+
+        <!-- ===== 结算屏 ===== -->
+        <div class="screen" id="scr-result">
+            <h2 id="r-title">🎉 基本关完成！</h2>
+            <div class="bigscore" id="r-score">100</div>
+            <div class="result-rows" id="r-rows"></div>
+            <button class="btn blue" id="btn-extra" style="display:none;">⏱ 加时赛开始！</button>
+            <button class="btn" id="btn-again">再来一组</button>
+            <button class="btn ghost" id="btn-home">回标题</button>
+        </div>
+    </div>
+
+    <script>
+    /* ============================================================
+     * 多巴算术祭 · 汉化复刻版
+     * ============================================================ */
+    (function () {
+        'use strict';
+
+        /* ================= 存档 ================= */
+        var SAVE_KEY = 'dopadrill_zh';
+        var save = { best: 0, cleared: 0, motion: 1, muted: false, seenHow: false };
+        try { Object.assign(save, JSON.parse(localStorage.getItem(SAVE_KEY) || '{}')); } catch (e) { }
+        function persist() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (e) { } }
+
+        var $ = function (id) { return document.getElementById(id); };
+
+        /* ================= 音频引擎（全 WebAudio 合成） ================= */
+        var AC = null, master = null;
+        function ensureAudio() {
+            if (AC) return;
+            AC = new (window.AudioContext || window.webkitAudioContext)();
+            master = AC.createGain();
+            master.gain.value = save.muted ? 0 : 0.5;
+            master.connect(AC.destination);
+        }
+        function now() { return AC ? AC.currentTime : 0; }
+
+        /* 单音：type 波形，dur 时长，vol 音量，半音偏移 semi */
+        function tone(freq, dur, type, vol, when, semi) {
+            if (!AC || save.muted) return;
+            var f = freq * Math.pow(2, (semi || 0) / 12);
+            var o = AC.createOscillator(), g = AC.createGain();
+            o.type = type || 'sine'; o.frequency.value = f;
+            g.gain.setValueAtTime(vol || 0.1, when || now());
+            g.gain.exponentialRampToValueAtTime(0.001, (when || now()) + dur);
+            o.connect(g); g.connect(master);
+            o.start(when || now()); o.stop((when || now()) + dur + 0.02);
+        }
+        /* 噪声打击乐（军鼓/镲） */
+        function noise(dur, vol, when, hp) {
+            if (!AC || save.muted) return;
+            var len = Math.max(1, Math.floor(AC.sampleRate * dur));
+            var buf = AC.createBuffer(1, len, AC.sampleRate);
+            var d = buf.getChannelData(0);
+            for (var i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len);
+            var s = AC.createBufferSource(); s.buffer = buf;
+            var g = AC.createGain(); g.gain.value = vol || 0.08;
+            if (hp) {
+                var f = AC.createBiquadFilter(); f.type = 'highpass'; f.frequency.value = hp;
+                s.connect(f); f.connect(g);
+            } else s.connect(g);
+            g.connect(master);
+            s.start(when || now());
+        }
+        var sfx = {
+            key: function () { tone(880, 0.05, 'square', 0.04); },
+            del: function () { tone(520, 0.05, 'square', 0.04); },
+            ok: function (semi) {                          /* 答对：上行双音 */
+                tone(660, 0.1, 'triangle', 0.12, now(), semi);
+                tone(880, 0.14, 'triangle', 0.12, now() + 0.08, semi);
+            },
+            big: function () { [523, 659, 784, 1047].forEach(function (f, i) { tone(f, 0.16, 'triangle', 0.12, now() + i * 0.07); }); },
+            wrong: function () { tone(180, 0.22, 'sawtooth', 0.1); },
+            milestone: function () { [523, 659, 784, 1047, 1319].forEach(function (f, i) { tone(f, 0.2, 'triangle', 0.13, now() + i * 0.09); }); },
+            tick: function () { tone(1200, 0.03, 'square', 0.03); }
+        };
+
+        /* ---------- 分层配乐：马林巴进行曲，随演出强度逐层进入 ----------
+           0层 镲(常开) / E>0.18 底鼓 / E>0.38 低音 / E>0.58 和弦垫 / E>0.78 旋律
+           BPM = 112 + min(1,E)*16；最终题升2半音；加时赛 134+tier*5 BPM、升 2+min(tier,5) 半音 */
+        var music = { on: false, step: 0, nextT: 0, timer: null, bpm: 113, semi: 0, E: 0.08 };
+        var CHORDS = [[261.6, 329.6, 392.0], [196.0, 246.9, 392.0], [220.0, 261.6, 329.6], [174.6, 220.0, 261.6]]; // C G Am F
+        var MELODY = [523.3, 587.3, 659.3, 784.0, 880.0, 1046.5];
+        
+        function schedule() {
+            if (!music.on || !AC) return;
+            var spb = 60 / music.bpm;                        // 每拍秒数
+            var s16 = spb / 4;                               // 十六分音符
+            while (music.nextT < now() + 0.12) {
+                var t = music.nextT, st = music.step % 16;
+                var E = music.E;
+                /* 镲：每个八分音符 */
+                if (st % 2 === 0) noise(0.03, 0.03, t, 6000);
+                /* 底鼓：1、3拍 */
+                if (E > 0.18 && (st === 0 || st === 8)) tone(150, 0.12, 'sine', 0.16, t);
+                /* 军鼓：2、4拍 */
+                if (E > 0.28 && (st === 4 || st === 12)) noise(0.09, 0.07, t);
+                /* 低音：根音八分跳动 */
+                if (E > 0.38 && st % 2 === 0) {
+                    var ch = CHORDS[Math.floor(music.step / 16) % 4];
+                    tone(ch[0] / 2, s16 * 1.6, 'triangle', 0.13, t, music.semi);
+                }
+                /* 和弦垫：每小节 */
+                if (E > 0.58 && st === 0) {
+                    CHORDS[Math.floor(music.step / 16) % 4].forEach(function (f) {
+                        tone(f, s16 * 14, 'sine', 0.045, t, music.semi);
+                    });
+                }
+                /* 旋律：十六分音符随机漫步（多巴仔在唱歌） */
+                if (E > 0.78 && st % 2 === 1 && Math.random() < 0.75) {
+                    tone(MELODY[Math.floor(Math.random() * MELODY.length)], s16 * 1.4, 'square', 0.05, t, music.semi);
+                }
+                music.nextT += s16;
+                music.step++;
+            }
+        }
+        function musicStart() {
+            ensureAudio();
+            if (AC.state === 'suspended') AC.resume();
+            music.on = true; music.step = 0; music.nextT = now() + 0.05;
+            if (!music.timer) music.timer = setInterval(schedule, 25);
+        }
+        function musicStop() { music.on = false; }
+        function musicSet(E, semi) { music.E = E; music.semi = semi || 0; music.bpm = 112 + Math.min(1, E) * 16; }
+
+        /* ================= 出题（按年级，对齐课标量级） ================= */
+        function ri(a, b) { return a + Math.floor(Math.random() * (b - a + 1)); }
+        function genQ(g) {
+            var a, b, op, ans, text;
+            function pick(fn) { for (var i = 0; i < 30; i++) { var r = fn(); if (r && r.ans >= 0) return r; } return fn(); }
+            if (g === 1) op = ri(0, 1);
+            else if (g === 2) op = ri(0, 2);
+            else if (g === 3) op = ri(0, 3);
+            else op = ri(0, 3);
+            switch (g) {
+                case 1:                                     /* 10以内加减 */
+                    if (op === 0) { a = ri(1, 9); b = ri(1, 9 - a); ans = a + b; text = a + ' + ' + b; }
+                    else { a = ri(2, 10); b = ri(1, a - 1); ans = a - b; text = a + ' − ' + b; }
+                    break;
+                case 2:                                     /* 20以内加减 + 表内乘法(2,5) */
+                    if (op === 2) { a = ri(2, 5); b = ri(2, 5); if (Math.random() < 0.5) { var t = a; a = Math.max(a, b), b = Math.min(t, b); } ans = a * b; text = a + ' × ' + b; }
+                    else if (op === 0) { a = ri(5, 18); b = ri(1, 20 - a); ans = a + b; text = a + ' + ' + b; }
+                    else { a = ri(8, 20); b = ri(1, a - 2); ans = a - b; text = a + ' − ' + b; }
+                    break;
+                case 3:                                     /* 表内乘除 + 100以内加减 */
+                    if (op === 2) { a = ri(2, 9); b = ri(2, 9); ans = a * b; text = a + ' × ' + b; }
+                    else if (op === 3) { b = ri(2, 9); ans = ri(2, 9); a = b * ans; text = a + ' ÷ ' + b; }
+                    else if (op === 0) { a = ri(23, 87); b = ri(8, 100 - a); ans = a + b; text = a + ' + ' + b; }
+                    else { a = ri(30, 100); b = ri(5, a - 10); ans = a - b; text = a + ' − ' + b; }
+                    break;
+                case 4:                                     /* 多位数加减 + 两位×一位 */
+                    if (op === 2) { a = ri(12, 49); b = ri(3, 9); ans = a * b; text = a + ' × ' + b; }
+                    else if (op === 3) { b = ri(3, 9); ans = ri(11, 99); a = b * ans; text = a + ' ÷ ' + b; }
+                    else if (op === 0) { a = ri(120, 870); b = ri(60, 999 - a); ans = a + b; text = a + ' + ' + b; }
+                    else { a = ri(300, 999); b = ri(40, a - 100); ans = a - b; text = a + ' − ' + b; }
+                    break;
+                case 5:                                     /* 小数加减 + 三位×一位 */
+                    if (op === 2) { a = ri(102, 499); b = ri(3, 9); ans = a * b; text = a + ' × ' + b; }
+                    else if (op === 3) { b = ri(4, 9); ans = ri(102, 499); a = b * ans; text = a + ' ÷ ' + b; }
+                    else {
+                        a = ri(15, 89) / 10; b = ri(11, 99) / 10;
+                        if (op === 0) { ans = Math.round((a + b) * 10) / 10; text = a + ' + ' + b; }
+                        else { if (b > a) { var t2 = a; a = b; b = t2; } ans = Math.round((a - b) * 10) / 10; text = a + ' − ' + b; }
+                    }
+                    break;
+                default:                                    /* 两步混合 a + b × c */
+                    var bb = ri(2, 9), cc = ri(2, 9), aa = ri(5, 60);
+                    if (op % 2 === 0) { ans = aa + bb * cc; text = aa + ' + ' + bb + ' × ' + cc; }
+                    else { ans = aa + bb * cc - cc; text = aa + ' + ' + bb + ' × ' + cc + ' − ' + cc; }
+            }
+            return { text: text, ans: ans, g: g };
+        }
+
+        /* ================= 多巴值（对原版公式） ================= */
+        var L = 0;                                       // 对数值，初始 0
+        var MILESTONES = [100, 1000, 1e4, 1e5, 1e6, 1e7, 1e8];
+        var passed = {};                                 // 已庆祝里程碑
+        function dopaBaseInc(f) { return 2.3 * Math.pow(Math.max(0, Math.min(1, f)), 1.15); }
+        function dopaAdd(basicInc) {
+            combo++;
+            var M = 1 + Math.min(1, Math.max(0, combo) / 20);   // 10连击1.5倍、20连击2倍
+            L = Math.min(9.08, L + Math.max(0.003, basicInc) * M);
+            var v = Math.pow(10, L);
+            $('dopa-val').textContent = fmtDopa(v);
+            /* 里程碑庆典 */
+            for (var i = 0; i < MILESTONES.length; i++) {
+                var m = MILESTONES[i];
+                if (v >= m && !passed[m]) {
+                    passed[m] = true;
+                    toast('🎉 多巴突破 ' + fmtDopa(m) + '！');
+                    sfx.milestone();
+                    burst(50 + 20 * save.motion);
+                    shake(6);
+                    mascCheer();
+                }
+            }
+            updateCombo();
+        }
+        function fmtDopa(v) {
+            if (v < 10000) return String(Math.round(v));
+            if (v >= 1e8) { var y = v / 1e8; return (y < 10 ? y.toFixed(1) : Math.floor(y)) + '亿'; }
+            var x = v / 1e4; return (x < 10 ? x.toFixed(1) : Math.floor(x)) + '万';
+        }
+
+        /* ================= 连击 ================= */
+        var combo = 0;
+        function updateCombo() {
+            var box = $('combo-box');
+            if (combo >= 2) {
+                box.style.visibility = 'visible';
+                $('combo-n').textContent = combo;
+                var isMax = combo >= 20;
+                $('combo-max').textContent = isMax ? '多巴 ×2 MAX' : (combo >= 10 ? '多巴 ×1.5' : '');
+                box.className = 'combo' + (isMax ? ' max' : '');
+            } else box.style.visibility = 'hidden';
+        }
+        function comboBreak() {
+            if (combo >= 5) toast('💨 ' + combo + ' 连击结束');
+            combo = 0; updateCombo();
+        }
+        function comboCelebrate() {
+            if (combo === 10 || combo === 20 || combo === 30 || combo === 50 || combo === 75 || (combo >= 100 && combo % 50 === 0)) {
+                toast(combo >= 20 ? '🔥 ' + combo + ' 连击！多巴×2 MAX！' : '✨ ' + combo + ' 连击！');
+                sfx.big(); burst(30 + 15 * save.motion); mascCheer();
+            }
+        }
+
+        /* ================= 屏幕与流程 ================= */
+        var SCREENS = ['scr-title', 'scr-how', 'scr-set', 'scr-play', 'scr-result'];
+        function show(id) {
+            SCREENS.forEach(function (s) { $(s).classList.toggle('on', s === id); });
+        }
+
+        var game = null;                                 // 当前局
+        var N = 10;                                      // 基本关题数
+        var timebarRaf = null, deadline = 0, qStart = 0;
+
+        function startPlay(grade) {
+            ensureAudio(); musicStart();
+            game = {
+                grade: grade, N: N, qi: 0,
+                combo: 0, L: 0,
+                score: 0, wrongQ: 0,
+                q: null, typed: '', locked: false,
+                extra: false, ek: 0,
+                startTime: Date.now()
+            };
+            passed = {};
+            show('scr-play');
+            nextQuestion();
+        }
+
+        /* 演出强度 E：基本关 E=0.08+0.92·(i/(N-1))^1.3；加时赛每3题+0.1 */
+        function curE() {
+            if (!game.extra) {
+                if (game.N <= 1) return 1;
+                return 0.08 + 0.92 * Math.pow(game.qi / (game.N - 1), 1.3);
+            }
+            return 1 + Math.min(0.5, Math.floor(game.ek / 3) * 0.1) * 0.9;
+        }
+
+        function nextQuestion() {
+            var g = game;
+            var semi = g.extra ? 2 + Math.min(Math.floor(g.ek / 3), 5) : (g.qi === g.N - 1 ? 2 : 0);
+            musicSet(curE(), semi);
+            game.q = genQ(g.grade);
+            game.typed = '';
+            game.locked = false;
+            $('q-now').textContent = (g.extra ? g.ek + 1 : g.qi + 1);
+            $('q-total').textContent = g.extra ? '∞' : g.N;
+            $('mode-tag').textContent = g.extra ? '加时赛' : '基础';
+            $('q-text').textContent = game.q.text + ' =';
+            $('a-box').className = 'answerbox';
+            renderAnswer();
+            musicSet(curE(), semi);
+            applyStage();
+            startTimer();
+            mascIdle();
+        }
+
+        /* 限时：规格 3000+600×(年级-1)，首题+2500；加时赛随完成数收紧 */
+        function qTimeLimit() {
+            var g = game;
+            if (g.extra) return Math.max(3200, 6600 - g.ek * 170);
+            var base = 3000 + 600 * (g.grade - 1);
+            return base + (g.qi === 0 ? 2500 : 0);
+        }
+
+        var timerRunning = false;
+        function startTimer() {
+            deadline = performance.now() + qTimeLimit();
+            timerRunning = true;
+            if (timebarRaf) cancelAnimationFrame(timebarRaf);
+            tickTimer();
+        }
+        function tickTimer() {
+            if (!timerRunning || game.locked) return;
+            var total = qTimeLimit();
+            var left = deadline - performance.now();
+            var fill = $('time-fill');
+            var pct = Math.max(0, left / total * 100);
+            fill.style.width = pct + '%';
+            fill.className = pct < 30 ? 'warn' : '';
+            if (pct < 30 && Math.floor(left / 250) % 2 === 0) sfx.tick();
+            if (left <= 0) { onWrong(true); return; }
+            timebarRaf = requestAnimationFrame(tickTimer);
+        }
+
+        function renderAnswer() {
+            var box = $('a-box');
+            box.innerHTML = '';
+            var s = game.typed === '' ? ' ' : String(game.typed);
+            for (var i = 0; i < Math.max(1, s.length); i++) {
+                var c = document.createElement('span');
+                c.className = 'cell' + (i === s.length - 1 ? ' cur' : '');
+                c.textContent = s[i] === '-' ? '−' : s[i];
+                if (s[i] === '-') c.className += ' minus';
+                box.appendChild(c);
+            }
+        }
+        function pressDigit(d) {
+            if (game.locked) return;
+            if (game.typed.replace('-', '').length >= 6) return;
+            if (d === '-' && game.typed !== '') return;
+            game.typed += d;
+            sfx.key();
+            renderAnswer();
+            mascCarry(d);
+        }
+        function pressDel() {
+            if (game.locked || game.typed === '') return;
+            game.typed = game.typed.slice(0, -1);
+            sfx.del();
+            renderAnswer();
+        }
+        function pressOk() {
+            if (game.locked || game.typed === '' || game.typed === '-') return;
+            var val = parseFloat(game.typed);
+            if (val === game.q.ans) onCorrect();
+            else onWrong(false);
+        }
+
+        /* ---------- 答对 ---------- */
+        function onCorrect() {
+            game.locked = true;
+            timerRunning = false;
+            var g = game;
+            var inc;
+            if (g.extra) {
+                var X = function (n) { return 2.3 + 3.0 * (1 - Math.exp(-n / 10)); };
+                inc = (X(g.ek + 1) - X(g.ek));
+                var add = 10 + 5 * g.ek;
+                g.score += add;
+                g.ek++;
+                toast('+' + add + ' 分！');
+            } else {
+                inc = dopaBaseInc((g.qi + 1) / g.N) - dopaBaseInc(g.qi / g.N);
+            }
+            dopaAdd(inc);                                /* 多巴与连击 */
+            comboCelebrate();
+            sfx.ok(g.extra ? 2 + Math.min(Math.floor(g.ek / 3), 5) : 0);
+            mascJump();
+            $('a-box').classList.add('ok');
+            burst(Math.round((6 + curE() * 16) * save.motion));
+
+            setTimeout(function () {
+                if (g.extra) { nextQuestion(); return; }
+                g.qi++;
+                if (g.qi >= g.N) finishBasic();
+                else nextQuestion();
+            }, 650);
+        }
+
+        /* ---------- 答错/超时：势头不掉，无结束，显示正确答案 ---------- */
+        function onWrong(timeout) {
+            game.locked = true;
+            timerRunning = false;
+            comboBreak();
+            game.wrongQ++;
+            sfx.wrong();
+            mascWobble();
+            shake(4);
+            $('a-box').classList.add('bad');
+            $('q-box').innerHTML = '<span id="q-text">' + game.q.text + ' = <b style="color:#1a7a3a;">' + game.q.ans + '</b></span>'
+                + (timeout ? '<span class="wrongmark">⏰</span>' : '<span class="wrongmark">✗</span>');
+            setTimeout(function () {
+                var g = game;
+                if (g.extra) { nextQuestion(); return; }
+                g.qi++;
+                if (g.qi >= g.N) finishBasic();
+                else nextQuestion();
+            }, 1100);
+        }
+
+        /* ---------- 基本关结算 ---------- */
+        function finishBasic() {
+            musicStop(); timerRunning = false;
+            game.score = 100;                            /* 完走即 100 分（对齐原版） */
+            var rate = Math.round((N - game.wrongQ) / N * 100);
+            var canExtra = rate >= 80;
+            save.cleared++;
+            if (game.L > 0 && Math.pow(10, game.L) > save.best) { /* best 记总分 */ }
+            if (save.best < 100) save.best = 100;
+            persist();
+
+            $('r-title').textContent = '🎉 基本关完成！';
+            $('r-score').textContent = '100 分';
+            $('r-rows').innerHTML =
+                '用时 <b>' + Math.round((Date.now() - game.startTime) / 1000) + '</b> 秒<br>' +
+                '首答正确率 <b>' + rate + '%</b><br>' +
+                '多巴峰值 <b>' + fmtDopa(Math.pow(10, L)) + '</b><br>' +
+                (canExtra ? '🌟 达成加时赛资格！限时内每题 <b>10+5k</b> 分' : '🌟 首答正确率 80% 即可解锁加时赛');
+            $('btn-extra').style.display = canExtra ? 'block' : 'none';
+            show('scr-result');
+            sfx.big(); burst(60 * save.motion); mascCheer();
+
+            /* 加时赛按钮：进入无限出题模式 */
+            $('btn-extra').onclick = function () {
+                game.extra = true; game.ek = 0; game.wrongQ = 0;
+                combo = 0; updateCombo();
+                show('scr-play');
+                musicStart();
+                nextQuestion();
+            };
+        }
+
+        /* ---------- 加时赛里随时可以结束（点退出即结算总分） ---------- */
+        function finishAll() {
+            musicStop(); timerRunning = false;
+            var rate = Math.round((N - game.wrongQ) / N * 100);
+            if (game.score > save.best) save.best = game.score;
+            persist();
+            $('r-title').textContent = '🎊 最终结果！';
+            $('r-score').textContent = game.score + ' 分';
+            $('r-rows').innerHTML =
+                '加时赛完成 <b>' + game.ek + '</b> 题<br>' +
+                '多巴峰值 <b>' + fmtDopa(Math.pow(10, L)) + '</b><br>' +
+                '击退链接… 啊不，答对题数与用时见上一屏<br>' +
+                '历史最佳 <b>' + save.best + '</b> 分';
+            $('btn-extra').style.display = 'none';
+            show('scr-result');
+            sfx.big(); burst(70 * save.motion);
+        }
+
+        /* ================= 多巴仔动作 ================= */
+        function masc(id) { return $(id); }
+        function mascJump() {
+            var m = $('mascot-play');
+            m.classList.remove('jump'); void m.offsetWidth; m.classList.add('jump', 'cheer');
+            setTimeout(function () { m.classList.remove('cheer'); }, 600);
+        }
+        function mascWobble() {
+            var m = $('mascot-play');
+            m.classList.remove('wobble'); void m.offsetWidth; m.classList.add('wobble');
+        }
+        function mascCheer() {
+            mascJump();
+        }
+        function mascIdle() { }
+        /* 搬运数字：从题目位置飞向答案格 */
+        function mascCarry(d) {
+            var q = $('q-box').getBoundingClientRect();
+            var a = $('a-box').getBoundingClientRect();
+            var f = document.createElement('div');
+            f.className = 'flydigit';
+            f.textContent = d;
+            f.style.left = (q.left + q.width / 2) + 'px';
+            f.style.top = (q.top + q.height / 2) + 'px';
+            document.body.appendChild(f);
+            requestAnimationFrame(function () {
+                requestAnimationFrame(function () {
+                    f.style.left = (a.left + a.width / 2) + 'px';
+                    f.style.top = (a.top + a.height / 2) + 'px';
+                    f.style.transform = 'scale(0.6)';
+                    f.style.opacity = '0.4';
+                });
+            });
+            setTimeout(function () { f.remove(); }, 500);
+        }
+
+        /* ================= 演出强度落地 ================= */
+        function applyStage() {
+            var E = curE() * save.motion;
+            document.documentElement.style.setProperty('--bg-hue', Math.round(curE() * 160));
+            document.documentElement.style.setProperty('--spd', (0.6 + curE()).toFixed(2));
+            musicSet(curE(), game && game.extra ? 2 + Math.min(Math.floor(game.ek / 3), 5) : (game && game.qi === game.N - 1 ? 2 : 0));
+        }
+        function shake(n) {
+            if (save.motion < 0.6) return;
+            var w = document.getElementById('world');
+            w.style.setProperty('--shake', (Math.random() - 0.5) * n + 'px');
+            setTimeout(function () { w.style.setProperty('--shake', '0px'); }, 90);
+        }
+
+        /* ================= 粒子（彩带/星星/烟花） ================= */
+        var fxc = $('fx'), fxx = fxc.getContext('2d'), parts = [];
+        function fitFx() { fxc.width = innerWidth; fxc.height = innerHeight; }
+        window.addEventListener('resize', fitFx, { passive: true }); fitFx();
+        var FX_COLORS = ['#ff97bf', '#ffd56b', '#6ee7a8', '#2f79f7', '#fff3e4'];
+        function burst(n) {
+            n = Math.round(n * save.motion);
+            for (var i = 0; i < n; i++) {
+                parts.push({
+                    x: innerWidth / 2 + (Math.random() - 0.5) * 120,
+                    y: innerHeight * 0.35,
+                    vx: (Math.random() - 0.5) * 9,
+                    vy: -Math.random() * 8 - 2,
+                    rot: Math.random() * 360,
+                    vr: (Math.random() - 0.5) * 14,
+                    c: FX_COLORS[Math.floor(Math.random() * FX_COLORS.length)],
+                    w: 5 + Math.random() * 5,
+                    life: 70 + Math.random() * 40
+                });
+            }
+            if (!fxOn) { fxOn = true; fxLoop(); }
+        }
+        var fxOn = false;
+        function fxLoop() {
+            fxx.clearRect(0, 0, fxc.width, fxc.height);
+            for (var i = parts.length - 1; i >= 0; i--) {
+                var p = parts[i];
+                p.vy += 0.22; p.x += p.vx; p.y += p.vy; p.rot += p.vr; p.life--;
+                if (p.life <= 0 || p.y > innerHeight + 30) { parts.splice(i, 1); continue; }
+                fxx.save();
+                fxx.translate(p.x, p.y); fxx.rotate(p.rot * Math.PI / 180);
+                fxx.globalAlpha = Math.min(1, p.life / 30);
+                fxx.fillStyle = p.c;
+                fxx.fillRect(-p.w / 2, -p.w / 4, p.w, p.w / 2);
+                fxx.restore();
+            }
+            if (parts.length) requestAnimationFrame(fxLoop);
+            else { fxOn = false; fxx.clearRect(0, 0, fxc.width, fxc.height); }
+        }
+
+        /* ================= toast ================= */
+        var toastT = null;
+        function toast(msg) {
+            var t = $('toast');
+            t.textContent = msg; t.style.display = 'block';
+            clearTimeout(toastT);
+            toastT = setTimeout(function () { t.style.display = 'none'; }, 1600);
+        }
+
+        /* ================= 输入绑定 ================= */
+        function bindAll() {
+            /* 键盘：数字/退格/回车 + 1-6 年级快捷键 */
+            window.addEventListener('keydown', function (e) {
+                if (!$('scr-play').classList.contains('on')) return;
+                if (e.code === 'Backspace') { pressDel(); e.preventDefault(); }
+                else if (e.code === 'Enter' || e.code === 'NumpadEnter') { pressOk(); e.preventDefault(); }
+                else if (/^Digit[0-9]$/.test(e.code)) pressDigit(e.code.slice(5));
+                else if (/^Numpad[0-9]$/.test(e.code)) pressDigit(e.code.slice(6));
+                else if (e.code === 'Minus') pressDigit('-');
+            });
+
+            /* 屏内按钮 */
+            $('gradepick').addEventListener('click', function (e) {
+                var g = e.target.getAttribute('data-g');
+                if (g) startPlay(parseInt(g, 10));
+            });
+            $('btn-how').addEventListener('click', function () { show('scr-how'); });
+            $('btn-how-back').addEventListener('click', function () { show('scr-title'); });
+            $('btn-set').addEventListener('click', function () {
+                $('set-motion').value = save.motion;
+                $('motion-val').textContent = Number(save.motion).toFixed(1);
+                $('set-mute').checked = !!save.muted;
+                show('scr-set');
+            });
+            $('btn-set-back').addEventListener('click', function () { show('scr-title'); });
+            $('set-motion').addEventListener('input', function () {
+                save.motion = parseFloat(this.value);
+                $('motion-val').textContent = save.motion.toFixed(1);
+                persist();
+            });
+            $('set-mute').addEventListener('change', function () {
+                save.muted = this.checked;
+                if (master) master.gain.value = save.muted ? 0 : 0.5;
+                persist();
+            });
+            $('btn-set-reset').addEventListener('click', function () {
+                save.best = 0; save.cleared = 0; persist();
+                refreshTitle();
+                toast('记录已清空');
+            });
+            $('btn-again').addEventListener('click', function () { startPlay(game.grade); });
+            $('btn-home').addEventListener('click', function () { musicStop(); refreshTitle(); show('scr-title'); });
+
+            /* 数字键盘（指针按下，兼容触屏与鼠标） */
+            var pad = $('keypad');
+            ['1', '2', '3', '4', '5', '6', '7', '8', '9', '-', '0', '⌫'].forEach(function (k) {
+                var b = document.createElement('button');
+                b.textContent = k;
+                if (k === '⌫') b.style.fontSize = '18px';
+                b.addEventListener('pointerdown', function (e) {
+                    e.preventDefault();
+                    ensureAudio();
+                    if (AC && AC.state === 'suspended') AC.resume();
+                    if (k === '⌫') pressDel();
+                    else pressDigit(k);
+                });
+                pad.appendChild(b);
+            });
+            /* 确认键独立一行 */
+            var okb = document.createElement('button');
+            okb.textContent = '✓ 确认';
+            okb.style.gridColumn = '1 / -1';
+            okb.style.background = '#6ee7a8';
+            okb.addEventListener('pointerdown', function (e) {
+                e.preventDefault();
+                ensureAudio();
+                if (AC && AC.state === 'suspended') AC.resume();
+                pressOk();
+            });
+            pad.appendChild(okb);
+        }
+
+        function refreshTitle() {
+            $('best').textContent = save.best;
+            $('cleared').textContent = save.cleared;
+        }
+
+        /* ================= 启动 ================= */
+        refreshTitle();
+        bindAll();
+
+        /* 标题屏多巴仔：偶尔蹦一下卖萌 */
+        setInterval(function () {
+            if ($('scr-title').classList.contains('on')) mascJump();
+        }, 3600);
+    })();
+    </script>
+</body>
+
+</html>
