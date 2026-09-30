@@ -735,6 +735,9 @@
             $('q-now').textContent = (g.extra ? g.ek + 1 : g.qi + 1);
             $('q-total').textContent = g.extra ? '∞' : g.N;
             $('mode-tag').textContent = g.extra ? '加时赛' : '基础';
+            /* 重置题框：上一题的错误标记（✗/⏰）必须清掉，
+               否则会残留在后续所有题面上 */
+            $('q-box').innerHTML = '<span id="q-text"></span>';
             $('q-text').textContent = game.q.text + ' =';
             $('a-box').className = 'answerbox';
             renderAnswer();
