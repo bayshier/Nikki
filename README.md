@@ -76,4 +76,4 @@ Nikki/
 
 ---
 
-✍ **Easin** · [GitHub](https://github.com/bayshier) · [主页](https://bayshier.github.io/GYZApp/easin.html) · 财富在线旗下股宇宙 APP 同好作品：[股宇宙知识库](https://bayshier.github.io/GYZApp/knowledge.html)
+✍ **Easin** · [GitHub](https://github.com/bayshier)
