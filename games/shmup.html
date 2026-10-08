@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>✈️ 猫猫弹幕 · Nikki 游戏合集</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='0.9em' font-size='90'%E2%9C%88%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<!-- ═══════════════════════════════════════════════════════════════
+     猫猫弹幕 · 纵向卷轴弹幕射击
+     灵感致谢:开源游戏清单中的 Taisei Project(东方 Project 同人弹幕)
+     清单来源: https://github.com/bayshier/open-source-games-zh
+     玩法:开纸飞机的猫猫 vs 机器人老鼠空军团!
+       · 自动开火,只管走位躲弹幕
+       · P = 火力升级(1~3 级),❤ = 加命(最多 4)
+       · 每 4 波来一只 Boss 轰炸母舰,弹幕超华丽!
+     操作:方向键/WASD 或 手指拖动(擦弹是不存在的,安全第一)
+     ═══════════════════════════════════════════════════════════════ -->
+<style>
+  :root { --hk-deep: #ff6b9d; --hk-muted: #c98ba0; }
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
+  body {
+    font-family: "Nunito", -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: linear-gradient(160deg, #ffe3ee 0%, #ffd0e2 50%, #ffc3da 100%);
+    min-height: 100vh; display: flex; flex-direction: column; align-items: center;
+    padding: 10px; color: #5a3a48;
+  }
+  header { text-align: center; margin-bottom: 6px; }
+  header h1 { font-size: 24px; color: var(--hk-deep); text-shadow: 0 2px 0 #fff; }
+  header p { font-size: 12px; color: var(--hk-muted); }
+  #stage { position: relative; }
+  canvas {
+    display: block; border-radius: 18px; box-shadow: 0 8px 24px rgba(255, 107, 157, .35);
+    background: #1a1a3e; touch-action: none; max-height: 78vh;
+  }
+  #overlay {
+    position: absolute; inset: 0; border-radius: 18px; background: rgba(30, 20, 50, .6);
+    backdrop-filter: blur(3px); display: flex; flex-direction: column; align-items: center; justify-content: center;
+    color: #fff; text-align: center; padding: 20px;
+  }
+  #overlay h2 { font-size: 28px; margin-bottom: 10px; text-shadow: 0 2px 6px rgba(0,0,0,.4); }
+  #overlay p { font-size: 13px; line-height: 1.9; margin-bottom: 16px; }
+  #overlay button {
+    border: none; background: var(--hk-deep); color: #fff; font-size: 17px; font-weight: 800;
+    padding: 11px 30px; border-radius: 999px; cursor: pointer; box-shadow: 0 4px 0 #d94f83; font-family: inherit;
+  }
+  #overlay button:active { transform: translateY(3px); box-shadow: 0 1px 0 #d94f83; }
+  .home { margin-top: 10px; font-size: 13px; }
+  a { color: var(--hk-deep); font-weight: 700; text-decoration: none; }
+</style>
+</head>
+<body>
+<header>
+  <h1>✈️ 猫猫弹幕</h1>
+  <p>方向键 / WASD 移动 · 自动开火 · 躲开弹幕打爆老鼠军团!</p>
+</header>
+
+<div id="stage">
+  <canvas id="cv" width="420" height="640"></canvas>
+  <div id="overlay">
+    <h2>✈️ 猫猫弹幕</h2>
+    <p>🐭 机器人老鼠空军杀来了!<br>
+       猫猫开着纸飞机自动开火,你只管<b>走位</b><br>
+       吃 <b>P</b> 升火力(1→3 级散弹),吃 <b>❤️</b> 加命<br>
+       每 4 波出现 <b>Boss 轰炸母舰</b> 💣,小心弹幕!<br>
+       <small>方向键 / WASD / 手指拖动皆可</small></p>
+    <button id="btn-start">🛫 起飞!</button>
+  </div>
+</div>
+<div class="home"><a href="../index.html">🏠 回游戏合集</a></div>
+
+<script src="../shared/common.js"></script>
+<script>
+/* ═══════════════════════════════════════════════════════════
+   一、画布与工具
+   ═══════════════════════════════════════════════════════════ */
+const CV = document.getElementById("cv"), CTX = CV.getContext("2d");
+const W = CV.width, H = CV.height;
+const rnd = (a, b) => a + Math.random() * (b - a);
+
+/* ═══════════════════════════════════════════════════════════
+   二、音效:WebAudio 轻量蜂鸣
+   ═══════════════════════════════════════════════════════════ */
+let AC = null;
+function tone(f0, f1, dur, type = "square", vol = 0.1) {
+  try {
+    if (!AC) AC = new (window.AudioContext || window.webkitAudioContext)();
+    const t = AC.currentTime, o = AC.createOscillator(), g = AC.createGain();
+    o.type = type; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(Math.max(1, f1), t + dur);
+    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    o.connect(g).connect(AC.destination); o.start(t); o.stop(t + dur);
+  } catch (e) {}
+}
+const sfx = {
+  shoot: () => tone(1200, 900, .04, "square", .03),
+  boom:  () => tone(300, 60, .25, "sawtooth", .12),
+  hit:   () => tone(180, 80, .35, "sawtooth", .16),
+  pow:   () => tone(660, 1320, .15, "triangle", .12),
+  boss:  () => tone(120, 80, .6, "sawtooth", .14),
+  win:   () => [0,.12,.24,.4].forEach((d,i)=>setTimeout(()=>tone([523,659,784,1046][i],[523,659,784,1046][i],.18,"triangle",.14),d*1000)),
+};
+
+/* ═══════════════════════════════════════════════════════════
+   三、游戏状态
+   ═══════════════════════════════════════════════════════════ */
+const G = {};
+function reset() {
+  Object.assign(G, {
+    mode: "play", tick: 0, score: 0, wave: 1,
+    px: W/2, py: H - 90, pw: 26,                           // 玩家位置 / 判定半径
+    power: 1, lives: 3, inv: 0,                            // 火力等级 / 生命 / 无敌帧
+    fireCd: 0, deadT: 0,
+    pBullets: [], eBullets: [], enemies: [], drops: [], parts: [], stars: [],
+    waveT: 120, spawnList: [], spawnT: 0,
+    boss: null,
+  });
+  for (let i = 0; i < 60; i++)                              // 背景星星
+    G.stars.push({ x: rnd(0, W), y: rnd(0, H), s: rnd(.5, 2.2), v: rnd(.3, 1.6) });
+}
+
+/* ═══════════════════════════════════════════════════════════
+   四、输入:键盘 + 触摸拖动(位移式,手指不挡飞机)
+   ═══════════════════════════════════════════════════════════ */
+const keys = {};
+addEventListener("keydown", e => { keys[e.key.toLowerCase()] = true; if ([" ","arrowup","arrowdown"].includes(e.key.toLowerCase())) e.preventDefault(); });
+addEventListener("keyup",   e => keys[e.key.toLowerCase()] = false);
+let touchPrev = null;
+CV.addEventListener("touchstart", e => { e.preventDefault(); touchPrev = [e.touches[0].clientX, e.touches[0].clientY]; }, { passive: false });
+CV.addEventListener("touchmove", e => {
+  e.preventDefault();
+  if (!touchPrev) return;
+  const r = CV.getBoundingClientRect();
+  const k = W / r.width;                                    // 屏幕→画布坐标换算
+  G.px += (e.touches[0].clientX - touchPrev[0]) * k;
+  G.py += (e.touches[0].clientY - touchPrev[1]) * k;
+  touchPrev = [e.touches[0].clientX, e.touches[0].clientY];
+}, { passive: false });
+CV.addEventListener("touchend", () => touchPrev = null);
+
+/* ═══════════════════════════════════════════════════════════
+   五、敌人波次与弹幕模式
+   敌人类型:
+     dive   俯冲鼠 —— 正弦下落,不射击,撞人
+     gunner 炮台鼠 —— 下降到上半屏停住,朝玩家打 3 连扇形
+     tank   重装鼠 —— 慢速直下,血厚,周期放环形 8 连弹
+   boss          —— 轰炸母舰:三段弹幕轮放(扇形/环形/螺旋)
+   ═══════════════════════════════════════════════════════════ */
+function newWave() {
+  G.wave = Math.floor(G.tick / 900) + 1;                    // 每 15 秒一波
+  const w = G.wave;
+  G.spawnList = [];
+  const n = 5 + w * 2;
+  for (let i = 0; i < n; i++) G.spawnList.push({ t: i * 28, type: Math.random() < .7 ? "dive" : "gunner" });
+  if (w >= 3) for (let i = 0; i < 2 + Math.floor(w / 2); i++) G.spawnList.push({ t: 900 + i * 90, type: "tank" });
+  if (w % 4 === 0) G.spawnList.push({ t: 60, type: "boss" });  // 每 4 波一只 Boss
+  G.spawnT = 0;
+}
+function spawnEnemy(type) {
+  const scale = 1 + (G.wave - 1) * 0.18;
+  const mk = (type, x, y, r, hp, score, extra = {}) =>
+    G.enemies.push({ type, x, y, r, hp, hp0: hp, score, ...extra });   // hp0 记录满血,画血条用
+  if (type === "dive")
+    mk(type, rnd(30, W-30), -20, 13, 2*scale, 50, { vx: 0, baseX: 0, t: 0, amp: rnd(40, 90) });
+  else if (type === "gunner")
+    mk(type, rnd(40, W-40), -20, 15, 5*scale, 150, { stopY: rnd(90, 170), t: 0, cd: rnd(30, 70) });
+  else if (type === "tank")
+    mk(type, rnd(50, W-50), -24, 19, 12*scale, 250, { t: 0, cd: 60 });
+  else if (type === "boss") {
+    const hp = 90 + G.wave*35;
+    G.boss = { type, x: W/2, y: -60, r: 34, hp, hp0: hp, hpMax: hp, t: 0, phase: 0, cd: 90, score: 2500 };
+    sfx.boss();
+  }
+}
+/* 发一颗敌弹 */
+function eShot(x, y, ang, spd, r = 5, color = "#ff7ba8") {
+  G.eBullets.push({ x, y, vx: Math.cos(ang)*spd, vy: Math.sin(ang)*spd, r, color });
+}
+/* 朝玩家的角度 */
+const aimAt = (x, y) => Math.atan2(G.py - y, G.px - x);
+
+/* ═══════════════════════════════════════════════════════════
+   六、主更新
+   ═══════════════════════════════════════════════════════════ */
+function update() {
+  if (G.mode !== "play") return;
+  G.tick++;
+
+  /* —— 玩家移动(键盘),并限制在画布内 —— */
+  const SPD = 4.2;
+  if (keys["arrowleft"] || keys["a"])  G.px -= SPD;
+  if (keys["arrowright"] || keys["d"]) G.px += SPD;
+  if (keys["arrowup"] || keys["w"])    G.py -= SPD;
+  if (keys["arrowdown"] || keys["s"])  G.py += SPD;
+  G.px = Math.max(14, Math.min(W-14, G.px));
+  G.py = Math.max(40, Math.min(H-20, G.py));
+  if (G.inv > 0) G.inv--;
+
+  /* —— 自动开火:火力等级越高弹越多 —— */
+  if (--G.fireCd <= 0) {
+    G.fireCd = 7;
+    const shot = (dx, dy, ang = 0) => G.pBullets.push({ x: G.px + dx, y: G.py + dy, vx: Math.sin(ang)*2.4, vy: -11 });
+    if (G.power === 1) shot(0, -14);
+    else if (G.power === 2) { shot(-8, -12); shot(8, -12); }
+    else { shot(0, -14); shot(-10, -10, -.14); shot(10, -10, .14); }
+    sfx.shoot();
+  }
+
+  /* —— 波次调度 —— */
+  if (G.tick % 900 === 1) newWave();
+  G.spawnT++;
+  while (G.spawnList.length && G.spawnList[0].t <= G.spawnT) spawnEnemy(G.spawnList.shift().type);
+
+  /* —— 背景星星滚动 —— */
+  for (const s of G.stars) { s.y += s.v; if (s.y > H) { s.y = -2; s.x = rnd(0, W); } }
+
+  /* —— 敌人行为 —— */
+  for (const e of G.enemies) {
+    e.t++;
+    if (e.type === "dive") {                                // 俯冲鼠:正弦摆动下落
+      if (e.t === 1) e.baseX = e.x;
+      e.y += 2.1; e.x = e.baseX + Math.sin(e.t * 0.05) * e.amp;
+    } else if (e.type === "gunner") {                       // 炮台鼠:停在上半屏打扇形
+      if (e.y < e.stopY) e.y += 1.6;
+      else if (--e.cd <= 0) {
+        e.cd = Math.max(50, 95 - G.wave * 4);
+        const a = aimAt(e.x, e.y);
+        for (const off of [-0.3, 0, 0.3]) eShot(e.x, e.y, a + off, 2.6 + G.wave * 0.1);
+      }
+    } else if (e.type === "tank") {                         // 重装鼠:直下 + 环形弹
+      e.y += 0.9;
+      if (--e.cd <= 0) {
+        e.cd = 110;
+        for (let i = 0; i < 8; i++) eShot(e.x, e.y, i / 8 * 6.283 + e.t * 0.02, 2.2, 6, "#b88cff");
+      }
+    }
+    if (e.y > H + 40) e.dead = true;
+  }
+
+  /* —— Boss 行为:三段弹幕轮换 —— */
+  const B = G.boss;
+  if (B) {
+    B.t++;
+    if (B.y < 110) B.y += 1.2;                              // 入场
+    else {
+      B.x = W/2 + Math.sin(B.t * 0.016) * (W/2 - 60);       // 左右巡航
+      if (--B.cd <= 0) {
+        B.phase = (B.phase + 1) % 3;
+        B.cd = [55, 70, 6][B.phase];
+        if (B.phase === 0) {                                // 扇形狙击:5 连朝玩家
+          const a = aimAt(B.x, B.y);
+          for (let i = -2; i <= 2; i++) eShot(B.x, B.y + 20, a + i * 0.18, 3.4, 6, "#ff5b5b");
+        } else if (B.phase === 1) {                         // 全周环弹:16 发
+          for (let i = 0; i < 16; i++) eShot(B.x, B.y, i / 16 * 6.283 + B.t, 2.3, 6, "#ffb03a");
+        }                                                   // phase2 是螺旋:每 6 帧一发(下面统一发)
+      }
+      if (B.phase === 2 && B.t % 6 === 0)                   // 螺旋 STREAM
+        eShot(B.x, B.y, B.t * 0.23, 2.8, 5, "#7bd8ff");
+    }
+  }
+
+  /* —— 玩家子弹移动 + 命中判定 —— */
+  for (const b of G.pBullets) {
+    b.x += b.vx; b.y += b.vy;
+    if (b.y < -10 || b.x < -10 || b.x > W+10) { b.dead = true; continue; }
+    for (const e of G.enemies) {
+      if (e.dead) continue;
+      if (Math.hypot(e.x - b.x, e.y - b.y) < e.r + 4) {
+        b.dead = true; e.hp--; e.flash = 4;
+        spawnParts(b.x, b.y, 2, "#ffe08a");
+        if (e.hp <= 0) killEnemy(e);
+        break;
+      }
+    }
+    if (!b.dead && B && !B.dead && Math.hypot(B.x - b.x, B.y - b.y) < B.r + 4) {
+      b.dead = true; B.hp--; B.flash = 4;
+      spawnParts(b.x, b.y, 2, "#ffe08a");
+      if (B.hp <= 0) { killEnemy(B); G.boss = null; }
+    }
+  }
+  G.pBullets = G.pBullets.filter(b => !b.dead);
+  G.enemies = G.enemies.filter(e => !e.dead);
+
+  /* —— 敌弹移动 + 撞玩家判定 —— */
+  for (const b of G.eBullets) {
+    b.x += b.vx; b.y += b.vy;
+    if (b.x < -20 || b.x > W+20 || b.y < -20 || b.y > H+20) { b.dead = true; continue; }
+    if (G.inv <= 0 && Math.hypot(b.x - G.px, b.y - G.py) < b.r + G.pw * 0.45) {  // 判定点比看着的小,弹幕游戏惯例
+      b.dead = true;
+      playerHit();
+    }
+  }
+  G.eBullets = G.eBullets.filter(b => !b.dead);
+  /* 敌机撞机判定 */
+  if (G.inv <= 0) {
+    for (const e of G.enemies)
+      if (Math.hypot(e.x - G.px, e.y - G.py) < e.r + G.pw * 0.5) { playerHit(); break; }
+    if (G.inv <= 0 && B && Math.hypot(B.x - G.px, B.y - G.py) < B.r + G.pw * 0.5) playerHit();
+  }
+
+  /* —— 道具下落与拾取 —— */
+  for (const d of G.drops) {
+    d.y += 1.6; d.t++;
+    if (Math.hypot(d.x - G.px, d.y - G.py) < 20 + G.pw) {
+      d.dead = true; sfx.pow();
+      if (d.kind === "P") { if (G.power < 3) { G.power++; G.float(`火力升级! P${G.power}`); } else G.score += 200; }
+      else { if (G.lives < 4) { G.lives++; G.float("❤️ +1 命!"); } else G.score += 500; }
+    }
+    if (d.y > H + 20) d.dead = true;
+  }
+  G.drops = G.drops.filter(d => !d.dead);
+
+  /* —— 粒子 —— */
+  for (const p of G.parts) { p.x += p.vx; p.y += p.vy; p.t--; }
+  G.parts = G.parts.filter(p => p.t > 0);
+  if (G.floats) for (const f of G.floats) { f.t--; f.y -= 0.6; }
+  if (G.floats) G.floats = G.floats.filter(f => f.t > 0);
+}
+/* 飘字小工具 */
+G.float = txt => { (G.floats = G.floats || []).push({ x: G.px, y: G.py - 30, txt, t: 55 }); };
+/* 击杀结算 */
+function killEnemy(e) {
+  e.dead = true; sfx.boom();
+  G.score += e.score;
+  spawnParts(e.x, e.y, e.type === "boss" ? 40 : 12, "#ffd0e2");
+  G.float(`+${e.score}`);
+  if (Math.random() < (e.type === "boss" ? 1 : 0.14))       // Boss 必掉,小怪 14% 掉率
+    G.drops.push({ x: e.x, y: e.y, kind: Math.random() < 0.68 ? "P" : "H", t: 0 });
+  if (e.type === "boss") G.float("💥 Boss 击破!");
+}
+/* 玩家被打:掉命 + 清弹 + 无敌 90 帧 */
+function playerHit() {
+  G.lives--; G.inv = 100; sfx.hit();
+  spawnParts(G.px, G.py, 20, "#ff6b9d");
+  G.eBullets = [];                                          // 被弹幕埋了太亏,清屏仁慈一回
+  G.float(G.lives > 0 ? "哎呀!" : "");
+  if (G.lives <= 0) doOver();
+}
+function spawnParts(x, y, n, color) {
+  for (let i = 0; i < n; i++) {
+    const a = Math.random() * 6.28, sp = 1 + Math.random() * 3.5;
+    G.parts.push({ x, y, vx: Math.cos(a)*sp, vy: Math.sin(a)*sp, t: 16 + Math.random()*14, color, r: 1.5 + Math.random()*3 });
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   七、结算:钱包 + 每日挑战
+   ═══════════════════════════════════════════════════════════ */
+function doOver() {
+  G.mode = "over"; sfx.hit();
+  const coins = Math.round(G.score / 10);
+  Nikki.Wallet.add(coins);
+  const gain = Nikki.Daily.report("shmup", { score: G.score });
+  const old = Nikki.jget("nikki_shmup_best", 0);
+  if (G.score > old) Nikki.jset("nikki_shmup_best", G.score);
+  const ov = document.getElementById("overlay");
+  ov.innerHTML = `<h2>💥 飞机坠毁了…</h2>
+    <p>得分 <b>${G.score}</b> · 撑到第 <b>${G.wave}</b> 波<br>结算:<b>+${coins}</b> 金币${gain ? ` · 每日挑战完成 +${gain}!` : ""}</p>
+    <button onclick="location.reload()">🔁 再飞一次</button>`;
+  ov.style.display = "flex";
+}
+
+/* ═══════════════════════════════════════════════════════════
+   八、渲染
+   ═══════════════════════════════════════════════════════════ */
+function render() {
+  /* —— 夜空背景 + 星星 —— */
+  CTX.fillStyle = "#1a1a3e"; CTX.fillRect(0, 0, W, H);
+  CTX.fillStyle = "#fff";
+  for (const s of G.stars) { CTX.globalAlpha = s.v / 1.6; CTX.fillRect(s.x, s.y, s.s, s.s); }
+  CTX.globalAlpha = 1;
+
+  /* —— 道具 —— */
+  for (const d of G.drops) {
+    CTX.fillStyle = d.kind === "P" ? "#ff6b9d" : "#ff4747";
+    CTX.beginPath(); CTX.arc(d.x, d.y, 10, 0, 6.28); CTX.fill();
+    CTX.fillStyle = "#fff"; CTX.font = "bold 12px sans-serif"; CTX.textAlign = "center"; CTX.textBaseline = "middle";
+    CTX.fillText(d.kind === "P" ? "P" : "❤", d.x, d.y + 1);
+  }
+
+  /* —— 敌人:机器人老鼠(不同型号不同色) —— */
+  for (const e of G.enemies) {
+    const body = e.type === "dive" ? "#9aa2b5" : e.type === "gunner" ? "#b58cd8" : "#d88c5b";
+    CTX.fillStyle = e.flash > 0 ? "#fff" : body;
+    if (e.flash > 0) e.flash--;
+    CTX.beginPath(); CTX.ellipse(e.x, e.y, e.r, e.r*0.9, 0, 0, 6.28); CTX.fill();
+    CTX.fillStyle = "#ffc3d8";                              // 耳朵
+    CTX.beginPath(); CTX.arc(e.x - e.r*0.7, e.y - e.r*0.8, e.r*0.36, 0, 6.28); CTX.fill();
+    CTX.beginPath(); CTX.arc(e.x + e.r*0.7, e.y - e.r*0.8, e.r*0.36, 0, 6.28); CTX.fill();
+    CTX.fillStyle = "#ff3b3b";
+    CTX.beginPath(); CTX.arc(e.x - 3.5, e.y - 2, 2.2, 0, 6.28); CTX.fill();
+    CTX.beginPath(); CTX.arc(e.x + 3.5, e.y - 2, 2.2, 0, 6.28); CTX.fill();
+    if (e.type !== "dive") {                                // 会打枪的显示血条
+      CTX.fillStyle = "rgba(0,0,0,.4)"; CTX.fillRect(e.x - e.r, e.y - e.r - 8, e.r*2, 3.5);
+      CTX.fillStyle = "#6dff6d"; CTX.fillRect(e.x - e.r, e.y - e.r - 8, e.r*2 * Math.max(0, e.hp / e.hp0), 3.5);
+    }
+  }
+
+  /* —— Boss 轰炸母舰:大老鼠 + 血条 —— */
+  const B = G.boss;
+  if (B) {
+    CTX.fillStyle = B.flash > 0 ? "#fff" : "#6a6f8a";
+    if (B.flash > 0) B.flash--;
+    CTX.beginPath(); CTX.ellipse(B.x, B.y, B.r + 16, B.r, 0, 0, 6.28); CTX.fill();   // 机身
+    CTX.fillStyle = "#9aa2b5";
+    CTX.beginPath(); CTX.ellipse(B.x, B.y, B.r, B.r*0.85, 0, 0, 6.28); CTX.fill();   // 头
+    CTX.fillStyle = "#ffc3d8";
+    CTX.beginPath(); CTX.arc(B.x - 22, B.y - 24, 12, 0, 6.28); CTX.fill();
+    CTX.beginPath(); CTX.arc(B.x + 22, B.y - 24, 12, 0, 6.28); CTX.fill();
+    CTX.fillStyle = "#ff3b3b";
+    CTX.beginPath(); CTX.arc(B.x - 10, B.y - 4, 4, 0, 6.28); CTX.fill();
+    CTX.beginPath(); CTX.arc(B.x + 10, B.y - 4, 4, 0, 6.28); CTX.fill();
+    CTX.fillStyle = "rgba(0,0,0,.5)"; CTX.fillRect(W/2 - 90, 16, 180, 9);
+    CTX.fillStyle = "#ff5b7b"; CTX.fillRect(W/2 - 90, 16, 180 * Math.max(0, B.hp / B.hpMax), 9);
+  }
+
+  /* —— 弹幕:玩家的黄色细长弹,敌弹的发光圆点 —— */
+  CTX.fillStyle = "#fff35c";
+  for (const b of G.pBullets) CTX.fillRect(b.x - 2, b.y - 8, 4, 12);
+  for (const b of G.eBullets) {
+    CTX.fillStyle = b.color;
+    CTX.beginPath(); CTX.arc(b.x, b.y, b.r, 0, 6.28); CTX.fill();
+    CTX.fillStyle = "rgba(255,255,255,.7)";
+    CTX.beginPath(); CTX.arc(b.x, b.y, b.r * 0.45, 0, 6.28); CTX.fill();
+  }
+
+  /* —— 玩家:纸飞机上的猫猫(无敌时闪烁) —— */
+  if (G.mode === "play" && (G.inv <= 0 || G.tick % 8 < 4)) {
+    CTX.save(); CTX.translate(G.px, G.py);
+    CTX.fillStyle = "#e8e8f4";                              // 纸飞机
+    CTX.beginPath(); CTX.moveTo(0, -18); CTX.lineTo(-16, 16); CTX.lineTo(0, 8); CTX.lineTo(16, 16); CTX.closePath(); CTX.fill();
+    CTX.fillStyle = "#ffb257";                              // 猫头
+    CTX.beginPath(); CTX.arc(0, -6, 9, 0, 6.28); CTX.fill();
+    CTX.beginPath(); CTX.moveTo(-9, -10); CTX.lineTo(-5, -17); CTX.lineTo(-2, -10); CTX.fill();   // 耳朵
+    CTX.beginPath(); CTX.moveTo(9, -10); CTX.lineTo(5, -17); CTX.lineTo(2, -10); CTX.fill();
+    CTX.fillStyle = "#3a2a30";
+    CTX.beginPath(); CTX.arc(-3.5, -7, 1.6, 0, 6.28); CTX.fill();
+    CTX.beginPath(); CTX.arc(3.5, -7, 1.6, 0, 6.28); CTX.fill();
+    CTX.restore();
+  }
+
+  /* —— 粒子 / 飘字 —— */
+  for (const p of G.parts) {
+    CTX.globalAlpha = Math.min(1, p.t / 12);
+    CTX.fillStyle = p.color;
+    CTX.beginPath(); CTX.arc(p.x, p.y, p.r, 0, 6.28); CTX.fill();
+  }
+  CTX.globalAlpha = 1;
+  if (G.floats) for (const f of G.floats) {
+    CTX.globalAlpha = Math.min(1, f.t / 25);
+    CTX.font = "bold 13px sans-serif"; CTX.textAlign = "center";
+    CTX.fillStyle = "#fff"; CTX.strokeStyle = "rgba(0,0,0,.5)"; CTX.lineWidth = 3;
+    CTX.strokeText(f.txt, f.x, f.y); CTX.fillText(f.txt, f.x, f.y);
+  }
+  CTX.globalAlpha = 1;
+
+  /* —— HUD —— */
+  CTX.fillStyle = "rgba(20,16,44,.75)"; CTX.fillRect(0, 0, W, 30);
+  CTX.fillStyle = "#fff"; CTX.font = "bold 14px sans-serif"; CTX.textAlign = "left"; CTX.textBaseline = "middle";
+  CTX.fillText(`⭐ ${G.score}`, 12, 15);
+  CTX.fillText(`🌊 ${G.wave}`, 120, 15);
+  CTX.fillText(`P${G.power}`, 190, 15);
+  CTX.fillText("❤️".repeat(Math.max(0, G.lives)), 240, 15);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   九、主循环
+   ═══════════════════════════════════════════════════════════ */
+function frame() { update(); render(); requestAnimationFrame(frame); }
+document.getElementById("btn-start").onclick = () => {
+  if (!AC) tone(1, 1, .01);                                 // 用户手势里解锁 AudioContext
+  document.getElementById("overlay").style.display = "none";
+  reset();
+};
+reset();
+frame();
+</script>
+</body>
+</html>

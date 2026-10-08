@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>🏰 猫猫守塔 · Nikki 游戏合集</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='0.9em' font-size='90'%F0%9F%8F%B0%3C/text%3E%3C/svg%3E">
+<!-- ═══════════════════════════════════════════════════════════════
+     猫猫守塔 · 塔防小游戏
+     灵感致谢:开源游戏清单中的 Mindustry / Server Survival(塔防品类)
+     清单来源: https://github.com/bayshier/open-source-games-zh
+     玩法:机器人老鼠沿路进攻猫窝,在路上建猫猫塔拦截!
+       🍊 橘炮猫 —— 单发高伤,性价比之王
+       🍦 冰淇淋猫 —— 冻住老鼠减速 50%
+       ⚡ 电电猫 —— 射速极快,贴脸输出
+     共 15 波,每 5 波来一只 Boss 轰炸鼠!守住猫窝!
+     ═══════════════════════════════════════════════════════════════ -->
+<style>
+  :root { --hk-deep: #ff6b9d; --hk-muted: #c98ba0; }
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
+  body {
+    font-family: "Nunito", -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: linear-gradient(160deg, #ffe3ee 0%, #ffd0e2 50%, #ffc3da 100%);
+    min-height: 100vh; display: flex; flex-direction: column; align-items: center;
+    padding: 12px; color: #5a3a48;
+  }
+  header { text-align: center; margin-bottom: 8px; }
+  header h1 { font-size: 26px; color: var(--hk-deep); text-shadow: 0 2px 0 #fff; }
+  header p { font-size: 13px; color: var(--hk-muted); }
+  #stage { position: relative; }
+  canvas {
+    display: block; border-radius: 18px; box-shadow: 0 8px 24px rgba(255, 107, 157, .35);
+    background: #8fce6e; touch-action: none;
+  }
+  /* 底部操作栏:建造按钮 / 选中塔的升级面板 共用这一条 */
+  #bar {
+    display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; justify-content: center; align-items: center;
+  }
+  .tbtn {
+    border: 2px solid var(--hk-deep); background: #fff; color: #5a3a48; border-radius: 14px;
+    padding: 8px 12px; font-size: 14px; font-weight: 700; cursor: pointer; font-family: inherit;
+  }
+  .tbtn small { display: block; font-size: 11px; color: var(--hk-muted); font-weight: 600; }
+  .tbtn.on { background: var(--hk-deep); color: #fff; }
+  .tbtn.on small { color: #ffd7e6; }
+  .tbtn:disabled { opacity: .45; cursor: not-allowed; }
+  /* 覆盖层:菜单 / 胜利 / 失败 共用 */
+  #overlay {
+    position: absolute; inset: 0; border-radius: 18px; background: rgba(90, 40, 60, .55);
+    backdrop-filter: blur(3px); display: flex; flex-direction: column; align-items: center; justify-content: center;
+    color: #fff; text-align: center; padding: 20px;
+  }
+  #overlay h2 { font-size: 30px; margin-bottom: 10px; text-shadow: 0 2px 6px rgba(0,0,0,.4); }
+  #overlay p { font-size: 14px; line-height: 1.9; margin-bottom: 16px; }
+  #overlay button {
+    border: none; background: var(--hk-deep); color: #fff; font-size: 18px; font-weight: 800;
+    padding: 12px 34px; border-radius: 999px; cursor: pointer; box-shadow: 0 4px 0 #d94f83; font-family: inherit;
+  }
+  #overlay button:active { transform: translateY(3px); box-shadow: 0 1px 0 #d94f83; }
+  .home { margin-top: 14px; font-size: 13px; color: var(--hk-muted); }
+  a { color: var(--hk-deep); font-weight: 700; text-decoration: none; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🏰 猫猫守塔</h1>
+  <p>机器人老鼠要偷猫粮!在路上建猫猫塔,守住 15 波进攻!</p>
+</header>
+
+<div id="stage">
+  <canvas id="cv" width="624" height="480"></canvas>
+  <div id="overlay">
+    <h2>🏰 猫猫守塔</h2>
+    <p>🐭 机器人老鼠排队冲向猫窝 🧺!<br>
+       ① 底部选一种猫猫塔 → 点草地放置<br>
+       ② 点已建的塔可以 <b>升级 / 卖出</b><br>
+       🍊 橘炮 · 🍦 减速 · ⚡ 速射,搭配着来!<br>
+       每 5 波有一只 <b>Boss 轰炸鼠</b>…共有 15 波!</p>
+    <button id="btn-start">🛡️ 开始守卫!</button>
+  </div>
+</div>
+
+<div id="bar">
+  <button class="tbtn" id="sel-orange">🍊 橘炮猫<small>💰50 · 高伤</small></button>
+  <button class="tbtn" id="sel-ice">🍦 冰淇淋猫<small>💰80 · 减速</small></button>
+  <button class="tbtn" id="sel-elec">⚡ 电电猫<small>💰130 · 速射</small></button>
+  <button class="tbtn" id="btn-speed">▶️ 1x</button>
+  <span id="tip" style="font-size:12px;color:var(--hk-muted);max-width:150px;">选塔后点空地放置</span>
+</div>
+<div class="home"><a href="../index.html">🏠 回游戏合集</a></div>
+
+<script src="../shared/common.js"></script>
+<script>
+/* ═══════════════════════════════════════════════════════════
+   一、基础常量:格子地图与路径
+   地图 13 列 × 9 行,每格 48px;顶部 48px 留给 HUD
+   老鼠从左侧洞口进场,沿 S 形路径走到右侧猫窝
+   ═══════════════════════════════════════════════════════════ */
+const CV = document.getElementById("cv"), CTX = CV.getContext("2d");
+const CELL = 48, COLS = 13, ROWS = 9, HUD = 48;      // 格子尺寸 / 列数 / 行数 / 顶部HUD高
+const W = CV.width, H = CV.height;
+
+/* 路径拐点(格子坐标):入口在 (-1,4) 界外,出口 (13,4) 界外进猫窝 */
+const WAYPOINTS_CELL = [[-1,4],[2,4],[2,1],[6,1],[6,7],[10,7],[10,4],[13,4]];
+/* 把格子坐标换算成像素坐标(格子中心点),供移动逻辑使用 */
+const WAYPOINTS = WAYPOINTS_CELL.map(([cx, cy]) => [cx*CELL + CELL/2, HUD + cy*CELL + CELL/2]);
+
+/* 计算路径覆盖了哪些格子 → 这些格子不能建塔 */
+const pathCells = new Set();
+for (let i = 0; i < WAYPOINTS_CELL.length - 1; i++) {
+  const [x1, y1] = WAYPOINTS_CELL[i], [x2, y2] = WAYPOINTS_CELL[i+1];
+  const dx = Math.sign(x2 - x1), dy = Math.sign(y2 - y1);
+  let x = x1, y = y1;
+  while (true) {
+    for (let ox = -1; ox <= 1; ox++)           // 路径带一点宽度(-1~1 行/列),视觉上路宽约一格半
+      for (let oy = -1; oy <= 1; oy++)
+        if (x+ox >= 0 && x+ox < COLS && y+oy >= 0 && y+oy < ROWS)
+          pathCells.add((x+ox) + "," + (y+oy));
+    if (x === x2 && y === y2) break;
+    x += dx; y += dy;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   二、塔的定义与敌人波次表
+   ═══════════════════════════════════════════════════════════ */
+const TOWERS = {
+  orange: { emoji:"🍊", name:"橘炮猫", cost:50,  range:115, dmg:14, cd:32, pspd:7,   color:"#ff9a3c" },
+  ice:    { emoji:"🍦", name:"冰淇淋猫", cost:80,  range:105, dmg:5,  cd:50, pspd:6.5, color:"#5ac8ff", slow:120 }, // slow=减速持续帧数
+  elec:   { emoji:"⚡", name:"电电猫",  cost:130, range:85,  dmg:8,  cd:12, pspd:9,   color:"#ffd93c" },
+};
+/* 15 波敌人表:每波是 [类型, 数量, 间隔帧] 的组合,依次刷出 */
+function waveDef(w) {
+  if (w % 5 === 0) {                                       // 每 5 波:Boss 轰炸鼠压阵
+    return [[["boss", 1, 0]], [["norm", 6 + w, 34]]];
+  }
+  const list = [];
+  list.push(["norm", 5 + Math.floor(w * 1.5), Math.max(22, 40 - w)]);   // 普通鼠:数量随波数涨
+  if (w >= 3) list.push(["fast", 3 + w, 26]);                            // 第3波起:疾行鼠
+  if (w >= 7) list.push(["tank", Math.floor(w / 2), 55]);                // 第7波起:铁甲鼠
+  return list;
+}
+/* 敌人属性:hp 基数 / 速度 / 半径 / 击杀奖励 / 突破扣血 */
+const ENEMY_DEF = {
+  norm: { hp: 22,  spd: 1.05, r: 13, coin: 8,  leak: 1, name:"小灰鼠" },
+  fast: { hp: 13,  spd: 1.85, r: 11, coin: 10, leak: 1, name:"疾行鼠" },
+  tank: { hp: 70,  spd: 0.62, r: 17, coin: 25, leak: 2, name:"铁甲鼠" },
+  boss: { hp: 320, spd: 0.5,  r: 24, coin: 100, leak: 4, name:"轰炸鼠" },
+};
+const MAX_WAVE = 15;
+
+/* ═══════════════════════════════════════════════════════════
+   三、游戏状态(全部放在 G 里,重开一局时 reset())
+   ═══════════════════════════════════════════════════════════ */
+const G = {};
+function reset() {
+  Object.assign(G, {
+    coins: 140, lives: 10, wave: 0, waveActive: false,     // 金币/生命/波数
+    spawnQueue: [], spawnTimer: 0, interTimer: 90,          // 刷怪队列 / 刷怪计时 / 波间休息
+    towers: [], enemies: [], shots: [], parts: [], floats: [],
+    buildSel: null, selTower: null,                          // 当前选中的建造类型 / 选中的塔
+    speed: 1, paused: false, over: false, win: false,
+    kills: 0, score: 0, tick: 0,
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════
+   四、音效:轻量 WebAudio 蜂鸣(不依赖外部音频文件)
+   ═══════════════════════════════════════════════════════════ */
+let AC = null;
+function tone(f0, f1, dur, type = "square", vol = 0.12) {
+  try {
+    if (!AC) AC = new (window.AudioContext || window.webkitAudioContext)();
+    const t = AC.currentTime, o = AC.createOscillator(), g = AC.createGain();
+    o.type = type; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(Math.max(1, f1), t + dur);
+    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    o.connect(g).connect(AC.destination); o.start(t); o.stop(t + dur);
+  } catch (e) {}
+}
+const sfx = {
+  place: () => tone(300, 620, .12, "triangle"),          // 建塔
+  up:    () => tone(400, 900, .15, "triangle"),          // 升级
+  sell:  () => tone(500, 220, .15, "square"),            // 卖出
+  shoot: () => tone(880, 660, .05, "square", .05),       // 开火
+  hit:   () => tone(220, 160, .06, "square", .08),       // 命中
+  die:   () => tone(600, 120, .18, "sawtooth", .1),      // 敌人阵亡
+  leak:  () => tone(200, 80, .3, "sawtooth", .14),       // 突破防线
+  coin:  () => tone(1046, 1568, .09, "triangle", .1),    // 波次奖励
+  lose:  () => { tone(400, 60, .8, "sawtooth", .16); },
+  win:   () => [0, .12, .24, .4].forEach((d, i) => setTimeout(() => tone([523,659,784,1046][i], [523,659,784,1046][i]*1.01, .18, "triangle", .14), d*1000)),
+};
+
+/* ═══════════════════════════════════════════════════════════
+   五、核心逻辑更新(每帧调用;2x 速度时一帧跑两遍)
+   ═══════════════════════════════════════════════════════════ */
+function update() {
+  if (G.over || G.paused) return;
+  G.tick++;
+
+  /* —— 波次调度:没开波就倒计时,倒完开下一波 —— */
+  if (!G.waveActive) {
+    if (--G.interTimer <= 0) {
+      G.wave++;
+      if (G.wave > MAX_WAVE) return doWin();
+      G.waveActive = true;
+      G.spawnQueue = [];
+      for (const [type, n, gap] of waveDef(G.wave))       // 展开成逐只刷怪队列
+        for (let i = 0; i < n; i++) G.spawnQueue.push({ type, gap });
+      G.spawnTimer = 1;
+      G.floats.push({ x: W/2, y: HUD+90, txt: `🌊 第 ${G.wave} 波!`, t: 80, big: true });
+    }
+  } else if (G.spawnQueue.length) {
+    if (--G.spawnTimer <= 0) {                            // 到点刷一只
+      const { type, gap } = G.spawnQueue.shift();
+      G.spawnTimer = gap;
+      const d = ENEMY_DEF[type], scale = 1 + (G.wave - 1) * 0.22;   // 血量随波数膨胀
+      G.enemies.push({
+        type, x: WAYPOINTS[0][0], y: WAYPOINTS[0][1], wp: 1,
+        hp: d.hp * scale, hpMax: d.hp * scale, r: d.r, spd: d.spd,
+        slowT: 0, dist: 0, wobble: Math.random() * 6.28,
+      });
+    }
+  } else if (G.enemies.length === 0) {                    // 本波清空 → 发波次奖金,准备下一波
+    G.waveActive = false;
+    G.interTimer = 110;
+    const bonus = 30 + G.wave * 5;
+    G.coins += bonus;
+    G.score += 100 + G.wave * 10;
+    sfx.coin();
+    G.floats.push({ x: W/2, y: HUD+120, txt: `✅ 守住了!+💰${bonus}`, t: 80, big: true });
+  }
+
+  /* —— 敌人移动:沿路径拐点走,被冰减速时速度减半 —— */
+  for (const e of G.enemies) {
+    if (e.slowT > 0) e.slowT--;
+    const spd = e.spd * (e.slowT > 0 ? 0.5 : 1);
+    const [tx, ty] = WAYPOINTS[e.wp];
+    const dx = tx - e.x, dy = ty - e.y, len = Math.hypot(dx, dy);
+    if (len < spd) {                                      // 抵达当前拐点 → 朝下一个
+      e.x = tx; e.y = ty; e.wp++;
+      if (e.wp >= WAYPOINTS.length) {                     // 走完全程 → 突破!扣猫窝血
+        e.dead = true; e.leaked = true;
+        G.lives -= ENEMY_DEF[e.type].leak;
+        sfx.leak();
+        if (G.lives <= 0) doLose();
+      }
+    } else {
+      e.x += dx / len * spd; e.y += dy / len * spd;
+      e.dist += spd;                                      // dist 用来让塔优先打"走得最远"的
+    }
+    e.wobble += 0.3;
+  }
+  G.enemies = G.enemies.filter(e => !e.dead);
+
+  /* —— 塔索敌+开火:锁定射程内走得最远的老鼠 —— */
+  for (const t of G.towers) {
+    if (t.cd > 0) t.cd--;
+    if (t.cd > 0) continue;
+    const def = TOWERS[t.type];
+    let best = null;
+    for (const e of G.enemies)
+      if (Math.hypot(e.x - t.x, e.y - t.y) <= def.range && (!best || e.dist > best.dist)) best = e;
+    if (!best) continue;
+    t.cd = def.cd;
+    t.angle = Math.atan2(best.y - t.y, best.x - t.x);     // 记录炮口朝向(画图用)
+    G.shots.push({ x: t.x, y: t.y - 8, target: best, spd: def.pspd, dmg: def.dmg, type: t.type, slow: def.slow || 0 });
+    sfx.shoot();
+  }
+
+  /* —— 子弹飞行:追踪目标,目标没了就原地飘散 —— */
+  for (const s of G.shots) {
+    const tgt = s.target;
+    if (tgt && !tgt.dead && !tgt.leaked) {
+      const dx = tgt.x - s.x, dy = tgt.y - s.y, len = Math.hypot(dx, dy);
+      if (len < tgt.r + 5) {                              // 命中!
+        s.hit = true;
+        tgt.hp -= s.dmg;
+        if (s.slow) tgt.slowT = s.slow;                   // 冰淇淋:上减速 debuff
+        sfx.hit();
+        spawnParts(s.x, s.y, 3, s.type === "ice" ? "#9adcff" : "#ffe08a");
+        if (tgt.hp <= 0) killEnemy(tgt);
+      } else { s.x += dx / len * s.spd; s.y += dy / len * s.spd; }
+    } else s.hit = true;
+  }
+  G.shots = G.shots.filter(s => !s.hit);
+
+  /* —— 粒子与飘字衰减 —— */
+  for (const p of G.parts) { p.x += p.vx; p.y += p.vy; p.vx *= .92; p.vy *= .92; p.t--; }
+  G.parts = G.parts.filter(p => p.t > 0);
+  for (const f of G.floats) { f.t--; f.y -= 0.5; }
+  G.floats = G.floats.filter(f => f.t > 0);
+}
+
+/* 击杀结算:发金币+分数+粒子,顺便统计 */
+function killEnemy(e) {
+  e.dead = true;
+  const d = ENEMY_DEF[e.type];
+  G.coins += d.coin; G.kills++;
+  G.score += d.coin * 2;
+  sfx.die();
+  spawnParts(e.x, e.y, e.type === "boss" ? 26 : 8, "#c0c8d8");
+  G.floats.push({ x: e.x, y: e.y, txt: `+💰${d.coin}`, t: 40 });
+}
+function spawnParts(x, y, n, color) {
+  for (let i = 0; i < n; i++) {
+    const a = Math.random() * 6.28, sp = 1 + Math.random() * 3;
+    G.parts.push({ x, y, vx: Math.cos(a)*sp, vy: Math.sin(a)*sp, t: 18 + Math.random()*14, color, r: 2 + Math.random()*3 });
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   六、胜负结算:接入 Nikki 钱包 + 每日挑战
+   ═══════════════════════════════════════════════════════════ */
+function doLose() {
+  if (G.over) return;
+  G.over = true; sfx.lose();
+  const coins = Math.round(G.score / 10) + G.wave * 5;
+  Nikki.Wallet.add(coins);
+  const gain = Nikki.Daily.report("td", { waves: G.wave - 1, score: G.score });
+  saveBest();
+  showOverlay(`😿 猫窝被攻破了…`, `守到了第 <b>${G.wave}</b> 波 · 击破 ${G.kills} 只<br>结算:<b>+${coins}</b> 金币${gain ? ` · 每日挑战完成 +${gain}!` : ""}`, "🔁 再守一次");
+}
+function doWin() {
+  if (G.over) return;
+  G.over = true; G.win = true; sfx.win();
+  const coins = 300 + Math.round(G.score / 10);
+  Nikki.Wallet.add(coins);
+  const gain = Nikki.Daily.report("td", { waves: MAX_WAVE, score: G.score });
+  saveBest();
+  showOverlay(`🏆 猫窝守住了!`, `15 波全部击退 · 击破 ${G.kills} 只<br>结算:<b>+${coins}</b> 金币${gain ? ` · 每日挑战完成 +${gain}!` : ""}`, "🎉 再来一局");
+}
+function saveBest() {
+  const old = Nikki.jget("nikki_td_best", 0);
+  if (G.wave - 1 > old) Nikki.jset("nikki_td_best", G.wave - 1);
+}
+function showOverlay(title, html, btnTxt) {
+  const ov = document.getElementById("overlay");
+  ov.innerHTML = `<h2>${title}</h2><p>${html}</p><button onclick="location.reload()">${btnTxt}</button>`;
+  ov.style.display = "flex";
+}
+
+/* ═══════════════════════════════════════════════════════════
+   七、渲染:草地 / 沙路 / 塔 / 敌人 / 子弹 / HUD
+   ═══════════════════════════════════════════════════════════ */
+function render() {
+  /* —— 草地:双色棋盘格,波光粼粼的院子 —— */
+  for (let cy = 0; cy < ROWS; cy++)
+    for (let cx = 0; cx < COLS; cx++) {
+      CTX.fillStyle = (cx + cy) % 2 ? "#8fce6e" : "#84c463";
+      CTX.fillRect(cx*CELL, HUD + cy*CELL, CELL, CELL);
+    }
+  /* —— 沙路:先整格连成路面,再画浅色步行道中线,看起来是一条完整的路 —— */
+  CTX.fillStyle = "#e5c98f";
+  for (const key of pathCells) {
+    const [cx, cy] = key.split(",").map(Number);
+    CTX.fillRect(cx*CELL, HUD + cy*CELL, CELL, CELL);
+  }
+  CTX.fillStyle = "#f2ddab";                                // 中线亮色,增添层次
+  for (const key of pathCells) {
+    const [cx, cy] = key.split(",").map(Number);
+    CTX.fillRect(cx*CELL + 10, HUD + cy*CELL + 10, CELL - 20, CELL - 20);
+  }
+  /* —— 入口黑洞 & 出口猫窝 —— */
+  CTX.fillStyle = "#3a3a4a";
+  CTX.beginPath(); CTX.ellipse(8, HUD + 4*CELL + CELL/2, 16, 20, 0, 0, 6.28); CTX.fill();
+  CTX.font = "38px serif"; CTX.textAlign = "center"; CTX.textBaseline = "middle";
+  CTX.fillText("🧺", W - 26, HUD + 4*CELL + CELL/2);
+
+  /* —— 建塔预览:选中建造类型时,鼠标格高亮 + 显示射程圈 —— */
+  if (G.buildSel && G.hoverCell) {
+    const [cx, cy] = G.hoverCell;
+    const ok = canBuild(cx, cy);
+    CTX.fillStyle = ok ? "rgba(255,255,255,.35)" : "rgba(255,80,80,.3)";
+    CTX.fillRect(cx*CELL, HUD + cy*CELL, CELL, CELL);
+    if (ok) {
+      const def = TOWERS[G.buildSel];
+      CTX.strokeStyle = "rgba(255,255,255,.7)"; CTX.setLineDash([6, 6]);
+      CTX.beginPath(); CTX.arc(cx*CELL+CELL/2, HUD+cy*CELL+CELL/2, def.range, 0, 6.28); CTX.stroke();
+      CTX.setLineDash([]);
+    }
+  }
+  /* —— 选中的已有塔:显示射程圈 —— */
+  if (G.selTower) {
+    const def = TOWERS[G.selTower.type];
+    CTX.strokeStyle = "rgba(255,255,255,.8)"; CTX.setLineDash([6, 6]);
+    CTX.beginPath(); CTX.arc(G.selTower.x, G.selTower.y, towerRange(G.selTower), 0, 6.28); CTX.stroke();
+    CTX.setLineDash([]);
+  }
+
+  /* —— 塔:底座圆盘 + emoji + 等级星 —— */
+  for (const t of G.towers) {
+    const def = TOWERS[t.type];
+    CTX.fillStyle = "#c9a06a";
+    CTX.beginPath(); CTX.arc(t.x, t.y + 4, 19, 0, 6.28); CTX.fill();
+    CTX.fillStyle = def.color;
+    CTX.beginPath(); CTX.arc(t.x, t.y, 17, 0, 6.28); CTX.fill();
+    CTX.font = "20px serif"; CTX.fillText(def.emoji, t.x, t.y);
+    CTX.font = "10px sans-serif"; CTX.fillStyle = "#fff";
+    CTX.fillText("⭐".repeat(t.lv), t.x, t.y + 24);
+  }
+
+  /* —— 敌人:机器人老鼠(灰身子+粉耳朵+电眼+血条),被冻住显示蓝色 —— */
+  for (const e of G.enemies) {
+    const frozen = e.slowT > 0;
+    CTX.fillStyle = frozen ? "#7fb8d8" : "#9aa2b5";
+    CTX.beginPath(); CTX.ellipse(e.x, e.y, e.r, e.r * 0.9, 0, 0, 6.28); CTX.fill();
+    CTX.fillStyle = frozen ? "#a8d4ee" : "#ffc3d8";                     // 耳朵
+    CTX.beginPath(); CTX.arc(e.x - e.r*0.7, e.y - e.r*0.8, e.r*0.38, 0, 6.28); CTX.fill();
+    CTX.beginPath(); CTX.arc(e.x + e.r*0.7, e.y - e.r*0.8, e.r*0.38, 0, 6.28); CTX.fill();
+    CTX.fillStyle = "#ff3b3b";                                          // 机器人红眼
+    CTX.beginPath(); CTX.arc(e.x - 4, e.y - 2, 2.5, 0, 6.28); CTX.fill();
+    CTX.beginPath(); CTX.arc(e.x + 4, e.y - 2, 2.5, 0, 6.28); CTX.fill();
+    if (e.type === "boss") { CTX.font = "16px serif"; CTX.fillText("💣", e.x, e.y + e.r); }
+    const w = e.r * 2;                                                  // 血条
+    CTX.fillStyle = "rgba(0,0,0,.4)"; CTX.fillRect(e.x - w/2, e.y - e.r - 9, w, 4);
+    CTX.fillStyle = "#6dff6d"; CTX.fillRect(e.x - w/2, e.y - e.r - 9, w * Math.max(0, e.hp / e.hpMax), 4);
+  }
+
+  /* —— 子弹:小圆点,冰弹淡蓝 —— */
+  for (const s of G.shots) {
+    CTX.fillStyle = s.type === "ice" ? "#9adcff" : s.type === "elec" ? "#fff35c" : "#ffb257";
+    CTX.beginPath(); CTX.arc(s.x, s.y, 4, 0, 6.28); CTX.fill();
+  }
+  /* —— 粒子 —— */
+  for (const p of G.parts) {
+    CTX.globalAlpha = Math.min(1, p.t / 14);
+    CTX.fillStyle = p.color;
+    CTX.beginPath(); CTX.arc(p.x, p.y, p.r, 0, 6.28); CTX.fill();
+  }
+  CTX.globalAlpha = 1;
+  /* —— 飘字 —— */
+  for (const f of G.floats) {
+    CTX.globalAlpha = Math.min(1, f.t / 30);
+    CTX.font = (f.big ? "26px" : "14px") + " sans-serif";
+    CTX.fillStyle = "#fff"; CTX.strokeStyle = "rgba(90,40,60,.8)"; CTX.lineWidth = 3;
+    CTX.strokeText(f.txt, f.x, f.y); CTX.fillText(f.txt, f.x, f.y);
+  }
+  CTX.globalAlpha = 1;
+
+  /* —— 顶部 HUD —— */
+  CTX.fillStyle = "#5a3a48"; CTX.fillRect(0, 0, W, HUD);
+  CTX.fillStyle = "#fff"; CTX.font = "bold 17px sans-serif"; CTX.textAlign = "left"; CTX.textBaseline = "middle";
+  CTX.fillText(`💰 ${G.coins}`,   14, HUD/2);
+  CTX.fillText(`❤️ ${G.lives}`,  120, HUD/2);
+  CTX.fillText(`🌊 ${G.wave}/${MAX_WAVE}`, 200, HUD/2);
+  CTX.fillText(`⭐ ${G.score}`, 320, HUD/2);
+  if (!G.waveActive && !G.over) {                       // 波间倒计时提示
+    CTX.textAlign = "right";
+    CTX.fillText(`下一波 ${Math.ceil(G.interTimer / 60)}s…`, W - 14, HUD/2);
+  }
+}
+/* 塔的实际射程:每升一级 +15 */
+function towerRange(t) { return TOWERS[t.type].range + (t.lv - 1) * 15; }
+/* 能否建造:格子界内 + 不是路 + 没有别的塔 */
+function canBuild(cx, cy) {
+  if (cx < 0 || cy < 0 || cx >= COLS || cy >= ROWS) return false;
+  return !pathCells.has(cx + "," + cy) && !G.towers.some(t => t.cx === cx && t.cy === cy);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   八、交互:点格子建塔 / 点塔升级卖出 / 底部按钮
+   ═══════════════════════════════════════════════════════════ */
+function canvasPos(ev) {
+  const r = CV.getBoundingClientRect();
+  const p = ev.touches ? ev.touches[0] : ev;
+  return [(p.clientX - r.left) * (W / r.width), (p.clientY - r.top) * (H / r.height)];
+}
+CV.addEventListener("mousemove", ev => {
+  const [x, y] = canvasPos(ev);
+  if (y < HUD) { G.hoverCell = null; return; }
+  G.hoverCell = [Math.floor(x / CELL), Math.floor((y - HUD) / CELL)];
+});
+CV.addEventListener("click", ev => {
+  if (G.over) return;
+  const [x, y] = canvasPos(ev);
+  if (y < HUD) return;
+  const cx = Math.floor(x / CELL), cy = Math.floor((y - HUD) / CELL);
+  const t = G.towers.find(t => t.cx === cx && t.cy === cy);
+  if (t) {                                              // 点到塔 → 选中,显示升级面板
+    G.selTower = t; G.buildSel = null; syncBar();
+    showTowerPanel(t);
+    return;
+  }
+  if (G.buildSel) {                                     // 点空地 → 尝试建造
+    const def = TOWERS[G.buildSel];
+    if (!canBuild(cx, cy)) return flash("这里不能建!");
+    if (G.coins < def.cost) return flash("金币不够!");
+    G.coins -= def.cost;
+    G.towers.push({ type: G.buildSel, cx, cy, x: cx*CELL + CELL/2, y: HUD + cy*CELL + CELL/2, lv: 1, cd: 0, angle: -Math.PI/2 });
+    sfx.place();
+    syncBar();
+  } else G.selTower = null;
+});
+/* 底部提示闪现 */
+let tipTimer = null;
+function flash(txt) {
+  document.getElementById("tip").textContent = txt;
+  clearTimeout(tipTimer);
+  tipTimer = setTimeout(() => document.getElementById("tip").textContent = "选塔后点空地放置", 1500);
+}
+/* 把选中塔的升级面板塞进底部操作栏 */
+function showTowerPanel(t) {
+  const def = TOWERS[t.type];
+  const upCost = Math.round(def.cost * (0.7 + t.lv * 0.5));
+  const sellVal = Math.round(def.cost * 0.35 * t.lv + def.cost * 0.3 * (t.lv - 1));
+  const bar = document.getElementById("bar");
+  [...bar.querySelectorAll(".dyn")].forEach(el => el.remove());   // 清掉旧面板
+  const info = document.createElement("span");
+  info.className = "dyn";
+  info.style.cssText = "font-size:13px;font-weight:700;color:var(--hk-deep)";
+  info.textContent = `${def.emoji} Lv${t.lv}`;
+  const up = document.createElement("button");
+  up.className = "tbtn dyn";
+  up.innerHTML = t.lv >= 3 ? `⬆️ 已满级<small>MAX</small>` : `⬆️ 升级<small>💰${upCost}</small>`;
+  up.disabled = t.lv >= 3 || G.coins < upCost;
+  up.onclick = () => { G.coins -= upCost; t.lv++; sfx.up(); syncBar(); showTowerPanel(t); };
+  const sell = document.createElement("button");
+  sell.className = "tbtn dyn";
+  sell.innerHTML = `💰 卖出<small>+${sellVal}</small>`;
+  sell.onclick = () => { G.coins += sellVal; G.towers = G.towers.filter(x => x !== t); G.selTower = null; sfx.sell(); syncBar(); };
+  bar.append(info, up, sell);
+}
+/* 恢复底部栏为建造按钮状态 */
+function syncBar() {
+  [...document.querySelectorAll(".dyn")].forEach(el => el.remove());
+  ["orange", "ice", "elec"].forEach(k => {
+    const b = document.getElementById("sel-" + k);
+    b.classList.toggle("on", G.buildSel === k);
+    b.disabled = G.coins < TOWERS[k].cost && G.buildSel !== k;
+  });
+}
+/* 三个建造按钮:再点一次取消选择 */
+for (const k of ["orange", "ice", "elec"])
+  document.getElementById("sel-" + k).onclick = () => {
+    G.buildSel = G.buildSel === k ? null : k;
+    G.selTower = null;
+    syncBar();
+  };
+/* 1x/2x 加速按钮 */
+document.getElementById("btn-speed").onclick = function () {
+  G.speed = G.speed === 1 ? 2 : 1;
+  this.textContent = G.speed === 1 ? "▶️ 1x" : "⏩ 2x";
+};
+
+/* ═══════════════════════════════════════════════════════════
+   九、主循环:60fps 固定步调,2x 时每帧更新两次
+   ═══════════════════════════════════════════════════════════ */
+function frame() {
+  for (let i = 0; i < G.speed; i++) update();
+  render();
+  requestAnimationFrame(frame);
+}
+document.getElementById("btn-start").onclick = () => {
+  document.getElementById("overlay").style.display = "none";
+  reset();
+  syncBar();
+};
+reset();          // 先 reset 一次,菜单背后也能看到空地图
+frame();
+</script>
+</body>
+</html>

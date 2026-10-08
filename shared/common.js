@@ -31,10 +31,13 @@ const Nikki = (() => {
   }
   const DAILY_POOL = [
     { gameId: "memory", game: "猫咪配对",   desc: "40 步内完成一局配对", metric: "steps", cmp: "lte", goal: 40,  reward: 100 },
-    { gameId: "snake",  game: "猫吃小鱼",   desc: "单局拿到 60 分",      metric: "score", cmp: "gte", goal: 60,  reward: 100 },
-    { gameId: "flappy", game: "飞飞猫",     desc: "单局飞过 6 根管道",   metric: "score", cmp: "gte", goal: 6,   reward: 100 },
-    { gameId: "whack",  game: "猫咪打地鼠", desc: "单局拿到 120 分",     metric: "score", cmp: "gte", goal: 120, reward: 100 },
-    { gameId: "mario",  game: "猫猫马里奥", desc: "跑过一次终点线 🏁",   metric: "score", cmp: "gte", goal: 1,   reward: 100 },
+    { gameId: "snake",  game: "猫吃小鱼",   desc: "单局拿到 60 分",      metric: "score", cmp: "gte", goal: 60,   reward: 100 },
+    { gameId: "flappy", game: "飞飞猫",     desc: "单局飞过 6 根管道",   metric: "score", cmp: "gte", goal: 6,    reward: 100 },
+    { gameId: "whack",  game: "猫咪打地鼠", desc: "单局拿到 120 分",     metric: "score", cmp: "gte", goal: 120,  reward: 100 },
+    { gameId: "mario",  game: "猫猫马里奥", desc: "跑过一次终点线 🏁",   metric: "score", cmp: "gte", goal: 1,    reward: 100 },
+    { gameId: "td",     game: "猫猫守塔",   desc: "守住 5 波进攻 🏰",    metric: "waves", cmp: "gte", goal: 5,    reward: 100 },
+    { gameId: "shmup",  game: "猫猫弹幕",   desc: "单局拿到 1000 分 ✈️", metric: "score", cmp: "gte", goal: 1000, reward: 100 },
+    { gameId: "golf",   game: "猫猫高尔夫", desc: "推进 3 个球洞 ⛳",    metric: "holes", cmp: "gte", goal: 3,    reward: 100 },
   ];
   function hash(str) { let h = 0; for (const ch of str) h = (h * 31 + ch.charCodeAt(0)) | 0; return Math.abs(h); }
   function dailyInfo() {

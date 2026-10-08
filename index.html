@@ -264,6 +264,31 @@
       <span class="play">▶ 开始</span>
     </a>
 
+    <!-- 以下三款灵感来自 bayshier/open-source-games-zh 开源游戏清单 -->
+    <a class="card" href="games/td.html">
+      <div class="icon">🏰</div>
+      <h2>猫猫守塔</h2>
+      <p>机器人老鼠冲着猫窝来了!<br>建猫猫塔 · 守 15 波 · 打轰炸鼠!</p>
+      <div class="best" id="best-td">⭐ 加载中…</div><br>
+      <span class="play">▶ 开始</span>
+    </a>
+
+    <a class="card" href="games/shmup.html">
+      <div class="icon">✈️</div>
+      <h2>猫猫弹幕</h2>
+      <p>纸飞机猫猫大战老鼠空军<br>自动开火 · 躲弹幕 · 打爆母舰!</p>
+      <div class="best" id="best-shmup">⭐ 加载中…</div><br>
+      <span class="play">▶ 开始</span>
+    </a>
+
+    <a class="card" href="games/golf.html">
+      <div class="icon">⛳</div>
+      <h2>猫猫高尔夫</h2>
+      <p>把毛线球打进猫碗<br>弹弓瞄准 · 9 洞 · 杆数越少越强!</p>
+      <div class="best" id="best-golf">⭐ 加载中…</div><br>
+      <span class="play">▶ 开始</span>
+    </a>
+
     <a class="card" href="dex.html">
       <div class="icon">📖</div>
       <h2>猫咪图鉴</h2>
@@ -321,6 +346,16 @@ document.getElementById("best-dex").textContent = `🐱 ${Nikki.Dex.count()} / 8
 // 猫猫马里奥
 const mario = get("nikki_mario_best", 0);
 document.getElementById("best-mario").textContent = mario ? `🏆 最高 ${mario} 分` : "⭐ 尚无纪录";
+// 猫猫守塔:最远守到第几波(通关 15 波记为 15)
+const td = get("nikki_td_best", 0);
+document.getElementById("best-td").textContent = td ? `🏆 最高守到 ${td} 波` : "⭐ 尚无纪录";
+// 猫猫弹幕
+const shmup = get("nikki_shmup_best", 0);
+document.getElementById("best-shmup").textContent = shmup ? `🏆 最高 ${shmup} 分` : "⭐ 尚无纪录";
+// 猫猫高尔夫:杆数越少越好
+const golf = get("nikki_golf_best", 0);
+document.getElementById("best-golf").textContent = golf ? `🏆 最少 ${golf} 杆` : "⭐ 尚无纪录";
+
 </script>
 </body>
 </html>

@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>⛳ 猫猫高尔夫 · Nikki 游戏合集</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='0.9em' font-size='90'%E2%9B%B3%3C/text%3E%3C/svg%3E">
+<!-- ═══════════════════════════════════════════════════════════════
+     猫猫高尔夫 · 2D 物理迷你高尔夫
+     灵感致谢:开源游戏清单中的 Open Golf(极简高尔夫物理)
+     清单来源: https://github.com/bayshier/open-source-games-zh
+     玩法:把毛线球 🧶 打进猫碗,9 个洞,杆数越少越强!
+       · 在球旁按住往后拖 = 弹弓瞄准,松手击球
+       · 沙地急减速,掉水罚 1 杆退回原地
+       · 洞口有吸力,慢球路过会被吸进去
+     ═══════════════════════════════════════════════════════════════ -->
+<style>
+  :root { --hk-deep: #ff6b9d; --hk-muted: #c98ba0; }
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
+  body {
+    font-family: "Nunito", -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: linear-gradient(160deg, #ffe3ee 0%, #ffd0e2 50%, #ffc3da 100%);
+    min-height: 100vh; display: flex; flex-direction: column; align-items: center;
+    padding: 10px; color: #5a3a48;
+  }
+  header { text-align: center; margin-bottom: 6px; }
+  header h1 { font-size: 24px; color: var(--hk-deep); text-shadow: 0 2px 0 #fff; }
+  header p { font-size: 12px; color: var(--hk-muted); }
+  #stage { position: relative; }
+  canvas {
+    display: block; border-radius: 18px; box-shadow: 0 8px 24px rgba(255, 107, 157, .35);
+    background: #7cc45e; touch-action: none; max-width: 96vw;
+  }
+  #overlay {
+    position: absolute; inset: 0; border-radius: 18px; background: rgba(70, 110, 50, .55);
+    backdrop-filter: blur(3px); display: flex; flex-direction: column; align-items: center; justify-content: center;
+    color: #fff; text-align: center; padding: 20px;
+  }
+  #overlay h2 { font-size: 28px; margin-bottom: 10px; text-shadow: 0 2px 6px rgba(0,0,0,.4); }
+  #overlay p { font-size: 14px; line-height: 1.9; margin-bottom: 16px; }
+  #overlay button {
+    border: none; background: var(--hk-deep); color: #fff; font-size: 17px; font-weight: 800;
+    padding: 11px 30px; border-radius: 999px; cursor: pointer; box-shadow: 0 4px 0 #d94f83; font-family: inherit;
+  }
+  #overlay button:active { transform: translateY(3px); box-shadow: 0 1px 0 #d94f83; }
+  .home { margin-top: 10px; font-size: 13px; }
+  a { color: var(--hk-deep); font-weight: 700; text-decoration: none; }
+</style>
+</head>
+<body>
+<header>
+  <h1>⛳ 猫猫高尔夫</h1>
+  <p>按住拖动瞄准(往后拉=弹弓),松手击球 · 9 洞打完,杆数越少越强!</p>
+</header>
+
+<div id="stage">
+  <canvas id="cv" width="640" height="480"></canvas>
+  <div id="overlay">
+    <h2>⛳ 猫猫高尔夫</h2>
+    <p>把毛线球 🧶 打进猫碗 🥣,一共 <b>9 个洞</b>!<br>
+       ① 在任意位置<b>按住</b>,往后拖 = 弹弓拉杆<br>
+       ② 松手击球,拖得越远打得越猛<br>
+       🏖️ 沙地把球急刹 · 💧 掉水罚 1 杆退回原地<br>
+       洞口自带<b>猫猫吸力</b>,慢球路过自动进洞~</p>
+    <button id="btn-start">🏌️ 开球!</button>
+  </div>
+</div>
+<div class="home"><a href="../index.html">🏠 回游戏合集</a></div>
+
+<script src="../shared/common.js"></script>
+<script>
+/* ═══════════════════════════════════════════════════════════
+   一、画布与常量
+   ═══════════════════════════════════════════════════════════ */
+const CV = document.getElementById("cv"), CTX = CV.getContext("2d");
+const W = CV.width, H = CV.height, HUD = 30;
+const BALL_R = 7, CUP_R = 13, MAX_POW = 12.5, MAX_DRAG = 170;
+
+/* ═══════════════════════════════════════════════════════════
+   二、9 个洞的球道数据(手工设计)
+   walls: 砖墙矩形 [x,y,w,h]  sands: 沙地  waters: 水塘
+   全部保证可解:通道宽度 ≥ 90px
+   ═══════════════════════════════════════════════════════════ */
+const HOLES = [
+  { par: 2, name: "热身直道", start: [90, 255],  cup: [550, 255],
+    walls: [], sands: [], waters: [] },
+  { par: 2, name: "穿墙而过", start: [90, 255],  cup: [550, 255],
+    walls: [[304, 60, 26, 140], [304, 310, 26, 140]], sands: [], waters: [] },
+  { par: 3, name: "绕过大石", start: [90, 90],   cup: [550, 420],
+    walls: [[270, 150, 100, 180]], sands: [[140, 330, 150, 110]], waters: [] },
+  { par: 2, name: "独木水桥", start: [90, 245],  cup: [550, 245],
+    walls: [], sands: [], waters: [[264, 60, 112, 140], [264, 290, 112, 160]] },
+  { par: 3, name: "沙滩花园", start: [90, 80],   cup: [540, 400],
+    walls: [], sands: [[190, 140, 260, 200]], waters: [] },
+  { par: 3, name: "S 形回廊", start: [80, 80],   cup: [560, 420],
+    walls: [[0, 140, 410, 26], [230, 314, 410, 26]], sands: [], waters: [] },
+  { par: 2, name: "水上走廊", start: [90, 240],  cup: [550, 240],
+    walls: [], sands: [], waters: [[430, 60, 180, 130], [430, 290, 180, 160]] },
+  { par: 4, name: "老鼠迷宫", start: [70, 150],  cup: [560, 150],
+    walls: [[150, 60, 26, 240], [300, 180, 26, 240], [450, 60, 26, 240]], sands: [], waters: [] },
+  { par: 3, name: "终点绕圈", start: [90, 255],  cup: [550, 255],
+    walls: [[285, 60, 26, 320]], sands: [[230, 388, 140, 56]], waters: [] },
+];
+const TOTAL_PAR = HOLES.reduce((s, h) => s + h.par, 0);      // 总标准杆 24
+
+/* ═══════════════════════════════════════════════════════════
+   三、音效
+   ═══════════════════════════════════════════════════════════ */
+let AC = null;
+function tone(f0, f1, dur, type = "square", vol = 0.12) {
+  try {
+    if (!AC) AC = new (window.AudioContext || window.webkitAudioContext)();
+    const t = AC.currentTime, o = AC.createOscillator(), g = AC.createGain();
+    o.type = type; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(Math.max(1, f1), t + dur);
+    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    o.connect(g).connect(AC.destination); o.start(t); o.stop(t + dur);
+  } catch (e) {}
+}
+const sfx = {
+  tee:  () => tone(220, 660, .1, "square"),                 // 击球
+  wall: () => tone(500, 300, .05, "square", .08),           // 撞墙
+  sand: () => tone(300, 120, .12, "sawtooth", .07),         // 进沙
+  splash: () => tone(400, 60, .4, "sine", .15),             // 落水
+  sink: () => [660, 880, 1100].forEach((f, i) => setTimeout(() => tone(f, f, .1, "triangle", .13), i * 90)),  // 进洞
+  win:  () => [0,.12,.24,.4].forEach((d,i)=>setTimeout(()=>tone([523,659,784,1046][i],[523,659,784,1046][i],.18,"triangle",.14),d*1000)),
+};
+
+/* ═══════════════════════════════════════════════════════════
+   四、游戏状态
+   ═══════════════════════════════════════════════════════════ */
+const G = {};
+function loadHole(i) {
+  const h = HOLES[i];
+  G.ball = { x: h.start[0], y: h.start[1], vx: 0, vy: 0, moving: false };
+  G.strokes = 0;                                             // 本洞杆数
+  G.preShot = { x: h.start[0], y: h.start[1] };              // 落水回退点 = 上次击球点
+  G.sinkT = 0; G.msg = ""; G.msgT = 0;
+  G.trail = [];
+}
+function reset() {
+  Object.assign(G, {
+    mode: "play", hole: 0, total: 0, tick: 0,                // 总杆数 total
+    drag: null,                                              // {sx,sy} 拖动起点(屏幕任意处)
+    aimLen: 0, aimAng: 0, parts: [],
+  });
+  loadHole(0);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   五、物理更新:摩擦滚动 / 撞墙反弹 / 沙地 / 水 / 进洞
+   ═══════════════════════════════════════════════════════════ */
+function update() {
+  if (G.mode !== "play") return;
+  G.tick++;
+  if (G.msgT > 0) G.msgT--;
+  const h = HOLES[G.hole], b = G.ball;
+
+  /* —— 进洞动画:球缩小被吸进碗 —— */
+  if (G.sinkT > 0) {
+    if (--G.sinkT === 0) nextHole();
+    return;
+  }
+
+  /* —— 击球后物理 —— */
+  if (b.moving) {
+    /* 沙地判定:球在哪个面滚 */
+    const inSand = h.sands.some(s => b.x > s[0] && b.x < s[0]+s[2] && b.y > s[1] && b.y < s[1]+s[3]);
+    const fr = inSand ? 0.90 : 0.9855;                       // 沙地急刹
+    if (inSand && b.sandT !== 1) { if (b.sandT !== 1) { sfx.sand(); b.sandT = 1; } }
+    else b.sandT = 0;
+    b.vx *= fr; b.vy *= fr;
+
+    /* 洞口吸力:慢球靠近时被轻轻拉进去 */
+    const dxC = h.cup[0] - b.x, dyC = h.cup[1] - b.y, dC = Math.hypot(dxC, dyC);
+    const speed = Math.hypot(b.vx, b.vy);
+    if (dC < 26 && speed < 3.4) { b.vx += dxC / dC * 0.22; b.vy += dyC / dC * 0.22; }
+
+    b.x += b.vx; b.y += b.vy;
+
+    /* 边界围墙:球道四周永远是墙 */
+    bounceRect(0, HUD, W, HUD + 26, 0.65);                  // 顶 HUD 条下沿
+    bounceRect(0, H - 10, W, H, 0.65);
+    bounceRect(-10, 0, 10, H, 0.65);
+    bounceRect(W - 10, 0, W + 10, H, 0.65);
+    /* 球道砖墙 */
+    for (const wl of h.walls) bounceRect(wl[0], wl[1], wl[0]+wl[2], wl[1]+wl[3], 0.82);
+
+    /* 落水:罚 1 杆,退回上次击球点 */
+    if (h.waters.some(wt => b.x > wt[0] && b.x < wt[0]+wt[2] && b.y > wt[1] && b.y < wt[1]+wt[3])) {
+      sfx.splash();
+      splashParts(b.x, b.y);
+      G.strokes++;                                           // 罚杆
+      G.msg = "💧 落水!罚 1 杆"; G.msgT = 90;
+      b.x = G.preShot.x; b.y = G.preShot.y;
+      b.vx = b.vy = 0; b.moving = false;
+      return;
+    }
+
+    /* 进洞判定:距离够近且速度够慢 */
+    if (dC < CUP_R && Math.hypot(b.vx, b.vy) < 2.9) { sinkHole(); return; }
+
+    /* 停球 */
+    if (Math.hypot(b.vx, b.vy) < 0.08) { b.vx = b.vy = 0; b.moving = false; }
+    /* 拖尾记录 */
+    G.trail.push({ x: b.x, y: b.y });
+    if (G.trail.length > 14) G.trail.shift();
+  }
+  /* 粒子 */
+  for (const p of G.parts) { p.x += p.vx; p.y += p.vy; p.vy += 0.05; p.t--; }
+  G.parts = G.parts.filter(p => p.t > 0);
+}
+/* 圆(AABB 矩形碰撞:找矩形上离球心最近的点,沿法线推出并反射) */
+function bounceRect(x1, y1, x2, y2, rest) {
+  const b = G.ball;
+  const cx = Math.max(x1, Math.min(b.x, x2));
+  const cy = Math.max(y1, Math.min(b.y, y2));
+  const dx = b.x - cx, dy = b.y - cy;
+  const d = Math.hypot(dx, dy);
+  if (d >= BALL_R || d === 0) return;
+  const nx = dx / d, ny = dy / d;
+  b.x = cx + nx * BALL_R; b.y = cy + ny * BALL_R;            // 推出墙面
+  const dot = b.vx * nx + b.vy * ny;
+  if (dot < 0) {                                             // 只在朝墙运动时反射
+    b.vx -= (1 + rest) * dot * nx;
+    b.vy -= (1 + rest) * dot * ny;
+    if (Math.hypot(b.vx, b.vy) > 1.2) sfx.wall();
+  }
+}
+function splashParts(x, y) {
+  for (let i = 0; i < 14; i++)
+    G.parts.push({ x, y, vx: (Math.random()-.5)*4, vy: -Math.random()*3 - 1, t: 30, color: "#7fd4ff", r: 2 + Math.random()*2 });
+}
+/* 进洞!算成绩(低于标准杆有称号),然后播放吸入动画 */
+function sinkHole() {
+  sfx.sink();
+  const b = G.ball, h = HOLES[G.hole];
+  G.total += G.strokes;
+  const diff = G.strokes - h.par;
+  G.msg = G.strokes === 1 ? "🎯 一杆进洞!!!" :
+          diff <= -2 ? "🦅 老鹰球!" : diff === -1 ? "🐦 小鸟球!" :
+          diff === 0 ? "👍 标准杆" : diff === 1 ? "😅 柏忌" : "🥲 再练练…";
+  G.msgT = 200;
+  G.sinkT = 75;
+  b.moving = false; b.vx = b.vy = 0;
+}
+/* 下一洞或结算 */
+function nextHole() {
+  if (G.hole + 1 >= HOLES.length) return doWin();
+  G.hole++;
+  loadHole(G.hole);
+}
+function doWin() {
+  G.mode = "over"; sfx.win();
+  const diff = G.total - TOTAL_PAR;
+  const grade = diff <= -4 ? "🐱‍🏍 高尔夫猫神!" : diff <= 0 ? "🏆 职业水平!" : diff <= 4 ? "😊 不错不错" : "🧹 还需练球";
+  const coins = Math.max(20, 100 + (TOTAL_PAR - G.total) * 25);
+  Nikki.Wallet.add(coins);
+  const gain = Nikki.Daily.report("golf", { holes: HOLES.length, score: G.total });
+  const old = Nikki.jget("nikki_golf_best", 999);
+  if (G.total < old) Nikki.jset("nikki_golf_best", G.total);
+  const ov = document.getElementById("overlay");
+  ov.innerHTML = `<h2>🏁 全场打完!</h2>
+    <p>${grade}<br>总杆 <b>${G.total}</b> · 标准杆 ${TOTAL_PAR}(${diff === 0 ? "E" : diff > 0 ? "+" + diff : diff})<br>
+    结算:<b>+${coins}</b> 金币${gain ? ` · 每日挑战完成 +${gain}!` : ""}</p>
+    <button onclick="location.reload()">🔁 再打一轮</button>`;
+  ov.style.display = "flex";
+}
+
+/* ═══════════════════════════════════════════════════════════
+   六、输入:弹弓瞄准(屏幕任意处按住拖动)
+   拖动向量 = 指针位置 → 球,即"往后拉"
+   ═══════════════════════════════════════════════════════════ */
+function canvasPos(ev) {
+  const r = CV.getBoundingClientRect();
+  return [(ev.clientX - r.left) * (W / r.width), (ev.clientY - r.top) * (H / r.height)];
+}
+CV.addEventListener("pointerdown", ev => {
+  if (G.mode !== "play" || G.sinkT > 0 || G.ball.moving) return;
+  const [x, y] = canvasPos(ev);
+  G.drag = { sx: x, sy: y };
+  try { CV.setPointerCapture(ev.pointerId); } catch (e) {}   // 指针未激活时(自动化测试)忽略
+});
+CV.addEventListener("pointermove", ev => {
+  if (!G.drag) return;
+  const [x, y] = canvasPos(ev);
+  const dx = G.ball.x - x, dy = G.ball.y - y;                // 反向:往后拉
+  G.aimLen = Math.min(Math.hypot(dx, dy), MAX_DRAG);
+  G.aimAng = Math.atan2(dy, dx);
+});
+CV.addEventListener("pointerup", () => {
+  if (!G.drag) return;
+  G.drag = null;
+  if (G.aimLen > 14) {                                       // 太短视为取消
+    const pow = G.aimLen / MAX_DRAG * MAX_POW;
+    G.ball.vx = Math.cos(G.aimAng) * pow;
+    G.ball.vy = Math.sin(G.aimAng) * pow;
+    G.ball.moving = true;
+    G.ball.sandT = 0;
+    G.strokes++;
+    G.preShot = { x: G.ball.x, y: G.ball.y };                // 记录击球点(落水回退用)
+    sfx.tee();
+  }
+  G.aimLen = 0;
+});
+
+/* ═══════════════════════════════════════════════════════════
+   七、渲染
+   ═══════════════════════════════════════════════════════════ */
+function render() {
+  const h = HOLES[G.hole];
+  /* —— 草地:横向修剪条纹 —— */
+  for (let y = HUD; y < H; y += 40) {
+    CTX.fillStyle = ((y / 40) | 0) % 2 ? "#7cc45e" : "#74bb56";
+    CTX.fillRect(0, y, W, 40);
+  }
+  /* —— 沙地:圆角沙坑 + 小点 —— */
+  for (const s of h.sands) {
+    CTX.fillStyle = "#f0dca8";
+    CTX.beginPath(); CTX.roundRect(s[0], s[1], s[2], s[3], 14); CTX.fill();
+    CTX.fillStyle = "#e0c98d";
+    for (let i = 0; i < s[0]*s[1] % 12 + 8; i++) {
+      const px = s[0] + (i * 53 % s[2]), py = s[1] + (i * 37 % s[3]);
+      CTX.fillRect(px, py, 3, 3);
+    }
+  }
+  /* —— 水塘:蓝色 + 游动波纹 —— */
+  for (const wt of h.waters) {
+    CTX.fillStyle = "#4a9de8";
+    CTX.beginPath(); CTX.roundRect(wt[0], wt[1], wt[2], wt[3], 14); CTX.fill();
+    CTX.strokeStyle = "rgba(255,255,255,.5)"; CTX.lineWidth = 2;
+    for (let i = 0; i < 3; i++) {
+      const wy = wt[1] + 18 + i * (wt[3] - 30) / 2.4;
+      CTX.beginPath();
+      for (let px = wt[0] + 8; px < wt[0] + wt[2] - 8; px += 6)
+        CTX.lineTo(px, wy + Math.sin(px * 0.08 + G.tick * 0.05 + i * 2) * 3);
+      CTX.stroke();
+    }
+  }
+  /* —— 砖墙:猫塔积木风 —— */
+  for (const wl of h.walls) {
+    CTX.fillStyle = "#c98b6a";
+    CTX.beginPath(); CTX.roundRect(wl[0], wl[1], wl[2], wl[3], 6); CTX.fill();
+    CTX.strokeStyle = "rgba(90,50,30,.35)"; CTX.lineWidth = 2;
+    for (let by = wl[1] + 16; by < wl[1] + wl[3]; by += 16) {          // 砖缝横线
+      CTX.beginPath(); CTX.moveTo(wl[0] + 3, by); CTX.lineTo(wl[0] + wl[2] - 3, by); CTX.stroke();
+    }
+  }
+  /* —— 发球点:爪印垫 —— */
+  const st = h.start;
+  CTX.fillStyle = "rgba(255,255,255,.5)";
+  CTX.beginPath(); CTX.arc(st[0], st[1], 14, 0, 6.28); CTX.fill();
+  CTX.font = "14px serif"; CTX.textAlign = "center"; CTX.textBaseline = "middle";
+  CTX.fillText("🐾", st[0], st[1] + 1);
+
+  /* —— 洞:猫碗 + 小旗 —— */
+  const [cx, cy] = h.cup;
+  CTX.fillStyle = "rgba(0,0,0,.25)";                          // 碗投影
+  CTX.beginPath(); CTX.ellipse(cx + 2, cy + 3, CUP_R, CUP_R * 0.55, 0, 0, 6.28); CTX.fill();
+  CTX.fillStyle = "#5a3a48";
+  CTX.beginPath(); CTX.ellipse(cx, cy, CUP_R, CUP_R * 0.6, 0, 0, 6.28); CTX.fill();
+  CTX.fillStyle = "#7a564f";                                  // 碗沿
+  CTX.beginPath(); CTX.ellipse(cx, cy, CUP_R, CUP_R * 0.6, 0, 0, 6.28); CTX.lineWidth = 4; CTX.strokeStyle = "#e8b8c8"; CTX.stroke();
+  CTX.strokeStyle = "#e8e8f0"; CTX.lineWidth = 3;             // 旗杆
+  CTX.beginPath(); CTX.moveTo(cx, cy); CTX.lineTo(cx, cy - 42); CTX.stroke();
+  CTX.fillStyle = "#ff6b9d";                                  // 旗面(带白爪印)
+  CTX.beginPath(); CTX.moveTo(cx, cy - 42); CTX.lineTo(cx + 30, cy - 34); CTX.lineTo(cx, cy - 26); CTX.fill();
+  CTX.fillStyle = "#fff"; CTX.font = "10px serif";
+  CTX.fillText("🐾", cx + 12, cy - 34);
+
+  /* —— 拖尾 —— */
+  G.trail.forEach((t, i) => {
+    CTX.globalAlpha = i / G.trail.length * 0.35;
+    CTX.fillStyle = "#fff";
+    CTX.beginPath(); CTX.arc(t.x, t.y, BALL_R * (0.4 + 0.6 * i / G.trail.length), 0, 6.28); CTX.fill();
+  });
+  CTX.globalAlpha = 1;
+
+  /* —— 瞄准线:虚线箭头 + 球周能量环 —— */
+  if (G.drag && G.aimLen > 14) {
+    const b = G.ball, len = G.aimLen / MAX_DRAG;
+    CTX.strokeStyle = "rgba(255,255,255,.9)"; CTX.lineWidth = 3; CTX.setLineDash([8, 8]);
+    CTX.beginPath(); CTX.moveTo(b.x, b.y);
+    CTX.lineTo(b.x + Math.cos(G.aimAng) * (30 + G.aimLen * 0.9), b.y + Math.sin(G.aimAng) * (30 + G.aimLen * 0.9));
+    CTX.stroke(); CTX.setLineDash([]);
+    CTX.fillStyle = "#fff";
+    const ax = b.x + Math.cos(G.aimAng) * (34 + G.aimLen * 0.9), ay = b.y + Math.sin(G.aimAng) * (34 + G.aimLen * 0.9);
+    CTX.beginPath(); CTX.arc(ax, ay, 5, 0, 6.28); CTX.fill();
+    CTX.strokeStyle = len > 0.85 ? "#ff5b5b" : len > 0.5 ? "#ffb03a" : "#8ef58e";   // 力量色环
+    CTX.lineWidth = 5;
+    CTX.beginPath(); CTX.arc(b.x, b.y, BALL_R + 8, -Math.PI/2, -Math.PI/2 + len * 6.283); CTX.stroke();
+  }
+
+  /* —— 毛线球:白球 + 毛线纹 + 进洞动画缩小 —— */
+  const b = G.ball;
+  let br = BALL_R, by2 = b.y;
+  if (G.sinkT > 0) {                                          // 被吸进碗的动画
+    const k = G.sinkT / 75;
+    br = BALL_R * k; by2 = b.y + (1 - k) * 6;
+  }
+  if (br > 0.5) {
+    CTX.fillStyle = "rgba(0,0,0,.2)";
+    CTX.beginPath(); CTX.ellipse(b.x + 2, by2 + 4, br, br * 0.5, 0, 0, 6.28); CTX.fill();
+    CTX.fillStyle = "#fff8f0";
+    CTX.beginPath(); CTX.arc(b.x, by2, br, 0, 6.28); CTX.fill();
+    CTX.strokeStyle = "#ffb0c8"; CTX.lineWidth = 1.6;         // 毛线纹
+    CTX.beginPath(); CTX.arc(b.x, by2, br * 0.65, 0.4 + G.tick * 0.02, 4.2 + G.tick * 0.02); CTX.stroke();
+    CTX.beginPath(); CTX.arc(b.x, by2, br * 0.35, 2.6 - G.tick * 0.02, 5.8 - G.tick * 0.02); CTX.stroke();
+  }
+
+  /* —— 粒子 —— */
+  for (const p of G.parts) {
+    CTX.globalAlpha = Math.min(1, p.t / 16);
+    CTX.fillStyle = p.color;
+    CTX.beginPath(); CTX.arc(p.x, p.y, p.r, 0, 6.28); CTX.fill();
+  }
+  CTX.globalAlpha = 1;
+
+  /* —— 中央提示(进洞称号等) —— */
+  if (G.msgT > 0) {
+    CTX.globalAlpha = Math.min(1, G.msgT / 40);
+    CTX.font = "bold 30px sans-serif"; CTX.textAlign = "center";
+    CTX.fillStyle = "#fff"; CTX.strokeStyle = "rgba(70,110,50,.9)"; CTX.lineWidth = 6;
+    CTX.strokeText(G.msg, W/2, H/2 - 60); CTX.fillText(G.msg, W/2, H/2 - 60);
+    CTX.globalAlpha = 1;
+  }
+
+  /* —— 顶部 HUD —— */
+  CTX.fillStyle = "rgba(50,90,40,.85)"; CTX.fillRect(0, 0, W, HUD);
+  CTX.fillStyle = "#fff"; CTX.font = "bold 14px sans-serif"; CTX.textAlign = "left"; CTX.textBaseline = "middle";
+  const diffNow = G.total - TOTAL_PAR;
+  CTX.fillText(`🏌️ 洞 ${G.hole + 1}/9 · ${h.name}`, 12, HUD/2);
+  CTX.fillText(`Par ${h.par}`, 330, HUD/2);
+  CTX.fillText(`本洞 ${G.strokes} 杆`, 410, HUD/2);
+  CTX.textAlign = "right";
+  CTX.fillText(`总杆 ${G.total}(${diffNow === 0 ? "E" : diffNow > 0 ? "+" + diffNow : diffNow})`, W - 12, HUD/2);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   八、主循环
+   ═══════════════════════════════════════════════════════════ */
+function frame() { update(); render(); requestAnimationFrame(frame); }
+document.getElementById("btn-start").onclick = () => {
+  if (!AC) tone(1, 1, .01);                                  // 手势里解锁音频
+  document.getElementById("overlay").style.display = "none";
+  reset();
+};
+reset();
+frame();
+</script>
+</body>
+</html>
