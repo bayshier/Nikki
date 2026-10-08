@@ -1,0 +1,1061 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>🎨 八字猫穿越艺术史 · Nikki 游戏合集</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='0.9em' font-size='90'%F0%9F%8E%A8%3C/text%3E%3C/svg%3E">
+<!-- ═══════════════════════════════════════════════════════════════
+     八字猫穿越艺术史 · 代码驱动的长卷动画
+     灵感致谢: alchaincyf/huashu-art-motion(MIT,"用代码让画动起来")
+               https://github.com/alchaincyf/huashu-art-motion
+     核心玩法(与原项目一致):
+       · 场景全部代码绘制,不使用任何位图素材
+       · 画里的东西是"活"的:星空在转、浪爪在爬、网格在滚
+       · 角色穿过画框边界时,画风随之切换(猫和世界一起换风格)
+     本页:八字猫(白身橘斑,额头"八"字纹)从岩洞出发,
+       途经 埃及 → 浮世绘 → 莫奈 → 梵高 → 克里姆特 → 包豪斯
+       → 8-bit → 蒸汽波 → 新海诚,一路走到"未完成的画布"。
+     八字猫配色在下方 CAT_PAL 一处可改(照着自家猫改色即可)。
+     ═══════════════════════════════════════════════════════════════ -->
+<style>
+  :root { --hk-deep: #ff6b9d; --hk-muted: #c98ba0; }
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
+  body {
+    font-family: "Nunito", -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: linear-gradient(160deg, #1c1630 0%, #241d3e 50%, #2c2148 100%);
+    min-height: 100vh; display: flex; flex-direction: column; align-items: center;
+    padding: 12px; color: #efe6f5;
+  }
+  header { text-align: center; margin-bottom: 8px; }
+  header h1 { font-size: 24px; color: #ffd76e; text-shadow: 0 2px 0 rgba(0,0,0,.3); }
+  header p { font-size: 12px; color: #b9a8d4; }
+  #stage { position: relative; }
+  canvas {
+    display: block; border-radius: 18px; box-shadow: 0 10px 30px rgba(0,0,0,.5);
+    background: #000; touch-action: none; max-width: 96vw; cursor: pointer;
+  }
+  #tip { margin-top: 8px; font-size: 12px; color: #b9a8d4; text-align: center; line-height: 1.8; }
+  /* 时代直达按钮排 */
+  #jumps { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; margin-top: 8px; }
+  #jumps button {
+    border: 1px solid #5a4a7a; background: rgba(255,255,255,.06); color: #d8cdef;
+    border-radius: 999px; padding: 5px 12px; font-size: 12px; cursor: pointer; font-family: inherit;
+  }
+  #jumps button.on { background: #ffd76e; color: #3a2a10; border-color: #ffd76e; font-weight: 800; }
+  #jumps button:hover { border-color: #ffd76e; }
+  .home { margin-top: 12px; font-size: 13px; }
+  a { color: #ffd76e; font-weight: 700; text-decoration: none; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🎨 八字猫穿越艺术史</h1>
+  <p>灵感:huashu-art-motion · 用代码让画动起来 —— 点画面暂停,按住 → 快进</p>
+</header>
+
+<div id="stage"><canvas id="cv" width="960" height="540"></canvas></div>
+<div id="jumps"></div>
+<div id="tip">🐾 八字猫要走 10 个时代,画风随它一起变 —— 注意看每个世界里"活着"的元素</div>
+<div class="home"><a href="index.html">🏠 回游戏合集</a></div>
+
+<script src="shared/common.js"></script>
+<script>
+/* ═══════════════════════════════════════════════════════════════
+   〇、总开关与画布
+   ═══════════════════════════════════════════════════════════════ */
+const CV = document.getElementById("cv"), CTX = CV.getContext("2d");
+const W = CV.width, H = CV.height, GY = 462;          // GY: 各世界统一地平线
+const WORLD_W = 1400;                                  // 每个世界的宽度(世界坐标 px)
+
+/* 八字猫调色板:照自家猫改这里一处即可 */
+const CAT_PAL = {
+  body:  "#fdf8f2",   // 白色底毛
+  patch: "#f0973f",   // 橘色斑块(耳/背/尾/八字纹)
+  dark:  "#c96f1e",   // 橘斑描边深色
+  line:  "#4a3020",   // 五官线色
+  eye:   "#3a2a20",   // 瞳色
+};
+
+/* ═══════════════════════════════════════════════════════════════
+   一、时间状态:camX 只进不退(长卷语法),catX 匀速前进
+   ═══════════════════════════════════════════════════════════════ */
+const ST = {
+  t: 0,                // 全局时间(秒)
+  camX: 0,             // 摄像机左边缘(世界坐标)
+  catX: 330,           // 猫的世界坐标 x
+  speed: 62,           // 基础步速 px/s
+  fast: false,         // 按住 → 快进
+  paused: false,
+  ended: false,        // 走完全程
+  endT: 0,
+  muted: false,
+  eraCard: { idx: -1, t: 9 },   // 当前字卡(世界序号,剩余显示时间)
+};
+const TOTAL_W = 10 * WORLD_W;
+
+/* ═══════════════════════════════════════════════════════════════
+   二、小工具
+   ═══════════════════════════════════════════════════════════════ */
+const TAU = Math.PI * 2;
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+function rr(ctx, x, y, w, h, r) {                        // 圆角矩形路径
+  ctx.beginPath(); ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+}
+/* 伪随机(固定种子):让每帧的"随机"装饰稳定不闪 */
+function srnd(i) { const s = Math.sin(i * 127.1) * 43758.5453; return s - Math.floor(s); }
+
+/* ═══════════════════════════════════════════════════════════════
+   三、十个世界
+   每个世界: { key, label, era, note, sky(x0), draw(x0, t) }
+   x0 = 本世界原点相对屏幕的偏移 (worldLeft - camX),元素一律
+   以"世界坐标 + x0"落笔,超出屏幕自动跳过。
+   ═══════════════════════════════════════════════════════════════ */
+const WORLDS = [
+/* ─────────── 1. 岩洞壁画 ─────────── */
+{ key: "cave", label: "岩洞", era: "公元前 40000 年 · 岩洞壁画",
+  note: "第一只猫被画在墙上,火光让轮廓一跳一跳",
+  sky(x0) {
+    const g = CTX.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, "#2b1c12"); g.addColorStop(1, "#4a3220"); CTX.fillStyle = g; CTX.fillRect(0, 0, W, H);
+  },
+  draw(x0, t) {
+    /* 火堆(世界坐标 500 处),火光呼吸式明暗 */
+    const fx = x0 + 500, fl = 0.75 + Math.sin(t * 7) * 0.12 + Math.sin(t * 13.7) * 0.08;
+    const rg = CTX.createRadialGradient(fx, GY - 40, 10, fx, GY - 40, 420);
+    rg.addColorStop(0, `rgba(255,166,66,${0.5 * fl})`); rg.addColorStop(1, "rgba(255,166,66,0)");
+    CTX.fillStyle = rg; CTX.fillRect(fx - 430, 0, 860, H);
+    /* 石壁轮廓(暗色起伏) */
+    CTX.fillStyle = "#3a2718";
+    CTX.beginPath(); CTX.moveTo(x0, 0);
+    for (let i = 0; i <= 14; i++) CTX.lineTo(x0 + i * 100, 40 + srnd(i + 3) * 70);
+    CTX.lineTo(x0 + 1400, 0); CTX.closePath(); CTX.fill();
+    /* 手印(负形手,岩画经典) */
+    for (let i = 0; i < 7; i++) {
+      const hx = x0 + 130 + srnd(i) * 1150, hy = 120 + srnd(i + 40) * 220, s = 0.8 + srnd(i + 9) * 0.5;
+      CTX.save(); CTX.translate(hx, hy); CTX.scale(s, s);
+      CTX.globalAlpha = 0.5 + Math.sin(t * 2 + i) * 0.12;
+      CTX.fillStyle = "#d98a4a";
+      CTX.beginPath(); CTX.arc(0, 0, 11, 0, TAU);
+      for (let f = 0; f < 5; f++) { const a = -2.2 + f * 0.42; CTX.ellipse(Math.cos(a) * 17, Math.sin(a) * 17, 4.5, 11, a + 1.57, 0, TAU); }
+      CTX.fill(); CTX.restore();
+    }
+    /* 鹿群剪影(腿有微动,像呼吸) */
+    for (let i = 0; i < 5; i++) {
+      const dx = x0 + 700 + i * 95, dy = GY - 150 - i * 6, k = Math.sin(t * 5 + i * 1.7) * 4;
+      CTX.strokeStyle = "#241609"; CTX.lineWidth = 5; CTX.lineCap = "round";
+      CTX.beginPath();
+      CTX.moveTo(dx, dy); CTX.lineTo(dx + 44, dy + 6);                       // 背线
+      CTX.moveTo(dx + 8, dy + 4); CTX.lineTo(dx + 4 + k, dy + 44);           // 前腿
+      CTX.moveTo(dx + 34, dy + 5); CTX.lineTo(dx + 40 - k, dy + 44);         // 后腿
+      CTX.moveTo(dx - 4, dy - 12); CTX.lineTo(dx + 4, dy + 2);               // 颈
+      CTX.stroke();
+      CTX.beginPath(); CTX.arc(dx - 8, dy - 16, 7, 0, TAU); CTX.fillStyle = "#241609"; CTX.fill();  // 头
+      CTX.lineWidth = 3;                                                      // 鹿角
+      CTX.beginPath(); CTX.moveTo(dx - 8, dy - 22); CTX.lineTo(dx - 14, dy - 40);
+      CTX.moveTo(dx - 11, dy - 31); CTX.lineTo(dx - 20, dy - 34);
+      CTX.moveTo(dx - 8, dy - 22); CTX.lineTo(dx - 2, dy - 40); CTX.stroke();
+    }
+    /* 火堆本体 */
+    CTX.fillStyle = "#6e4a26";
+    CTX.beginPath(); CTX.ellipse(fx, GY + 6, 34, 9, 0, 0, TAU); CTX.fill();
+    for (let i = 0; i < 3; i++) {
+      const fh = 34 + Math.sin(t * 9 + i * 2.1) * 10;
+      CTX.fillStyle = ["#ff9a3c", "#ffc95c", "#ff6b2b"][i];
+      CTX.beginPath(); CTX.moveTo(fx - 16 + i * 10, GY);
+      CTX.quadraticCurveTo(fx - 6 + i * 8, GY - fh, fx + 2 + i * 8, GY); CTX.fill();
+    }
+    /* 地面(粗糙土色) */
+    CTX.fillStyle = "#57402a"; CTX.fillRect(x0, GY, 1400, H - GY);
+    CTX.strokeStyle = "rgba(30,18,8,.5)"; CTX.lineWidth = 2;
+    for (let i = 0; i < 24; i++) {
+      const sx = x0 + srnd(i + 70) * 1400, sy = GY + 12 + srnd(i + 80) * 50;
+      CTX.beginPath(); CTX.moveTo(sx, sy); CTX.lineTo(sx + 18 + srnd(i) * 26, sy); CTX.stroke();
+    }
+  }},
+/* ─────────── 2. 古埃及壁画 ─────────── */
+{ key: "egypt", label: "埃及", era: "公元前 1300 年 · 底比斯墓室壁画",
+  note: "侧脸正身的猫,被郑重地画成神",
+  sky(x0) {
+    const g = CTX.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, "#e8c87a"); g.addColorStop(1, "#d9a952"); CTX.fillStyle = g; CTX.fillRect(0, 0, W, H);
+  },
+  draw(x0, t) {
+    /* 太阳圆盘(上下浮动) */
+    const sy = 90 + Math.sin(t * 1.2) * 8;
+    CTX.fillStyle = "#e2572b"; CTX.beginPath(); CTX.arc(x0 + 1050, sy, 52, 0, TAU); CTX.fill();
+    CTX.strokeStyle = "#a8431c"; CTX.lineWidth = 5; CTX.stroke();
+    /* 圣甲虫推日轮,从右往左滚 */
+    const sx = x0 + 1050 - ((t * 40) % 900);
+    CTX.fillStyle = "#2e6b4f"; CTX.beginPath(); CTX.arc(sx, GY - 26, 14, 0, TAU); CTX.fill();
+    CTX.fillStyle = "#e2572b"; CTX.beginPath(); CTX.arc(sx + 20, GY - 34, 9, 0, TAU); CTX.fill();
+    CTX.strokeStyle = "#2e6b4f"; CTX.lineWidth = 3;
+    CTX.beginPath(); CTX.moveTo(sx + 6, GY - 22); CTX.lineTo(sx + 18, GY - 32); CTX.stroke();
+    /* 壁画色带(上中下三段经典构色) */
+    CTX.fillStyle = "rgba(196,146,62,.35)"; CTX.fillRect(x0, 0, 1400, GY);
+    /* 供奉人群(正身侧脸,整齐一步一点头) */
+    for (let i = 0; i < 8; i++) {
+      const px = x0 + 140 + i * 150 + Math.sin(t * 2 + i) * 2;
+      const bob = Math.abs(Math.sin(t * 4 + i * 0.8)) * 3;
+      CTX.strokeStyle = "#7a4a1c"; CTX.lineWidth = 4; CTX.lineCap = "round";
+      CTX.beginPath();
+      CTX.moveTo(px, GY - 66 - bob); CTX.lineTo(px, GY - 30);                // 身
+      CTX.moveTo(px - 12, GY - 52 - bob); CTX.lineTo(px + 12, GY - 52 - bob);// 臂(捧物姿)
+      CTX.moveTo(px, GY - 30); CTX.lineTo(px - 9, GY); CTX.moveTo(px, GY - 30); CTX.lineTo(px + 9, GY);
+      CTX.stroke();
+      CTX.fillStyle = "#7a4a1c";                                              // 侧脸头
+      CTX.beginPath(); CTX.arc(px, GY - 76 - bob, 10, 0, TAU); CTX.fill();
+      CTX.beginPath(); CTX.moveTo(px + 8, GY - 82 - bob); CTX.lineTo(px + 14, GY - 64 - bob); CTX.lineTo(px + 8, GY - 64 - bob); CTX.fill();
+      CTX.fillStyle = "#e2572b";                                              // 供物小鱼
+      CTX.beginPath(); CTX.ellipse(px, GY - 58 - bob, 8, 4, 0, 0, TAU); CTX.fill();
+    }
+    /* 象形文字带(缓慢上移循环) */
+    CTX.fillStyle = "#3f6b4a"; CTX.font = "26px serif"; CTX.textAlign = "center";
+    const gly = ["𓃠", "𓆣", "𓂀", "𓋹", "𓊪", "𓃭", "𓅓", "𓎡", "𓆓", "𓐍"];
+    for (let i = 0; i < 16; i++) {
+      const gy2 = ((i * 90 + t * 26) % 1500) - 60;
+      CTX.fillText(gly[i % gly.length], x0 + 60 + (i % 4) * 430, gy2);
+    }
+    /* 地面 + 莲花边饰 */
+    CTX.fillStyle = "#c4923e"; CTX.fillRect(x0, GY, 1400, H - GY);
+    CTX.strokeStyle = "#2e6b4f"; CTX.lineWidth = 3;
+    for (let i = 0; i < 12; i++) {
+      const lx = x0 + 60 + i * 120;
+      CTX.beginPath(); CTX.moveTo(lx, GY + 26); CTX.quadraticCurveTo(lx + Math.sin(t + i) * 4, GY - 4, lx, GY - 22); CTX.stroke();
+    }
+  }},
+/* ─────────── 3. 浮世绘《神奈川冲浪里》 ─────────── */
+{ key: "ukiyo", label: "浮世绘", era: "1831 年 · 神奈川冲浪里",
+  note: "浪爪追着猫跑,富士山在很远的背后看热闹",
+  sky(x0) {
+    const g = CTX.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, "#e9dfc8"); g.addColorStop(0.75, "#c9bfa4"); g.addColorStop(1, "#3f6b8a");
+    CTX.fillStyle = g; CTX.fillRect(0, 0, W, H);
+  },
+  draw(x0, t) {
+    /* 富士山(远景,位置抬高避免被浪盖住) */
+    const fx = x0 + 1120;
+    CTX.fillStyle = "#5a6f8a";
+    CTX.beginPath(); CTX.moveTo(fx - 190, GY - 40); CTX.lineTo(fx, GY - 330); CTX.lineTo(fx + 190, GY - 40); CTX.closePath(); CTX.fill();
+    CTX.fillStyle = "#f2ede2";                                // 雪顶(锯齿边)
+    CTX.beginPath(); CTX.moveTo(fx, GY - 330);
+    CTX.lineTo(fx - 46, GY - 272); CTX.lineTo(fx - 30, GY - 280); CTX.lineTo(fx - 16, GY - 264);
+    CTX.lineTo(fx, GY - 276); CTX.lineTo(fx + 16, GY - 262); CTX.lineTo(fx + 30, GY - 278);
+    CTX.lineTo(fx + 46, GY - 272);
+    CTX.closePath(); CTX.fill();
+    /* 大浪:三层,每层是"波峰长浪爪"的经典浮世绘剪影 */
+    for (let layer = 0; layer < 3; layer++) {
+      const baseY = GY + 90 - layer * 10;                     // 浪体下缘
+      const crestY = GY - 40 - layer * 72;                    // 波峰基准线
+      const amp = 24 + layer * 10;
+      const drift = (t * (24 + layer * 14)) % 130;            // 向左涌动的相位
+      const col = ["#4a7a9a", "#2e5877", "#1f4463"][layer];
+      /* 先收集波峰点,再一次性画轮廓 */
+      const crests = [];
+      for (let i = 0; i <= 13; i++) {
+        const cx2 = x0 - 80 + i * 120 + drift;
+        const cy2 = crestY - Math.abs(Math.sin(i * 1.05 + layer * 1.8 + t * 1.3)) * amp;
+        crests.push([cx2, cy2]);
+      }
+      CTX.fillStyle = col;
+      CTX.beginPath();
+      CTX.moveTo(x0 - 120, baseY);
+      let prev = [x0 - 120, baseY - 40];
+      for (const [cx2, cy2] of crests) {                      // 浪间用深谷相连
+        CTX.quadraticCurveTo(prev[0] + 60, cy2 + 46, cx2, cy2);
+        prev = [cx2, cy2];
+      }
+      CTX.lineTo(x0 + 1560, baseY);
+      CTX.closePath(); CTX.fill();
+      /* 浪爪:每个波峰上方伸出 2~3 根卷指 + 指纹漩涡 + 白边 */
+      for (const [cx2, cy2] of crests) {
+        if (cx2 < x0 - 60 || cx2 > x0 + W + 60) continue;     // 只画屏内的
+        CTX.strokeStyle = "#f2ede2"; CTX.lineCap = "round";
+        CTX.lineWidth = 6 - layer * 1.4;
+        CTX.beginPath();                                      // 爪轮廓:从峰顶卷出去
+        CTX.moveTo(cx2 - 26, cy2 + 16);
+        CTX.quadraticCurveTo(cx2 - 40, cy2 - 26 - layer * 6, cx2 - 6, cy2 - 30 - layer * 8);
+        CTX.quadraticCurveTo(cx2 + 20, cy2 - 32 - layer * 8, cx2 + 22, cy2 - 12);
+        CTX.stroke();
+        CTX.save(); CTX.translate(cx2 - 4, cy2 - 22 - layer * 6);   // 指纹漩涡
+        CTX.lineWidth = 2.2;
+        CTX.beginPath(); CTX.arc(0, 0, 8 + layer * 2, 2.6 + Math.sin(t * 2 + cx2) * 0.3, 6.5); CTX.stroke();
+        CTX.beginPath(); CTX.arc(0, 0, 4 + layer, 3.0, 6.2); CTX.stroke();
+        CTX.restore();
+      }
+    }
+    /* 小渔船在最前层浪谷里颠 */
+    const bx = x0 + 380 + Math.sin(t * 0.7) * 30, by = GY - 14 + Math.sin(t * 2.2) * 8;
+    CTX.save(); CTX.translate(bx, by); CTX.rotate(Math.sin(t * 2.2) * 0.12);
+    CTX.fillStyle = "#7a5a32";
+    CTX.beginPath(); CTX.moveTo(-46, 0); CTX.quadraticCurveTo(0, 18, 46, 0); CTX.lineTo(38, 8); CTX.quadraticCurveTo(0, 24, -38, 8); CTX.closePath(); CTX.fill();
+    CTX.strokeStyle = "#4a3418"; CTX.lineWidth = 3;
+    for (let i = 0; i < 4; i++) { CTX.beginPath(); CTX.moveTo(-28 + i * 18, -2); CTX.lineTo(-28 + i * 18, -10 - (i % 2) * 4); CTX.stroke(); }
+    CTX.restore();
+    /* 地面(海面平台) */
+    CTX.fillStyle = "#1f4463"; CTX.fillRect(x0, GY + 40, 1400, H - GY - 40);
+    CTX.fillStyle = "#2e5877"; CTX.fillRect(x0, GY, 1400, 40);
+  }},
+/* ─────────── 4. 莫奈《日本桥》 ─────────── */
+{ key: "monet", label: "莫奈", era: "1899 年 · 日本桥与睡莲池",
+  note: "光斑在猫身上跳来跳去,水面的涟漪一圈圈散开",
+  sky(x0) {
+    const g = CTX.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, "#cfe0c8"); g.addColorStop(0.55, "#a8cdb4"); g.addColorStop(1, "#6ba3b8");
+    CTX.fillStyle = g; CTX.fillRect(0, 0, W, H);
+  },
+  draw(x0, t) {
+    /* 岸边垂柳(背景层,轻摇) */
+    for (let i = 0; i < 6; i++) {
+      const wx = x0 + 100 + i * 260;
+      CTX.strokeStyle = "rgba(90,130,90,.55)"; CTX.lineWidth = 6; CTX.lineCap = "round";
+      for (let s = 0; s < 5; s++) {
+        const sw = Math.sin(t * 1.4 + s + i) * 10;
+        CTX.beginPath(); CTX.moveTo(wx + s * 8, GY - 230);
+        CTX.quadraticCurveTo(wx + s * 10 + sw, GY - 150, wx + s * 12 + sw * 2, GY - 60 - s * 12); CTX.stroke();
+      }
+    }
+    /* 水面 */
+    CTX.fillStyle = "#6ba3b8"; CTX.fillRect(x0, GY - 40, 1400, 80);
+    /* 涟漪环(从随机点一圈圈扩散) */
+    for (let i = 0; i < 7; i++) {
+      const rp = ((t * 0.35 + srnd(i)) % 1), rx = x0 + 120 + srnd(i * 3) * 1180, ry = GY + 40 + srnd(i + 5) * 50;
+      CTX.strokeStyle = `rgba(255,255,255,${(1 - rp) * 0.6})`; CTX.lineWidth = 2.5;
+      CTX.beginPath(); CTX.ellipse(rx, ry, rp * 60, rp * 14, 0, 0, TAU); CTX.stroke();
+    }
+    /* 睡莲(莲叶浮动 + 花轻颤) */
+    for (let i = 0; i < 14; i++) {
+      const lx = x0 + 60 + srnd(i + 20) * 1280, ly = GY + 60 + srnd(i + 50) * 40;
+      const bob = Math.sin(t * 1.8 + i) * 3;
+      CTX.fillStyle = ["#4f8a5e", "#63a06e", "#3e7a52"][i % 3];
+      CTX.beginPath(); CTX.ellipse(lx, ly + bob, 26 + srnd(i) * 14, 9 + srnd(i + 1) * 5, 0, 0, TAU); CTX.fill();
+      if (i % 3 === 0) {
+        CTX.fillStyle = ["#f2b8cf", "#f28ab5", "#fff"][i % 6 === 0 ? 2 : i % 2];
+        for (let p = 0; p < 6; p++) {
+          const pa = p / 6 * TAU + t * 0.3 + i;
+          CTX.beginPath(); CTX.ellipse(lx + Math.cos(pa) * 8, ly + bob + Math.sin(pa) * 3.5, 7, 3.2, pa, 0, TAU); CTX.fill();
+        }
+      }
+    }
+    /* 日本桥(拱 + 倒影随波纹扭动) */
+    const bx = x0 + 700;
+    CTX.fillStyle = "#4f8a5e";
+    CTX.beginPath(); CTX.moveTo(bx - 210, GY - 50); CTX.quadraticCurveTo(bx, GY - 150, bx + 210, GY - 50); CTX.lineTo(bx + 210, GY - 38); CTX.quadraticCurveTo(bx, GY - 138, bx - 210, GY - 38); CTX.closePath(); CTX.fill();
+    CTX.strokeStyle = "#3e7a52"; CTX.lineWidth = 5;
+    for (let i = 0; i < 9; i++) {
+      const vx = bx - 190 + i * 48, vy = GY - 50 - Math.cos((i - 4) / 4.5) * 88;
+      CTX.beginPath(); CTX.moveTo(vx, vy); CTX.lineTo(vx, vy - 26); CTX.stroke();
+    }
+    CTX.strokeStyle = "rgba(79,138,94,.4)"; CTX.lineWidth = 8;
+    CTX.beginPath();
+    for (let i = 0; i <= 20; i++) {
+      const rx2 = bx - 210 + i * 21, ry2 = GY - 30 + Math.sin(i * 1.3 + t * 2) * 3 + (1 - Math.abs(i - 10) / 10) * 20;
+      i ? CTX.lineTo(rx2, ry2) : CTX.moveTo(rx2, ry2);
+    }
+    CTX.stroke();
+    /* 地面(池岸) */
+    CTX.fillStyle = "#5d9a6e"; CTX.fillRect(x0, GY + 110, 1400, H - GY - 110);
+    /* 光斑(dappled light,快速游移) */
+    for (let i = 0; i < 16; i++) {
+      const dx = x0 + ((srnd(i + 90) * 1400 + t * (14 + srnd(i) * 22)) % 1400);
+      const dy = 60 + srnd(i + 30) * (H - 120);
+      CTX.fillStyle = `rgba(255,246,200,${0.25 + Math.sin(t * 3 + i * 2) * 0.15})`;
+      CTX.beginPath(); CTX.ellipse(dx, dy, 16, 7, srnd(i) * 3, 0, TAU); CTX.fill();
+    }
+  }},
+/* ─────────── 5. 梵高《星月夜》 ─────────── */
+{ key: "vangogh", label: "梵高", era: "1889 年 · 星月夜",
+  note: "整个天空都在打旋,猫踩着漩涡往前走",
+  sky(x0) {
+    const g = CTX.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, "#1a2a52"); g.addColorStop(0.6, "#2e4a7a"); g.addColorStop(1, "#41588a");
+    CTX.fillStyle = g; CTX.fillRect(0, 0, W, H);
+  },
+  draw(x0, t) {
+    /* 漩涡:三条大旋臂绕不同中心缓慢转动(短弧笔触堆叠) */
+    const centers = [[300, 150, 66], [760, 110, 46], [1180, 180, 58]];
+    for (let c = 0; c < 3; c++) {
+      const [ccx, ccy, cr] = centers[c];
+      for (let i = 0; i < 26; i++) {
+        const a0 = srnd(i + c * 31) * TAU + t * (0.25 + c * 0.07);
+        const rad = 18 + (i / 26) * cr, alpha = 0.25 + srnd(i + 7) * 0.4;
+        const sx = x0 + ccx + Math.cos(a0) * rad, sy = ccy + Math.sin(a0) * rad * 0.62;
+        CTX.strokeStyle = i % 3 ? `rgba(242,232,120,${alpha})` : `rgba(140,200,235,${alpha})`;
+        CTX.lineWidth = 5 - i / 26 * 2; CTX.lineCap = "round";
+        CTX.beginPath(); CTX.arc(sx, sy, 9 + srnd(i) * 5, a0 + 1.8, a0 + 3.6); CTX.stroke();
+      }
+    }
+    /* 星星(脉冲光晕) */
+    for (let i = 0; i < 11; i++) {
+      const sx = x0 + 60 + srnd(i + 11) * 1300, sy = 40 + srnd(i + 21) * 240;
+      const pul = 1 + Math.sin(t * 2.4 + i * 1.9) * 0.35;
+      const rg = CTX.createRadialGradient(sx, sy, 2, sx, sy, 26 * pul);
+      rg.addColorStop(0, "rgba(255,244,160,.95)"); rg.addColorStop(1, "rgba(255,244,160,0)");
+      CTX.fillStyle = rg; CTX.beginPath(); CTX.arc(sx, sy, 26 * pul, 0, TAU); CTX.fill();
+      CTX.fillStyle = "#fff8c8"; CTX.beginPath(); CTX.arc(sx, sy, 4.5, 0, TAU); CTX.fill();
+    }
+    /* 月亮(右上大光晕) */
+    const mx = x0 + 1290, my = 90;
+    const mg = CTX.createRadialGradient(mx, my, 8, mx, my, 90);
+    mg.addColorStop(0, "rgba(255,240,150,.9)"); mg.addColorStop(1, "rgba(255,240,150,0)");
+    CTX.fillStyle = mg; CTX.beginPath(); CTX.arc(mx, my, 90, 0, TAU); CTX.fill();
+    CTX.fillStyle = "#ffe97a"; CTX.beginPath(); CTX.arc(mx, my, 26, 0, TAU); CTX.fill();
+    /* 丝柏(左中,摇曳的火焰形) */
+    const cxx = x0 + 130;
+    CTX.fillStyle = "#2a4030";
+    for (let i = 0; i < 7; i++) {
+      const sway = Math.sin(t * 1.1 + i) * 7;
+      CTX.beginPath();
+      CTX.ellipse(cxx + sway * (i / 7), GY - 60 - i * 44, 24 - i * 2.4, 34 - i * 2, 0, 0, TAU);
+      CTX.fill();
+    }
+    /* 山脉 + 笔触地面 */
+    CTX.fillStyle = "#31456e";
+    CTX.beginPath(); CTX.moveTo(x0, GY);
+    for (let i = 0; i <= 10; i++) CTX.lineTo(x0 + i * 140, GY - 60 - Math.abs(Math.sin(i * 1.7)) * 90);
+    CTX.lineTo(x0 + 1400, GY); CTX.closePath(); CTX.fill();
+    CTX.strokeStyle = "rgba(130,160,220,.5)"; CTX.lineWidth = 4; CTX.lineCap = "round";
+    for (let i = 0; i < 30; i++) {
+      const sx = x0 + srnd(i + 60) * 1400, sy = GY + 14 + srnd(i + 61) * 46, a = srnd(i + 62) * TAU;
+      CTX.beginPath(); CTX.moveTo(sx, sy); CTX.lineTo(sx + Math.cos(a) * 22, sy + Math.sin(a) * 8); CTX.stroke();
+    }
+    CTX.fillStyle = "#2a3a58"; CTX.fillRect(x0, GY + 40, 1400, H - GY - 40);
+  }},
+/* ─────────── 6. 克里姆特《金色》 ─────────── */
+{ key: "klimt", label: "克里姆特", era: "1908 年 · 金色年代",
+  note: "满地金箔闪烁,猫走过的地方都镶了金边",
+  sky(x0) {
+    const g = CTX.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, "#8a6a1e"); g.addColorStop(0.5, "#c9a02e"); g.addColorStop(1, "#8a6a1e");
+    CTX.fillStyle = g; CTX.fillRect(0, 0, W, H);
+  },
+  draw(x0, t) {
+    /* 金箔矩形碎片(闪烁) */
+    for (let i = 0; i < 40; i++) {
+      const gx = x0 + srnd(i) * 1400, gy = srnd(i + 100) * (H - 60);
+      const sh = 0.35 + Math.sin(t * 2.2 + i * 1.7) * 0.3;
+      CTX.globalAlpha = Math.max(0.12, sh);
+      CTX.fillStyle = ["#f2d06b", "#ffe89a", "#d9b23c"][i % 3];
+      CTX.save(); CTX.translate(gx, gy); CTX.rotate(srnd(i + 5) * 0.8 - 0.4);
+      CTX.fillRect(-14 - srnd(i) * 16, -5, 28 + srnd(i) * 32, 9); CTX.restore();
+    }
+    CTX.globalAlpha = 1;
+    /* 情侣漩涡(《吻》的符号化:两个缠扰的几何色块) */
+    const kx = x0 + 1050, ky = GY - 170;
+    CTX.save(); CTX.translate(kx, ky); CTX.rotate(Math.sin(t * 0.6) * 0.06);
+    CTX.fillStyle = "#1f4463"; CTX.beginPath(); CTX.ellipse(-34, 10, 40, 62, 0.2, 0, TAU); CTX.fill();   // 黑袍
+    CTX.fillStyle = "#f2e6c8"; CTX.beginPath(); CTX.arc(-10, -52, 20, 0, TAU); CTX.fill();               // 女脸
+    CTX.fillStyle = "#e2572b"; CTX.beginPath(); CTX.arc(22, -56, 19, 0, TAU); CTX.fill();                // 男脸(发色块)
+    CTX.fillStyle = "#3a2a10";
+    CTX.beginPath(); CTX.arc(-14, -54, 2.5, 0, TAU); CTX.arc(-6, -54, 2.5, 0, TAU); CTX.fill();          // 眼
+    CTX.strokeStyle = "#f2d06b"; CTX.lineWidth = 5;                                                       // 金藤缠绕
+    for (let i = 0; i < 4; i++) {
+      CTX.beginPath(); CTX.arc(-8 + i * 16, 6 + i * 8, 30 - i * 4, 1.2 + Math.sin(t + i) * 0.2, 3.4); CTX.stroke();
+    }
+    /* 金饰:黑白几何(克里姆特式眼纹/螺旋) */
+    for (let i = 0; i < 8; i++) {
+      const ox = -60 + srnd(i + 9) * 120, oy = -20 + srnd(i + 19) * 80;
+      i % 2 ? (CTX.fillStyle = "#111", CTX.beginPath(), CTX.arc(ox, oy, 6, 0, TAU), CTX.fill(),
+               CTX.fillStyle = "#fff", CTX.beginPath(), CTX.arc(ox, oy, 3, 0, TAU), CTX.fill())
+            : (CTX.strokeStyle = "#111", CTX.lineWidth = 3,
+               CTX.beginPath(), CTX.arc(ox, oy, 7, 0, 4.6), CTX.stroke());
+    }
+    CTX.restore();
+    /* 金柱(两侧装饰柱) */
+    for (const px of [180, 620]) {
+      CTX.fillStyle = "#5a4312"; CTX.fillRect(x0 + px - 26, GY - 250, 52, 250);
+      CTX.fillStyle = "#d9b23c";
+      for (let i = 0; i < 6; i++) CTX.fillRect(x0 + px - 20 + (i % 2) * 16, GY - 240 + Math.floor(i / 2) * 76, 14, 60);
+    }
+    /* 地面(镶金马赛克) */
+    CTX.fillStyle = "#6e5416"; CTX.fillRect(x0, GY, 1400, H - GY);
+    for (let i = 0; i < 36; i++) {
+      const tx = x0 + 20 + (i % 12) * 118, ty = GY + 14 + Math.floor(i / 12) * 22;
+      CTX.fillStyle = srnd(i + 200) > 0.5 ? "#c9a02e" : "#8a6a1e";
+      CTX.fillRect(tx + ((Math.floor(t * 0.8) + i) % 3) * 2, ty, 92, 12);
+    }
+  }},
+/* ─────────── 7. 包豪斯 ─────────── */
+{ key: "bauhaus", label: "包豪斯", era: "1923 年 · 包豪斯构成",
+  note: "几何零件拼出一只猫,功能主义但很可爱",
+  sky(x0) { CTX.fillStyle = "#efe9dc"; CTX.fillRect(0, 0, W, H); },
+  draw(x0, t) {
+    /* 背景构成:斜线 + 大圆(缓慢滑动的几何件) */
+    CTX.strokeStyle = "#1a1a1a"; CTX.lineWidth = 8;
+    CTX.beginPath(); CTX.moveTo(x0 + 100, 0); CTX.lineTo(x0 + 700, H); CTX.stroke();
+    const oc = ((t * 30) % 500);
+    CTX.fillStyle = "#d93a2b"; CTX.beginPath(); CTX.arc(x0 + 240 + oc * 0.4, 150 + Math.sin(t) * 20, 60, 0, TAU); CTX.fill();
+    CTX.fillStyle = "#2b5ea7"; CTX.save(); CTX.translate(x0 + 1050, 170); CTX.rotate(t * 0.4); CTX.fillRect(-70, -22, 140, 44); CTX.restore();
+    CTX.fillStyle = "#f2b705"; CTX.save(); CTX.translate(x0 + 880, 90); CTX.rotate(-0.5); CTX.fillRect(-40, -40, 80, 80); CTX.restore();
+    CTX.strokeStyle = "#1a1a1a"; CTX.lineWidth = 5;
+    for (let i = 0; i < 5; i++) {
+      const bx = x0 + 1250 + Math.sin(t * 0.8 + i) * 12, by = 60 + i * 26;
+      CTX.beginPath(); CTX.moveTo(bx - 60, by); CTX.lineTo(bx + 60, by); CTX.stroke();
+    }
+    /* 大字(包豪斯招牌字) */
+    CTX.fillStyle = "#1a1a1a"; CTX.font = "900 92px Futura, sans-serif"; CTX.textAlign = "left";
+    CTX.fillText("CAT", x0 + 380, 210);
+    /* 地面构成条纹 */
+    CTX.fillStyle = "#d93a2b"; CTX.fillRect(x0, GY, 1400, 26);
+    CTX.fillStyle = "#2b5ea7"; CTX.fillRect(x0, GY + 26, 1400, 26);
+    CTX.fillStyle = "#f2b705"; CTX.fillRect(x0, GY + 52, 1400, H - GY - 52);
+  }},
+/* ─────────── 8. 8-bit 像素 ─────────── */
+{ key: "pixel", label: "8-bit", era: "1985 年 · 8-bit 时代",
+  note: "猫跳进了像素世界,砖块在水管间滚动(致敬自家猫猫马里奥)",
+  sky(x0) { CTX.fillStyle = "#5c94fc"; CTX.fillRect(0, 0, W, H); },
+  draw(x0, t) {
+    /* 8-bit 云(两朵,慢速平移) */
+    function cloud(bx, by, s) {
+      CTX.fillStyle = "#fff";
+      const b = (x2, y2, w2, h2) => CTX.fillRect(bx + x2 * s, by + y2 * s, w2 * s, h2 * s);
+      b(1, 0, 4, 1); b(0, 1, 6, 2); b(1, 3, 4, 1);
+    }
+    cloud(x0 + 150 + ((t * 12) % 1500) - 100, 70, 12);
+    cloud(x0 + 800 + ((t * 8) % 1500) - 100, 130, 9);
+    /* 像素山丘(两层视差) */
+    CTX.fillStyle = "#00a800";
+    for (let i = 0; i < 4; i++) {
+      const hx = x0 + 90 + i * 380 - (t * 10) % 380;
+      CTX.fillRect(hx + 20, GY - 46, 116, 46); CTX.fillRect(hx + 44, GY - 80, 68, 80); CTX.fillRect(hx + 68, GY - 114, 20, 114);
+    }
+    /* 砖块与问号块(整排,问号闪烁) */
+    for (let i = 0; i < 6; i++) {
+      const bx2 = x0 + 240 + i * 40, by2 = GY - 190;
+      CTX.fillStyle = "#c84c0c"; CTX.fillRect(bx2, by2, 36, 36);
+      CTX.fillStyle = "#f8b800"; CTX.fillRect(bx2 + 2, by2 + 2, 32, 6); CTX.fillRect(bx2 + 2, by2 + 28, 32, 6);
+    }
+    if (Math.floor(t * 2.4) % 2 === 0) {
+      CTX.fillStyle = "#f8b800"; CTX.fillRect(x0 + 520, GY - 190, 36, 36);
+      CTX.fillStyle = "#111"; CTX.font = "900 26px monospace"; CTX.textAlign = "center";
+      CTX.fillText("?", x0 + 538, GY - 163);
+    }
+    /* 水管两根 */
+    for (const gx of [880, 1240]) {
+      CTX.fillStyle = "#00a800";
+      CTX.fillRect(x0 + gx, GY - 84, 72, 84); CTX.fillRect(x0 + gx - 8, GY - 104, 88, 24);
+      CTX.fillStyle = "#b8f8b8"; CTX.fillRect(x0 + gx + 8, GY - 98, 12, 12); CTX.fillRect(x0 + gx + 10, GY - 76, 12, 70);
+    }
+    /* 像素金币(旋转闪) */
+    const cw = Math.abs(Math.cos(t * 3)) * 16 + 3;
+    CTX.fillStyle = "#f8b800"; CTX.beginPath(); CTX.ellipse(x0 + 700, GY - 120, cw, 16, 0, 0, TAU); CTX.fill();
+    /* 地面砖 */
+    CTX.fillStyle = "#c84c0c"; CTX.fillRect(x0, GY, 1400, H - GY);
+    CTX.fillStyle = "#000";
+    for (let i = 0; i < 28; i++) CTX.fillRect(x0 + (i * 50) % 1400, GY, 2, H - GY);
+    CTX.fillRect(x0, GY, 1400, 2);
+  }},
+/* ─────────── 9. 蒸汽波 ─────────── */
+{ key: "vapor", label: "蒸汽波", era: "1995 年 · 蒸汽波",
+  note: "网格往猫脚下滚,石膏猫像慢慢出现 VHS 抖动",
+  sky(x0) {
+    const g = CTX.createLinearGradient(0, 0, 0, GY);
+    g.addColorStop(0, "#2a0a4a"); g.addColorStop(0.6, "#7a1e6e"); g.addColorStop(1, "#e857a8");
+    CTX.fillStyle = g; CTX.fillRect(0, 0, W, H);
+  },
+  draw(x0, t) {
+    /* 条纹落日(条纹缓慢下滑 = 复古落日动画) */
+    const sx0 = x0 + 480, sy0 = 190;
+    const sg = CTX.createLinearGradient(sx0 - 110, 0, sx0 + 110, 0);
+    sg.addColorStop(0, "#ff9a3c"); sg.addColorStop(0.5, "#ffd76e"); sg.addColorStop(1, "#ff5b9d");
+    CTX.save(); CTX.beginPath(); CTX.arc(sx0, sy0, 110, 0, TAU); CTX.clip();
+    CTX.fillStyle = sg; CTX.fillRect(sx0 - 115, sy0 - 115, 230, 230);
+    CTX.fillStyle = "#2a0a4a";
+    for (let i = 0; i < 6; i++) {
+      const by2 = sy0 + 8 + i * 20 + (t * 14) % 20;
+      CTX.fillRect(sx0 - 115, by2, 230, 7 + i * 1.6);
+    }
+    CTX.restore();
+    /* 棕榈剪影(轻摆) */
+    for (const px of [140, 1330]) {
+      CTX.strokeStyle = "#3a0a3a"; CTX.lineWidth = 10; CTX.lineCap = "round";
+      CTX.beginPath(); CTX.moveTo(x0 + px, GY - 30); CTX.quadraticCurveTo(x0 + px + Math.sin(t) * 6, GY - 130, x0 + px + Math.sin(t) * 10, GY - 210); CTX.stroke();
+      CTX.lineWidth = 7;
+      for (let f = 0; f < 6; f++) {
+        const fa = -2.6 + f * 0.5 + Math.sin(t + f) * 0.06;
+        CTX.beginPath(); CTX.moveTo(x0 + px + Math.sin(t) * 10, GY - 210);
+        CTX.quadraticCurveTo(x0 + px + Math.cos(fa) * 52, GY - 210 + Math.sin(fa) * 52, x0 + px + Math.cos(fa) * 92 + Math.sin(t + f) * 8, GY - 210 + Math.sin(fa) * 92 + 30); CTX.stroke();
+      }
+    }
+    /* 地面网格(向观众滚动) */
+    CTX.fillStyle = "#16052e"; CTX.fillRect(x0, GY, 1400, H - GY);
+    CTX.strokeStyle = "rgba(57,255,221,.85)"; CTX.lineWidth = 2;
+    for (let i = -10; i <= 10; i++) {                       // 放射线
+      CTX.beginPath(); CTX.moveTo(x0 + 700 + i * 26, GY); CTX.lineTo(x0 + 700 + i * 220, H); CTX.stroke();
+    }
+    const goff = (t * 40) % 34;                             // 横线滚动
+    for (let i = 0; i < 14; i++) {
+      const p2 = (i + goff / 34) / 14, ly = GY + Math.pow(p2, 2.2) * (H - GY);
+      CTX.strokeStyle = `rgba(57,255,221,${0.25 + p2 * 0.65})`;
+      CTX.beginPath(); CTX.moveTo(x0, ly); CTX.lineTo(x0 + 1400, ly); CTX.stroke();
+    }
+    /* 石膏猫胸像(右中部,轻微 VHS 抖动) */
+    if (((t * 3) | 0) % 7 !== 0) {                          // 偶发跳帧 = 抖动
+      const bxx = x0 + 1140 + (((t * 3) | 0) % 7 === 3 ? 4 : 0);
+      CTX.fillStyle = "#e8e2f2";
+      CTX.beginPath(); CTX.ellipse(bxx, GY - 150, 44, 56, 0, 0, TAU); CTX.fill();     // 胸座
+      CTX.beginPath(); CTX.arc(bxx, GY - 226, 30, 0, TAU); CTX.fill();                // 头
+      CTX.beginPath(); CTX.moveTo(bxx - 26, GY - 244); CTX.lineTo(bxx - 14, GY - 272); CTX.lineTo(bxx - 6, GY - 248); CTX.fill();
+      CTX.beginPath(); CTX.moveTo(bxx + 26, GY - 244); CTX.lineTo(bxx + 14, GY - 272); CTX.lineTo(bxx + 6, GY - 248); CTX.fill();
+      CTX.fillStyle = "#9a8ab8";
+      CTX.beginPath(); CTX.ellipse(bxx, GY - 130, 52, 12, 0, 0, TAU); CTX.fill();     // 底座
+    }
+    /* VHS 滚动条 */
+    const vy = ((t * 60) % (H + 160)) - 80;
+    CTX.fillStyle = "rgba(255,255,255,.06)"; CTX.fillRect(x0, vy, 1400, 46);
+  }},
+/* ─────────── 10. 新海诚 / 未完成的画布 ─────────── */
+{ key: "shinkai", label: "新海诚", era: "2016 · 你的名字般的天空",
+  note: "云在流,光在洒,画布到这里的边缘还没画完",
+  sky(x0) {
+    const g = CTX.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, "#2e6bb8"); g.addColorStop(0.45, "#7ab3e0"); g.addColorStop(0.8, "#ffd0e2"); g.addColorStop(1, "#ffe9c8");
+    CTX.fillStyle = g; CTX.fillRect(0, 0, W, H);
+  },
+  draw(x0, t) {
+    /* 光束(旋转的透明度) */
+    for (let i = 0; i < 7; i++) {
+      const a = -2.4 + i * 0.16 + Math.sin(t * 0.3 + i) * 0.03;
+      CTX.save(); CTX.translate(x0 + 380, -60); CTX.rotate(a);
+      CTX.fillStyle = `rgba(255,244,200,${0.1 + 0.06 * Math.sin(t * 0.8 + i * 2)})`;
+      CTX.fillRect(0, 0, 46, 900); CTX.restore();
+    }
+    /* 积雨云(大团,缓慢漂) */
+    for (let i = 0; i < 5; i++) {
+      const cx2 = x0 + 140 + i * 300 + Math.sin(t * 0.16 + i * 2) * 26;
+      const cy2 = 90 + srnd(i + 6) * 120;
+      for (let p = 0; p < 7; p++) {
+        CTX.fillStyle = `rgba(255,255,255,${0.55 + srnd(i + p) * 0.3})`;
+        CTX.beginPath(); CTX.arc(cx2 + (p - 3) * 34, cy2 + srnd(i * 9 + p) * 22, 30 + srnd(i + p + 3) * 22, 0, TAU); CTX.fill();
+      }
+      CTX.fillStyle = "rgba(180,200,230,.4)";
+      CTX.beginPath(); CTX.ellipse(cx2, cy2 + 34, 110, 20, 0, 0, TAU); CTX.fill();
+    }
+    /* 樱花瓣飘落 */
+    for (let i = 0; i < 18; i++) {
+      const fy = ((t * (36 + srnd(i) * 30) + srnd(i + 40) * 900) % 760) - 40;
+      const fx2 = x0 + (srnd(i + 3) * 1400 + Math.sin(t * 1.2 + i) * 44) % 1400;
+      CTX.fillStyle = `rgba(255,183,197,${0.7 + srnd(i) * 0.3})`;
+      CTX.save(); CTX.translate(fx2, fy); CTX.rotate(t * 2 + i);
+      CTX.beginPath(); CTX.ellipse(0, 0, 5.5, 3.2, 0, 0, TAU); CTX.fill(); CTX.restore();
+    }
+    /* 远处城市天际线(窗光闪烁) */
+    CTX.fillStyle = "#4a5a78";
+    for (let i = 0; i < 14; i++) {
+      const bh = 60 + srnd(i + 50) * 120, bx3 = x0 + i * 100;
+      CTX.fillRect(bx3, GY - bh, 74, bh);
+      if (srnd(i + 77) > 0.4 && Math.sin(t * 3 + i * 5) > -0.4) {
+        CTX.fillStyle = "rgba(255,230,150,.9)";
+        CTX.fillRect(bx3 + 12 + (i % 3) * 18, GY - bh + 18, 10, 8);
+        CTX.fillStyle = "#4a5a78";
+      }
+    }
+    /* 地面(铁轨道砟感 + 未完成的画布右缘) */
+    CTX.fillStyle = "#5d6e52"; CTX.fillRect(x0, GY, 1400, H - GY);
+    CTX.strokeStyle = "rgba(60,50,30,.6)"; CTX.lineWidth = 3;
+    for (let i = 0; i < 28; i++) {
+      const sx = x0 + srnd(i + 120) * 1400, sy = GY + 10 + srnd(i + 121) * 50;
+      CTX.beginPath(); CTX.moveTo(sx, sy); CTX.lineTo(sx + 20, sy + 3); CTX.stroke();
+    }
+    /* 画布未完成的右边缘(铅笔线 + 半透明留白) */
+    if (x0 + 1160 < W) {
+      CTX.fillStyle = "rgba(250,248,242,.88)";
+      CTX.fillRect(x0 + 1160, 0, 240, H);
+      CTX.strokeStyle = "#8a8a92"; CTX.lineWidth = 3; CTX.setLineDash([10, 7]);
+      CTX.beginPath(); CTX.moveTo(x0 + 1160, 0); CTX.lineTo(x0 + 1160, H); CTX.stroke(); CTX.setLineDash([]);
+      CTX.strokeStyle = "#b9b9c2"; CTX.lineWidth = 2;
+      CTX.beginPath(); CTX.moveTo(x0 + 1185, GY); CTX.quadraticCurveTo(x0 + 1250, GY - 150, x0 + 1330, GY - 190); CTX.stroke();  // 一根没画完的线
+      CTX.fillStyle = "#8a8a92"; CTX.font = "13px sans-serif"; CTX.textAlign = "left";
+      CTX.fillText("(还没画完…)", x0 + 1195, 96);
+    }
+  }},
+];
+
+/* ═══════════════════════════════════════════════════════════════
+   四、八字猫:共用骨架 + 十种画风渲染
+   骨架:身体椭圆 + 圆头 + 三角耳 + 四腿摆动 + 尾巴摇摆 + 眨眼
+   画风:每种风格先以 base() 填充轮廓,再叠风格化笔触
+   ═══════════════════════════════════════════════════════════════ */
+function catPose(t) {
+  const ph = t * 7.4;
+  return {
+    ph,
+    bob: Math.abs(Math.sin(ph)) * 3,                       // 步伐弹跳
+    legA: Math.sin(ph) * 0.5,                              // 前腿摆角
+    legB: Math.sin(ph + Math.PI) * 0.5,                    // 后腿摆角
+    tail: Math.sin(t * 3.1) * 0.28,                        // 尾基角
+    blink: (t % 3.7) < 0.14,                               // 眨眼窗口
+  };
+}
+/* 轮廓路径(供 fill / clip 复用):身体+头+耳 as one path */
+function catPath(ctx, p) {
+  ctx.beginPath();
+  ctx.ellipse(0, -26 - p.bob, 36, 22, 0, 0, TAU);          // 身体
+  ctx.ellipse(26, -50 - p.bob, 20, 18, 0, 0, TAU);         // 头
+  ctx.moveTo(14, -60 - p.bob); ctx.lineTo(20, -78 - p.bob); ctx.lineTo(28, -62 - p.bob); ctx.closePath(); // 左耳
+  ctx.moveTo(30, -63 - p.bob); ctx.lineTo(38, -78 - p.bob); ctx.lineTo(42, -58 - p.bob); ctx.closePath(); // 右耳
+}
+/* 画八字猫主函数:s = WORLDS[i].key */
+function drawCat(ctx, s, t) {
+  const p = catPose(t);
+  ctx.save();
+  /* 阴影 */
+  ctx.fillStyle = "rgba(0,0,0,.25)";
+  ctx.beginPath(); ctx.ellipse(6, 2, 40, 8, 0, 0, TAU); ctx.fill();
+
+  /* —— 尾巴(先画,压在身体后面) —— */
+  ctx.save(); ctx.translate(-32, -32 - p.bob); ctx.rotate(p.tail);
+  const tw = s === "pixel" ? 6 : 7;
+  ctx.strokeStyle = catStyleOpts(s).tail; ctx.lineWidth = tw; ctx.lineCap = "round";
+  ctx.beginPath(); ctx.moveTo(0, 0);
+  ctx.quadraticCurveTo(-18, -8, -22, -26); ctx.stroke();
+  ctx.restore();
+
+  /* —— 腿(摆动) —— */
+  const legs = catStyleOpts(s).leg;
+  ctx.strokeStyle = legs; ctx.lineWidth = s === "pixel" ? 7 : 8; ctx.lineCap = "round";
+  for (const [lx, ang] of [[20, p.legA], [12, p.legB], [-16, p.legB], [-24, p.legA]]) {
+    ctx.beginPath(); ctx.moveTo(lx, -18 - p.bob);
+    ctx.lineTo(lx + Math.sin(ang) * 10, 0); ctx.stroke();
+  }
+
+  /* —— 身体 + 头 填充(按画风) —— */
+  const o = catStyleOpts(s);
+  if (s === "pixel") { drawCatPixel(ctx, p); }
+  else if (s === "bauhaus") { drawCatBauhaus(ctx, p); }
+  else {
+    /* 通用:填轮廓 → 裁剪内叠风格笔触 */
+    ctx.fillStyle = o.body; catPath(ctx, p); ctx.fill();
+    if (o.outline) { ctx.strokeStyle = o.outline; ctx.lineWidth = o.olw || 3; catPath(ctx, p); ctx.stroke(); }
+    ctx.save(); catPath(ctx, p); ctx.clip();
+    /* 八字纹:额头上两撇(猫的身份证,所有画风保留) */
+    ctx.fillStyle = o.patch;
+    ctx.save(); ctx.translate(20, -56 - p.bob); ctx.rotate(-0.5);
+    ctx.beginPath(); ctx.ellipse(-7, 0, 4.5, 12, 0, 0, TAU); ctx.fill(); ctx.restore();
+    ctx.save(); ctx.translate(20, -56 - p.bob); ctx.rotate(0.5);
+    ctx.beginPath(); ctx.ellipse(7, 0, 4.5, 12, 0, 0, TAU); ctx.fill(); ctx.restore();
+    /* 背部大斑块 */
+    ctx.beginPath(); ctx.ellipse(-12, -38 - p.bob, 17, 10, -0.2, 0, TAU); ctx.fill();
+    /* 风格笔触 */
+    if (s === "monet") for (let i = 0; i < 46; i++) {
+      ctx.fillStyle = ["rgba(255,255,255,.5)", "rgba(240,151,63,.55)", "rgba(168,205,180,.5)", "rgba(255,214,230,.5)"][i % 4];
+      ctx.beginPath();
+      ctx.ellipse(-34 + srnd(i) * 68, -66 + srnd(i + 9) * 52, 5, 2.4, srnd(i) * 3, 0, TAU);
+      ctx.fill();
+    }
+    if (s === "vangogh") for (let i = 0; i < 34; i++) {
+      const a = srnd(i) * TAU, r = 8 + srnd(i + 3) * 26;
+      const sx = -32 + Math.cos(a) * r * 1.6, sy = -46 + Math.sin(a) * r;
+      ctx.strokeStyle = i % 2 ? "rgba(255,231,122,.8)" : "rgba(126,200,227,.7)";
+      ctx.lineWidth = 3; ctx.lineCap = "round";
+      ctx.beginPath(); ctx.arc(sx, sy, 7, a, a + 2.2); ctx.stroke();
+    }
+    if (s === "klimt") for (let i = 0; i < 16; i++) {
+      ctx.fillStyle = i % 3 ? "#111" : "#fff";
+      const kx = -30 + srnd(i) * 60, ky = -60 + srnd(i + 7) * 44;
+      i % 2 ? (ctx.beginPath(), ctx.arc(kx, ky, 3.4, 0, TAU), ctx.fill())
+            : (ctx.fillRect(kx - 4, ky - 1.6, 8, 3.2));
+    }
+    if (s === "vapor") {
+      const vg = CTX.createLinearGradient(0, -80, 0, 0);
+      vg.addColorStop(0, "rgba(57,255,221,.45)"); vg.addColorStop(1, "rgba(255,91,157,.5)");
+      ctx.fillStyle = vg; ctx.fillRect(-80, -100, 160, 110);
+      ctx.fillStyle = "rgba(20,10,40,.35)";
+      for (let ly = -14 + ((t * 30) % 6); ly < 0; ly += 6) ctx.fillRect(-80, ly, 160, 2);  // 身上扫描线
+    }
+    if (s === "shinkai") {
+      ctx.strokeStyle = "rgba(255,255,255,.85)"; ctx.lineWidth = 4;   // 逆光轮廓
+      ctx.beginPath(); ctx.ellipse(-8, -46 - p.bob, 30, 17, -0.2, 2.6, 4.9); ctx.stroke();
+      ctx.fillStyle = `rgba(255,240,170,${0.35 + Math.sin(t * 3) * 0.2})`;   // 光斑
+      ctx.beginPath(); ctx.ellipse(18, -44 - p.bob, 10, 5, 0.4, 0, TAU); ctx.fill();
+    }
+    if (s === "egypt") {                                              // 埃及式:颈部宽项圈
+      ctx.fillStyle = "#2b5ea7";
+      for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.ellipse(12 + i * 8, -40 - p.bob, 5, 16, 1.2, 0, TAU); ctx.fill(); }
+      ctx.fillStyle = "#f2b705"; ctx.beginPath(); ctx.arc(40, -66 - p.bob, 3, 0, TAU); ctx.fill(); // 金耳环
+    }
+    ctx.restore();
+  }
+
+  /* —— 脸(除像素/包豪斯外,共用五官) —— */
+  if (s !== "pixel" && s !== "bauhaus") {
+    const hy = -50 - p.bob, hx = 26;
+    const ef = o.eye || CAT_PAL.eye;
+    if (p.blink) {                                                     // 眨眼:横线
+      ctx.strokeStyle = ef; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(hx - 9, hy - 2); ctx.lineTo(hx - 3, hy - 2);
+      ctx.moveTo(hx + 4, hy - 2); ctx.lineTo(hx + 10, hy - 2); ctx.stroke();
+    } else {
+      ctx.fillStyle = ef;
+      ctx.beginPath(); ctx.arc(hx - 6, hy - 2, 2.6, 0, TAU); ctx.fill();
+      ctx.beginPath(); ctx.arc(hx + 7, hy - 2, 2.6, 0, TAU); ctx.fill();
+      ctx.fillStyle = "#fff";                                          // 高光
+      ctx.beginPath(); ctx.arc(hx - 5, hy - 3, 0.9, 0, TAU); ctx.fill();
+      ctx.beginPath(); ctx.arc(hx + 8, hy - 3, 0.9, 0, TAU); ctx.fill();
+    }
+    ctx.fillStyle = "#e88aa8";                                         // 鼻
+    ctx.beginPath(); ctx.moveTo(hx, hy + 4); ctx.lineTo(hx - 2.6, hy + 1.5); ctx.lineTo(hx + 2.6, hy + 1.5); ctx.closePath(); ctx.fill();
+    if (o.whisk) {                                                     // 胡须(岩洞/像素没有)
+      ctx.strokeStyle = o.outline || CAT_PAL.dark; ctx.lineWidth = 1.4;
+      for (const wy of [-1, 2, 5]) {
+        ctx.beginPath(); ctx.moveTo(hx + 2, hy + wy); ctx.lineTo(hx + 16, hy + wy - 3); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(hx - 2, hy + wy); ctx.lineTo(hx - 16, hy + wy - 3); ctx.stroke();
+      }
+    }
+  }
+  ctx.restore();
+}
+/* 各画风的猫用色(身体/斑块/描边/腿尾) */
+function catStyleOpts(s) {
+  const P = CAT_PAL;
+  const M = {
+    cave:    { body: "#c9764a", patch: "#8a4a26", outline: "#3a1f0e", tail: "#8a4a26", leg: "#8a4a26", whisk: false },
+    egypt:   { body: "#e8c87a", patch: "#a8601c", outline: "#4a2c0c", tail: "#a8601c", leg: "#a8601c", whisk: true,  eye: "#111" },
+    ukiyo:   { body: P.body, patch: P.patch, outline: "#2a2a2a", olw: 3.5, tail: P.patch, leg: P.patch, whisk: true },
+    monet:   { body: "#f2ede4", patch: P.patch, outline: null, tail: P.patch, leg: "#c9bfa4", whisk: false },
+    vangogh: { body: "#2e4a7a", patch: "#f0a838", outline: "rgba(20,30,60,.9)", olw: 3, tail: "#f0a838", leg: "#2e4a7a", whisk: false },
+    klimt:   { body: "#d9b23c", patch: "#8a5a12", outline: "#5a4312", tail: "#8a5a12", leg: "#8a5a12", whisk: false },
+    bauhaus: { body: P.body, patch: P.patch, outline: "#1a1a1a", tail: "#d93a2b", leg: "#1a1a1a", whisk: false },
+    pixel:   { body: P.body, patch: P.patch, outline: null, tail: P.patch, leg: P.patch, whisk: false },
+    vapor:   { body: "#f2e6f8", patch: "#ff5b9d", outline: "#39ffdd", olw: 2.5, tail: "#ff5b9d", leg: "#39ffdd", whisk: false },
+    shinkai: { body: P.body, patch: P.patch, outline: "rgba(255,255,255,.7)", olw: 2, tail: P.patch, leg: P.patch, whisk: true },
+  };
+  return M[s] || M.ukiyo;
+}
+/* 8-bit 像素猫:14×11 网格,0=透明 1=白毛 2=橘斑 3=眼 4=鼻 */
+const CAT_PIX = [
+  "00000002220000",
+  "00000022222200",
+  "00000222222220",
+  "00002222222220",
+  "0000211331130" + "0",
+  "0000213131310" + "0",
+  "00000222222200",
+  "00222000000000",
+  "02222222200000",
+  "02222222220000",
+  "00000000000000",
+];
+function drawCatPixel(ctx, p) {
+  const S = 7, ox = -48, oy = -84 - Math.floor(p.bob / 3) * 3;   // 吸附到像素格
+  for (let r = 0; r < CAT_PIX.length; r++)
+    for (let c = 0; c < 14; c++) {
+      const v = CAT_PIX[r][c];
+      if (v === "0") continue;
+      ctx.fillStyle = v === "1" ? CAT_PAL.eye : v === "2" ? CAT_PAL.patch : v === "3" ? "#e88aa8" : CAT_PAL.body;
+      ctx.fillRect(ox + c * S, oy + r * S, S, S);
+    }
+  /* 像素腿(两帧摆动) */
+  ctx.fillStyle = CAT_PAL.patch;
+  const f = Math.floor(p.ph / Math.PI) % 2;
+  ctx.fillRect(ox + (f ? 6 : 10) * S, oy + 11 * S, S * 2, S * 2);
+  ctx.fillRect(ox + (f ? 2 : 4) * S, oy + 11 * S, S * 2, S * 2);
+}
+/* 包豪斯猫:纯几何件拼装 */
+function drawCatBauhaus(ctx, p) {
+  const y = -p.bob;
+  ctx.fillStyle = "#1a1a1a";                               // 腿:两根直杆
+  ctx.fillRect(16, -20 + y, 6, 20 + p.bob);
+  ctx.fillRect(-22, -20 + y, 6, 20 + p.bob);
+  ctx.fillStyle = "#d93a2b"; rr(ctx, -36, -44 + y, 72, 30, 6); ctx.fill();   // 身:红圆角矩形
+  ctx.fillStyle = "#f2b705"; ctx.beginPath(); ctx.arc(26, -50 + y, 17, 0, TAU); ctx.fill();  // 头:黄圆
+  ctx.fillStyle = "#2b5ea7";                               // 耳:两个蓝三角
+  ctx.beginPath(); ctx.moveTo(14, -62 + y); ctx.lineTo(19, -78 + y); ctx.lineTo(26, -63 + y); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(30, -63 + y); ctx.lineTo(37, -78 + y); ctx.lineTo(42, -61 + y); ctx.fill();
+  ctx.fillStyle = "#1a1a1a";                               // 眼:两个黑点
+  ctx.beginPath(); ctx.arc(21, -52 + y, 2.4, 0, TAU); ctx.arc(32, -52 + y, 2.4, 0, TAU); ctx.fill();
+  ctx.strokeStyle = "#1a1a1a"; ctx.lineWidth = 5; ctx.lineCap = "round";     // 尾:蓝色折线
+  ctx.strokeStyle = "#2b5ea7";
+  ctx.beginPath(); ctx.moveTo(-34, -34 + y); ctx.lineTo(-48, -44 + y); ctx.lineTo(-46, -60 + y); ctx.stroke();
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   五、主渲染:天空→世界→猫→字卡→进度条
+   ═══════════════════════════════════════════════════════════════ */
+function worldIdxAt(x) { return clamp(Math.floor(x / WORLD_W), 0, 9); }
+function render() {
+  const t = ST.t;
+  const wi = worldIdxAt(ST.catX);
+  const wd = WORLDS[wi];
+  const x0 = wi * WORLD_W - ST.camX;                       // 当前世界原点的屏幕偏移
+  /* —— 天空(当前世界) —— */
+  wd.sky(x0);
+  /* —— 世界主体 —— */
+  wd.draw(x0, t);
+  /* 跨边界时:下一世界提前在右侧露一点(预告式衔接) */
+  const rightEdge = x0 + WORLD_W;
+  if (rightEdge < W && wi < 9) {
+    const nx = rightEdge;
+    CTX.save(); CTX.beginPath(); CTX.rect(nx, 0, W - nx, H); CTX.clip();
+    WORLDS[wi + 1].sky(nx - (wi + 1) * WORLD_W);
+    WORLDS[wi + 1].draw(nx - (wi + 1) * WORLD_W, t);
+    CTX.restore();
+    /* 画框边界线(过框瞬间的仪式感) */
+    CTX.fillStyle = "rgba(0,0,0,.5)"; CTX.fillRect(nx - 3, 0, 6, H);
+  }
+  /* —— 八字猫(世界坐标→屏幕) —— */
+  CTX.save();
+  CTX.translate(ST.catX - ST.camX, GY);
+  /* 出生点小站台:第一格给个起点垫 */
+  drawCat(CTX, wd.key, t);
+  CTX.restore();
+
+  /* —— 时代字卡(进界后 2.6s) —— */
+  if (ST.eraCard.t > 0) {
+    const card = WORLDS[ST.eraCard.idx];
+    const a = clamp(ST.eraCard.t / 0.5, 0, 1) * clamp((2.6 - ST.eraCard.t) / 0.4, 0, 1);
+    CTX.globalAlpha = a;
+    CTX.fillStyle = "rgba(20,14,30,.78)";
+    rr(CTX, 18, H - 118, 470, 84, 14); CTX.fill();
+    CTX.fillStyle = "#ffd76e"; CTX.font = "800 24px sans-serif"; CTX.textAlign = "left";
+    CTX.fillText(card.era, 36, H - 86);
+    CTX.fillStyle = "#e8ddf5"; CTX.font = "14px sans-serif";
+    CTX.fillText(card.note, 36, H - 56);
+    CTX.globalAlpha = 1;
+  }
+  /* —— 底部进度条:爪印标记 —— */
+  CTX.fillStyle = "rgba(0,0,0,.35)"; rr(CTX, 20, H - 16, W - 40, 7, 4); CTX.fill();
+  const prog = clamp(ST.catX / TOTAL_W, 0, 1);
+  CTX.fillStyle = "#ffd76e"; rr(CTX, 20, H - 16, (W - 40) * prog, 7, 4); CTX.fill();
+  CTX.font = "13px serif"; CTX.textAlign = "center";
+  CTX.fillText("🐾", 20 + (W - 40) * prog, H - 10);
+  /* —— 右上角按钮 —— */
+  CTX.font = "22px serif"; CTX.textAlign = "center";
+  CTX.fillText(ST.paused ? "▶️" : "⏸️", W - 92, 40);
+  CTX.fillText(ST.muted ? "🔇" : "🔊", W - 52, 40);
+  /* —— 结束画面 —— */
+  if (ST.ended) {
+    CTX.fillStyle = `rgba(10,6,20,${clamp(ST.endT, 0, 0.72)})`;
+    CTX.fillRect(0, 0, W, H);
+    if (ST.endT > 0.5) {
+      CTX.fillStyle = "#ffd76e"; CTX.font = "800 40px sans-serif";
+      CTX.fillText("🐱 十个时代,一只猫", W / 2, H / 2 - 30);
+      CTX.fillStyle = "#e8ddf5"; CTX.font = "16px sans-serif";
+      CTX.fillText("从火堆旁的第一笔,到还没画完的最后一根线", W / 2, H / 2 + 12);
+      CTX.fillStyle = "#b9a8d4"; CTX.font = "13px sans-serif";
+      CTX.fillText("点画面 ↺ 从头再看 · 灵感致谢 huashu-art-motion (MIT)", W / 2, H / 2 + 46);
+    }
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   六、更新与交互
+   ═══════════════════════════════════════════════════════════════ */
+let lastTs = null;
+function frame(ts) {
+  if (lastTs === null) lastTs = ts;
+  const dt = clamp((ts - lastTs) / 1000, 0, 0.06);
+  lastTs = ts;
+  if (!ST.paused && !ST.ended) {
+    ST.t += dt;
+    ST.catX += ST.speed * (ST.fast ? 2.6 : 1) * dt;
+    /* 镜头只进不退,猫保持在画面 34% 处 */
+    ST.camX = Math.max(ST.camX, ST.catX - W * 0.34);
+    /* 世界切换 → 弹字卡 + 音效 */
+    const wi = worldIdxAt(ST.catX);
+    if (wi !== ST.eraCard.idx) { ST.eraCard = { idx: wi, t: 2.6 }; sfxEra(wi); syncJumps(); }
+    ST.eraCard.t -= dt;
+    /* 终点 */
+    if (ST.catX >= TOTAL_W - 40) {
+      ST.ended = true;
+      ST.eraCard.t = 0;
+    }
+  } else if (ST.ended) {
+    ST.endT += dt;
+  }
+  render();
+  requestAnimationFrame(frame);
+}
+/* 点画面:播放中暂停/继续;结束后重看 */
+CV.addEventListener("pointerdown", () => {                 // 浏览器自动播放策略:首次手势恢复音频
+  if (AC && AC.state === "suspended") AC.resume();
+  tone(1, 1, 0.01, "sine", 0.001);                         // 顺便确保上下文已创建
+});
+CV.addEventListener("click", ev => {
+  const r = CV.getBoundingClientRect();
+  const sx = (ev.clientX - r.left) * (W / r.width), sy = (ev.clientY - r.top) * (H / r.height);
+  if (ST.ended) { resetAll(); return; }
+  if (sx > W - 112 && sy < 56) return;                     // 按钮区交给下方 up/down 逻辑
+  ST.paused = !ST.paused;
+  if (!ST.paused) { lastTs = null; }
+});
+/* 按钮热区:右上 ⏸/🔊(用 up 判定避免和暂停冲突) */
+CV.addEventListener("pointerup", ev => {
+  const r = CV.getBoundingClientRect();
+  const sx = (ev.clientX - r.left) * (W / r.width), sy = (ev.clientY - r.top) * (H / r.height);
+  if (ST.ended) return;
+  if (sy < 56 && sx > W - 112 && sx <= W - 70) { ST.paused = !ST.paused; lastTs = null; }
+  else if (sy < 56 && sx > W - 70) { ST.muted = !ST.muted; }
+});
+/* 键盘:→ 快进,空格暂停 */
+addEventListener("keydown", e => {
+  if (e.key === "ArrowRight") ST.fast = true;
+  if (e.key === " ") { ST.paused = !ST.paused; lastTs = null; e.preventDefault(); }
+});
+addEventListener("keyup", e => { if (e.key === "ArrowRight") ST.fast = false; });
+
+/* ═══════════════════════════════════════════════════════════════
+   七、时代直达按钮 + 轻量 BGM
+   ═══════════════════════════════════════════════════════════════ */
+const jumpBox = document.getElementById("jumps");
+WORLDS.forEach((wd, i) => {
+  const b = document.createElement("button");
+  b.textContent = `${i + 1}. ${wd.label}`;
+  b.onclick = () => {                                       // 跳转:重置字卡与镜头
+    ST.ended = false; ST.endT = 0; ST.paused = false; lastTs = null;
+    ST.catX = i * WORLD_W + 120;
+    ST.camX = Math.max(0, ST.catX - W * 0.34);
+    ST.eraCard = { idx: i, t: 2.6 };
+    syncJumps();
+  };
+  jumpBox.appendChild(b);
+});
+function syncJumps() {
+  const wi = worldIdxAt(ST.catX);
+  [...jumpBox.children].forEach((b, i) => b.classList.toggle("on", i === wi));
+}
+function resetAll() {
+  ST.t = 0; ST.catX = 330; ST.camX = 0; ST.ended = false; ST.endT = 0;
+  ST.paused = false; ST.eraCard = { idx: 0, t: 2.6 }; lastTs = null;
+  syncJumps();
+}
+/* 轻量 BGM:五声音阶随机拨弦,每个时代换一个根音(WebAudio,无外部文件) */
+let AC = null, bgmTimer = null;
+function tone(f0, f1, dur, type, vol) {
+  if (ST.muted) return;
+  try {
+    if (!AC) AC = new (window.AudioContext || window.webkitAudioContext)();
+    const t0 = AC.currentTime, o = AC.createOscillator(), g = AC.createGain();
+    o.type = type; o.frequency.setValueAtTime(f0, t0);
+    o.frequency.exponentialRampToValueAtTime(Math.max(1, f1), t0 + dur);
+    g.gain.setValueAtTime(vol, t0); g.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
+    o.connect(g).connect(AC.destination); o.start(t0); o.stop(t0 + dur);
+  } catch (e) {}
+}
+const SCALES = [
+  [220, 262, 294, 330, 392],     // 岩洞:古朴
+  [233, 277, 311, 349, 415],     // 埃及:增二
+  [262, 294, 330, 392, 440],     // 浮世绘:都节
+  [262, 311, 349, 392, 466],     // 莫奈:小调
+  [247, 277, 330, 370, 415],     // 梵高
+  [262, 330, 392, 523, 659],     // 克里姆特:琶音
+  [262, 294, 330, 349, 392],     // 包豪斯
+  [262, 330, 392, 523, 659],     // 8-bit
+  [220, 277, 330, 440, 554],     // 蒸汽波
+  [294, 330, 370, 440, 494],     // 新海诚
+];
+function sfxEra(i) { tone(SCALES[i % 10][0], SCALES[i % 10][0] * 1.01, 0.3, "triangle", 0.12); }
+setInterval(() => {                                        // 每 640ms 拨一个音
+  if (ST.paused || ST.ended || ST.muted) return;
+  const sc = SCALES[worldIdxAt(ST.catX) % 10];
+  const n = sc[Math.floor(Math.random() * sc.length)] * (Math.random() < 0.3 ? 2 : 1);
+  tone(n, n, 0.9, "triangle", 0.05);
+}, 640);
+
+resetAll();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
