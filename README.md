@@ -113,4 +113,9 @@ Nikki/
 
 ---
 
+## 🔖 复盘与升级计划
+
+对当前产出效果不满意的部分、全部第三方引用、已知短板与升级路线,已固化在
+**[docs/RETROSPECTIVE.md](docs/RETROSPECTIVE.md)** —— 等模型能力升级后按它逐项复盘重做。
+
 ✍ **Easin** · [GitHub](https://github.com/bayshier)
