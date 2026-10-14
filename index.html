@@ -297,6 +297,37 @@
       <span class="play">▶ 观赏</span>
     </a>
 
+    <a class="card" href="games/2048.html">
+      <div class="icon">🐾</div>
+      <h2>猫咪 2048</h2>
+      <p>滑动合并同款猫咪 tile<br>从 🐱 一路合出 👑 试试看!</p>
+      <div class="best" id="best-2048">⭐ 加载中…</div><br>
+      <span class="play">▶ 开始</span>
+    </a>
+
+    <a class="card" href="games/breakout.html">
+      <div class="icon">🧶</div>
+      <h2>猫咪打砖块</h2>
+      <p>猫爪板弹毛线球砸鱼干砖<br>3 条命 · 无限关 · 手感一流</p>
+      <div class="best" id="best-breakout">⭐ 加载中…</div><br>
+      <span class="play">▶ 开始</span>
+    </a>
+
+    <a class="card" href="games/tetris.html">
+      <div class="icon">🐱</div>
+      <h2>猫咪俄罗斯方块</h2>
+      <p>粉彩方块 · 7-bag · 踢墙旋转<br>消四行 800 分 · 手机也有按键</p>
+      <div class="best" id="best-tetris">⭐ 加载中…</div><br>
+      <span class="play">▶ 开始</span>
+    </a>
+
+    <a class="card" href="https://github.com/bayshier/open-source-games-zh" target="_blank" rel="noopener">
+      <div class="icon">🕹️</div>
+      <h2>更多开源游戏</h2>
+      <p>250+ 开源游戏中文清单<br>动作 · 益智 · Roguelike · 塔防 · 外链清单</p>
+      <span class="play">📖 去逛逛</span>
+    </a>
+
     <a class="card" href="dex.html">
       <div class="icon">📖</div>
       <h2>猫咪图鉴</h2>
@@ -363,7 +394,15 @@ document.getElementById("best-shmup").textContent = shmup ? `🏆 最高 ${shmup
 // 猫猫高尔夫:杆数越少越好
 const golf = get("nikki_golf_best", 0);
 document.getElementById("best-golf").textContent = golf ? `🏆 最少 ${golf} 杆` : "⭐ 尚无纪录";
-
+// 猫咪 2048
+const g2048 = get("nikki_2048_best", 0);
+document.getElementById("best-2048").textContent = g2048 ? `🏆 最高 ${g2048} 分` : "⭐ 尚无纪录";
+// 猫咪打砖块
+const breakout = get("nikki_breakout_best", 0);
+document.getElementById("best-breakout").textContent = breakout ? `🏆 最高 ${breakout} 分` : "⭐ 尚无纪录";
+// 猫咪俄罗斯方块
+const tetris = get("nikki_tetris_best", 0);
+document.getElementById("best-tetris").textContent = tetris ? `🏆 最高 ${tetris} 分` : "⭐ 尚无纪录";
 </script>
 </body>
 </html>

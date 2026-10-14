@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>🐱 猫咪 2048 · Nikki 游戏合集</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='0.9em' font-size='90'%3E%F0%9F%8E%80%3C/text%3E%3C/svg%3E">
+<style>
+  :root { --hk-pink: #ff9ec4; --hk-deep: #ff6b9d; --hk-red: #e94560; --hk-muted: #c98ba0; }
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; touch-action: manipulation; }
+  body {
+    font-family: "Nunito", -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    color: #8b4a5e;
+    background: linear-gradient(135deg, #ffd6e8 0%, #ffeef4 40%, #fff9fb 100%) fixed;
+    min-height: 100dvh;
+    display: flex; flex-direction: column; align-items: center;
+    padding: 14px;
+  }
+  .top { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; justify-content: center; }
+  .hud {
+    background: rgba(255,255,255,0.9); border: 2px solid rgba(255,158,196,0.5);
+    border-radius: 14px; padding: 5px 16px; text-align: center;
+    box-shadow: 0 3px 0 -1px #f3b7cc;
+  }
+  .hud .l { font-size: 10px; color: var(--hk-muted); font-weight: 800; }
+  .hud .v { font-size: 18px; font-weight: 800; color: var(--hk-deep); }
+  .home {
+    text-decoration: none; font-size: 13px; font-weight: 800; color: var(--hk-deep);
+    background: #fff; border: 2px solid rgba(255,158,196,0.5); border-radius: 12px; padding: 8px 14px;
+    box-shadow: 0 3px 0 -1px #f3b7cc;
+  }
+  .rebtn {
+    border: none; cursor: pointer; font-family: inherit;
+    font-size: 13px; font-weight: 800; color: #fff;
+    background: linear-gradient(135deg, var(--hk-deep), var(--hk-pink));
+    border-radius: 12px; padding: 8px 14px;
+    box-shadow: 0 3px 0 -1px #d15683;
+  }
+  .rebtn:active { transform: translateY(2px); box-shadow: none; }
+  /* 4×4 棋盘 */
+  .board {
+    position: relative;
+    width: 100%; max-width: 420px; aspect-ratio: 1;
+    background: rgba(255,255,255,0.9);
+    border: 4px solid rgba(255,158,196,0.6);
+    border-radius: 20px;
+    box-shadow: 0 8px 0 -2px #f3b7cc, 0 18px 30px rgba(255,158,196,0.35);
+    padding: 10px;
+    touch-action: none;
+  }
+  .bg { position: absolute; inset: 10px; display: grid; grid-template-columns: repeat(4, 1fr); grid-template-rows: repeat(4, 1fr); gap: 10px; }
+  .bg .cell { background: #ffe9f2; border-radius: 12px; }
+  .tiles { position: absolute; inset: 10px; }
+  .tile {
+    position: absolute;
+    width: calc((100% - 30px) / 4); height: calc((100% - 30px) / 4);
+    left: calc((100% + 10px) * var(--c) / 4);
+    top: calc((100% + 10px) * var(--r) / 4);
+    transition: left 0.13s ease-in-out, top 0.13s ease-in-out;
+    z-index: 2;
+  }
+  .inner {
+    width: 100%; height: 100%;
+    border-radius: 12px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
+    font-size: 26px; line-height: 1;
+  }
+  .inner span { font-size: 11px; font-weight: 800; line-height: 1; }
+  @media (max-width: 380px) { .inner { font-size: 22px; } .inner span { font-size: 10px; } }
+  /* 新 tile 弹出 */
+  .inner.new { animation: spawn 0.18s cubic-bezier(.34,1.56,.64,1); }
+  @keyframes spawn { from { transform: scale(0); } }
+  /* 合并弹跳 */
+  .inner.merged { animation: mergePop 0.22s cubic-bezier(.34,1.56,.64,1); }
+  @keyframes mergePop { 0% { transform: scale(0.4); } 60% { transform: scale(1.18); } 100% { transform: scale(1); } }
+  /* 等级底色:粉色随等级加深,2048 变金色 */
+  .t2    { background: #fff3f8; color: #b06a85; box-shadow: 0 3px 0 -1px #f3d3e0; }
+  .t4    { background: #ffe4f0; color: #a85580; box-shadow: 0 3px 0 -1px #f3b7cc; }
+  .t8    { background: #ffc9e0; color: #9c3f6e; box-shadow: 0 3px 0 -1px #eb9dbd; }
+  .t16   { background: #ffabc9; color: #fff;     box-shadow: 0 3px 0 -1px #d97f9f; }
+  .t32   { background: #ff87b1; color: #fff;     box-shadow: 0 3px 0 -1px #d15f8c; }
+  .t64   { background: #ff5f99; color: #fff;     box-shadow: 0 3px 0 -1px #d13f7a; }
+  .t128  { background: #f4488a; color: #fff;     box-shadow: 0 3px 0 -1px #c03368; }
+  .t256  { background: var(--hk-red); color: #fff; box-shadow: 0 3px 0 -1px #b32e46; }
+  .t512  { background: #d92b6b; color: #fff;     box-shadow: 0 3px 0 -1px #a81d4f; }
+  .t1024 { background: #b81e58; color: #fff;     box-shadow: 0 3px 0 -1px #8a1541; }
+  .t2048 { background: linear-gradient(135deg, #ffd56b, #ffb13d); color: #8a5a00;
+           box-shadow: 0 3px 0 -1px #d19a2f, 0 0 18px rgba(255,213,107,0.8); }
+  .tsuper { background: #a3123f; color: #ffd56b; box-shadow: 0 3px 0 -1px #7a0d30, 0 0 14px rgba(255,107,157,0.7); }
+  .tip { margin-top: 12px; font-size: 12px; font-weight: 800; color: var(--hk-muted); text-align: center; line-height: 1.7; }
+  /* 弹窗 */
+  .overlay {
+    position: fixed; inset: 0; z-index: 50;
+    background: rgba(255,158,196,0.4); backdrop-filter: blur(6px);
+    display: none; align-items: center; justify-content: center;
+  }
+  .overlay.show { display: flex; }
+  .modal {
+    background: linear-gradient(160deg, #fff5f8, #fff);
+    border: 3px solid rgba(255,158,196,0.6);
+    border-radius: 24px; padding: 30px 36px; text-align: center;
+    box-shadow: 0 16px 40px rgba(255,107,157,0.35);
+    animation: pop 0.4s cubic-bezier(.34,1.56,.64,1);
+  }
+  @keyframes pop { from { transform: scale(0.7); } }
+  .modal .e { font-size: 52px; }
+  .modal h2 { color: var(--hk-deep); margin: 6px 0; }
+  .modal p { color: var(--hk-muted); font-size: 14px; margin-bottom: 16px; }
+  .btn {
+    border: none; cursor: pointer; font-family: inherit;
+    font-size: 14px; font-weight: 800; color: #fff;
+    background: linear-gradient(135deg, var(--hk-deep), var(--hk-pink));
+    padding: 10px 26px; border-radius: 99px; margin: 0 5px;
+    box-shadow: 0 4px 0 -1px #d15683;
+  }
+  .btn.sec { background: #fff; color: var(--hk-deep); border: 2px solid var(--hk-pink); box-shadow: 0 3px 0 -1px #f3b7cc; text-decoration: none; display: inline-block; }
+</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Nunito:wght@400;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="top">
+    <a class="home" href="../index.html">🏠 大厅</a>
+    <div class="hud"><div class="l">分数</div><div class="v" id="hud-score">0</div></div>
+    <div class="hud"><div class="l">最佳</div><div class="v" id="hud-best">0</div></div>
+    <button class="rebtn" onclick="restart()">🔄 新游戏</button>
+  </div>
+
+  <div class="board">
+    <div class="bg" id="bg"></div>
+    <div class="tiles" id="tiles"></div>
+  </div>
+  <div class="tip">方向键 / WASD / 滑动屏幕 合并相同的猫咪<br>🐱→🐾→🐟→🥛→🧶→🎈→🏠→🌈→⭐→🏰→👑 合出 2048!</div>
+
+  <div class="overlay" id="over">
+    <div class="modal">
+      <div class="e" id="over-emoji">😿</div>
+      <h2 id="over-title">游戏结束</h2>
+      <p id="over-detail"></p>
+      <button class="btn" id="btn-more" onclick="keepPlay()">▶️ 继续挑战</button>
+      <button class="btn" onclick="restart()">🔄 再来一局</button>
+      <a class="btn sec" href="../index.html">🏠 回大厅</a>
+    </div>
+  </div>
+
+<script src="../shared/common.js"></script>
+<script>
+// ===== 猫咪 2048 =====
+const EMOJI = { 2: "🐱", 4: "🐾", 8: "🐟", 16: "🥛", 32: "🧶", 64: "🎈", 128: "🏠", 256: "🌈", 512: "⭐", 1024: "🏰", 2048: "👑" };
+const tilesLayer = document.getElementById("tiles");
+const tileEls = new Map();                    // tile.id -> DOM 节点(复用以产生滑动动画)
+let grid, score, idSeq, won, dead, locked, settled;
+
+function get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } }
+function set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+
+// 背景格子
+for (let i = 0; i < 16; i++) {
+  const d = document.createElement("div");
+  d.className = "cell";
+  document.getElementById("bg").appendChild(d);
+}
+
+function reset() {
+  grid = Array.from({ length: 4 }, () => Array(4).fill(null));
+  score = 0; idSeq = 0; won = false; dead = false; locked = false; settled = false;
+  tileEls.forEach(el => el.remove()); tileEls.clear();
+  document.getElementById("hud-score").textContent = 0;
+  document.getElementById("over").classList.remove("show");
+  addRandom(); addRandom();
+  render();
+}
+
+function addRandom() {
+  const empty = [];
+  for (let r = 0; r < 4; r++) for (let c = 0; c < 4; c++) if (!grid[r][c]) empty.push([r, c]);
+  if (!empty.length) return;
+  const [r, c] = empty[Math.floor(Math.random() * empty.length)];
+  grid[r][c] = { id: ++idSeq, val: Math.random() < 0.9 ? 2 : 4, fresh: true };
+}
+
+// 沿方向滑动 + 合并;dr/dc 为行列增量(如 上=-1,0)
+function move(dr, dc) {
+  if (locked || dead) return;
+  ensureAudio();
+  let moved = false, gained = 0, topMerge = 0;
+  for (let i = 0; i < 4; i++) {
+    // 一条线上的坐标,按靠方向边的一端在前
+    const coords = [];
+    for (let j = 0; j < 4; j++) {
+      const k = (dc === 1 || dr === 1) ? 3 - j : j;
+      coords.push(dc !== 0 ? [i, k] : [k, i]);
+    }
+    const tiles = coords.map(p => grid[p[0]][p[1]]).filter(Boolean);
+    const out = [];
+    for (let j = 0; j < tiles.length; j++) {
+      if (j + 1 < tiles.length && tiles[j].val === tiles[j + 1].val) {
+        const nt = { id: ++idSeq, val: tiles[j].val * 2, merged: true };
+        gained += nt.val; if (nt.val > topMerge) topMerge = nt.val;
+        out.push(nt); j++;          // 一对只合一次
+      } else out.push(tiles[j]);
+    }
+    for (let j = 0; j < 4; j++) {
+      const [r, c] = coords[j];
+      const nt = out[j] || null;
+      if (grid[r][c] !== nt) moved = true;
+      grid[r][c] = nt;
+    }
+  }
+  if (!moved) return;
+  score += gained;
+  document.getElementById("hud-score").textContent = score;
+  if (gained > 0) mergeBeep(topMerge);
+  addRandom();
+  render();
+  if (!won && maxTile() >= 2048) { won = true; endModal(true); }
+  else if (!canMove()) { dead = true; endModal(false); }
+}
+
+function maxTile() {
+  let m = 0;
+  for (const row of grid) for (const t of row) if (t && t.val > m) m = t.val;
+  return m;
+}
+
+function canMove() {
+  for (let r = 0; r < 4; r++) for (let c = 0; c < 4; c++) {
+    const t = grid[r][c];
+    if (!t) return true;
+    if (c < 3 && grid[r][c + 1] && grid[r][c + 1].val === t.val) return true;
+    if (r < 3 && grid[r + 1][c] && grid[r + 1][c].val === t.val) return true;
+  }
+  return false;
+}
+
+// ===== 渲染:复用节点产生滑动,新/合块加缩放动画 =====
+function render() {
+  const seen = new Set();
+  for (let r = 0; r < 4; r++) for (let c = 0; c < 4; c++) {
+    const t = grid[r][c];
+    if (!t) continue;
+    seen.add(t.id);
+    let el = tileEls.get(t.id);
+    if (!el) {
+      el = document.createElement("div");
+      el.className = "tile";
+      tilesLayer.appendChild(el);
+      tileEls.set(t.id, el);
+    }
+    el.style.setProperty("--r", r);
+    el.style.setProperty("--c", c);
+    el.style.zIndex = (t.merged || t.fresh) ? 3 : 2;
+    const cls = t.val <= 2048 ? "t" + t.val : "tsuper";
+    const html = `<div class="inner ${cls}${t.merged ? " merged" : ""}${t.fresh ? " new" : ""}">${EMOJI[t.val] || "💖"}<span>${t.val}</span></div>`;
+    if (el._h !== html) { el.innerHTML = html; el._h = html; }
+  }
+  tileEls.forEach((el, id) => { if (!seen.has(id)) { el.remove(); tileEls.delete(id); } });
+  for (const row of grid) for (const t of row) if (t) { t.fresh = false; t.merged = false; }
+}
+
+// ===== 结束弹窗(win=合成 2048;一局只结算一次金币/挑战/图鉴) =====
+function endModal(win) {
+  locked = true;
+  if (win) {
+    beep(660, 0.12, "triangle", 0.12);
+    setTimeout(() => beep(830, 0.12, "triangle", 0.12), 130);
+    setTimeout(() => beep(990, 0.18, "triangle", 0.12), 260);
+  } else {
+    beep(300, 0.25, "sawtooth", 0.12);
+  }
+  setTimeout(() => {
+    if (!locked) return;                    // 期间被重开则不再弹
+    const paidBefore = settled;
+    const best = get("nikki_2048_best", 0);
+    let isBest = false;
+    if (score > best) { set("nikki_2048_best", score); isBest = true; document.getElementById("hud-best").textContent = score; }
+    let coins = 0, dailyGain = null, fresh = null;
+    if (!settled) {
+      settled = true;
+      // 💰 金币入账 + 📅 每日挑战 + 🐱 图鉴
+      coins = Math.floor(score / 50);
+      Nikki.Wallet.add(coins);
+      dailyGain = Nikki.Daily.report("2048", { score });
+      fresh = Nikki.Dex.check({ g2048Score: score });
+      Nikki.announce(fresh);
+    }
+    const mv = maxTile();
+    document.getElementById("over-emoji").textContent = win ? "👑" : "😿";
+    document.getElementById("over-title").textContent = win ? "合成 2048!" : "游戏结束";
+    document.getElementById("over-detail").innerHTML =
+      `本局 <b>${score}</b> 分 · 最大猫咪 <b>${EMOJI[mv] || "💖"}${mv}</b> · ` +
+      (paidBefore ? `💰 已在合成 2048 时入账<br>` : `💰 <b>+${coins}</b><br>`) +
+      (dailyGain ? `📅 每日挑战完成!+${dailyGain.reward} 金币<br>` : "") +
+      (isBest ? "🏆 <b>新纪录!</b>" : `最高纪录:${best} 分`);
+    document.getElementById("btn-more").style.display = win ? "inline-block" : "none";
+    document.getElementById("over").classList.add("show");
+  }, win ? 350 : 250);
+}
+
+// 合成 2048 后继续玩
+function keepPlay() {
+  locked = false;
+  document.getElementById("over").classList.remove("show");
+  if (!canMove()) { dead = true; endModal(false); }
+}
+
+function restart() { reset(); }
+
+// ===== 音效(Web Audio 简易) =====
+let ac = null;
+function ensureAudio() { if (!ac) { try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} } if (ac && ac.state === "suspended") ac.resume(); }
+function beep(f, d, t, v) {
+  if (!ac) return;
+  const o = ac.createOscillator(), g = ac.createGain();
+  o.type = t; o.frequency.value = f;
+  g.gain.setValueAtTime(v, ac.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + d);
+  o.connect(g); g.connect(ac.destination);
+  o.start(); o.stop(ac.currentTime + d);
+}
+// 合并:短促上扬双音,块越大音越高
+function mergeBeep(val) {
+  const f = val >= 256 ? 880 : val >= 64 ? 700 : val >= 16 ? 600 : 520;
+  beep(f, 0.06, "triangle", 0.12);
+  setTimeout(() => beep(Math.round(f * 1.5), 0.09, "triangle", 0.12), 55);
+}
+
+// ===== 输入 =====
+function keyHandler(e) {
+  const k = e.key.toLowerCase();
+  const map = { arrowup: [-1, 0], w: [-1, 0], arrowdown: [1, 0], s: [1, 0], arrowleft: [-1, 0], a: [-1, 0], arrowright: [1, 0], d: [1, 0] };
+  if (map[k]) { e.preventDefault(); ensureAudio(); move(map[k][0], map[k][1]); }
+}
+window.addEventListener("keydown", keyHandler);
+document.addEventListener("click", ensureAudio, { once: true });
+// 整页触屏滑动(阻止页面滚动)
+let ts = null;
+document.addEventListener("touchstart", e => { ensureAudio(); ts = e.touches[0]; }, { passive: true });
+document.addEventListener("touchmove", e => e.preventDefault(), { passive: false });
+document.addEventListener("touchend", e => {
+  if (!ts) return;
+  const dx = e.changedTouches[0].clientX - ts.clientX;
+  const dy = e.changedTouches[0].clientY - ts.clientY;
+  ts = null;
+  if (Math.max(Math.abs(dx), Math.abs(dy)) < 24) return;    // 过滤误触
+  if (Math.abs(dx) > Math.abs(dy)) move(0, dx > 0 ? 1 : -1);
+  else move(dy > 0 ? 1 : -1, 0);
+}, { passive: true });
+
+// 启动
+document.getElementById("hud-best").textContent = get("nikki_2048_best", 0);
+reset();
+</script>
+</body>
+</html>

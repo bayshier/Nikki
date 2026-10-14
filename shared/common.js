@@ -38,6 +38,9 @@ const Nikki = (() => {
     { gameId: "td",     game: "猫猫守塔",   desc: "守住 5 波进攻 🏰",    metric: "waves", cmp: "gte", goal: 5,    reward: 100 },
     { gameId: "shmup",  game: "猫猫弹幕",   desc: "单局拿到 1000 分 ✈️", metric: "score", cmp: "gte", goal: 1000, reward: 100 },
     { gameId: "golf",   game: "猫猫高尔夫", desc: "推进 3 个球洞 ⛳",    metric: "holes", cmp: "gte", goal: 3,    reward: 100 },
+    { gameId: "2048",   game: "猫咪 2048",  desc: "单局拿到 2000 分",     metric: "score", cmp: "gte", goal: 2000, reward: 100 },
+    { gameId: "breakout", game: "猫咪打砖块", desc: "单局拿到 300 分",   metric: "score", cmp: "gte", goal: 300, reward: 100 },
+    { gameId: "tetris", game: "猫咪俄罗斯方块", desc: "单局拿到 500 分", metric: "score", cmp: "gte", goal: 500, reward: 100 },
   ];
   function hash(str) { let h = 0; for (const ch of str) h = (h * 31 + ch.charCodeAt(0)) | 0; return Math.abs(h); }
   function dailyInfo() {

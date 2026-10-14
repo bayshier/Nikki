@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>🧶 猫猫俄罗斯方块 · Nikki 游戏合集</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='0.9em' font-size='90'%3E%F0%9F%A7%B6%3C/text%3E%3C/svg%3E">
+<style>
+  :root { --hk-pink: #ff9ec4; --hk-deep: #ff6b9d; --hk-red: #e94560; --hk-muted: #c98ba0; }
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; touch-action: manipulation; }
+  body {
+    font-family: "Nunito", -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    color: #8b4a5e;
+    background: linear-gradient(135deg, #ffd6e8 0%, #ffeef4 40%, #fff9fb 100%) fixed;
+    min-height: 100dvh;
+    display: flex; flex-direction: column; align-items: center;
+    padding: 14px;
+  }
+  .top { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; justify-content: center; }
+  .hud {
+    background: rgba(255,255,255,0.9); border: 2px solid rgba(255,158,196,0.5);
+    border-radius: 14px; padding: 5px 16px; text-align: center;
+    box-shadow: 0 3px 0 -1px #f3b7cc;
+  }
+  .hud .l { font-size: 10px; color: var(--hk-muted); font-weight: 800; }
+  .hud .v { font-size: 18px; font-weight: 800; color: var(--hk-deep); }
+  .home {
+    text-decoration: none; font-size: 13px; font-weight: 800; color: var(--hk-deep);
+    background: #fff; border: 2px solid rgba(255,158,196,0.5); border-radius: 12px; padding: 8px 14px;
+    box-shadow: 0 3px 0 -1px #f3b7cc;
+  }
+  canvas { display: block; touch-action: none; }
+  #cv {
+    border-radius: 20px;
+    border: 4px solid rgba(255,158,196,0.6);
+    box-shadow: 0 8px 0 -2px #f3b7cc, 0 18px 30px rgba(255,158,196,0.35);
+    background: #fff6fa;
+  }
+  #next-cv {
+    width: 52px; height: 52px; margin: 2px auto 0;
+    border-radius: 10px; border: 2px solid rgba(255,158,196,0.5);
+    background: #fff6fa;
+  }
+  .tip { margin-top: 12px; font-size: 12px; font-weight: 800; color: var(--hk-muted); text-align: center; line-height: 1.7; }
+  /* 方向键(移动端) */
+  .pad { margin-top: 14px; display: grid; grid-template-columns: repeat(3, 56px); grid-template-rows: repeat(2, 48px); gap: 8px; }
+  .pad button {
+    border: none; cursor: pointer; font-size: 20px;
+    border-radius: 14px; color: #fff;
+    background: linear-gradient(135deg, var(--hk-deep), var(--hk-pink));
+    box-shadow: 0 4px 0 -1px #d15683;
+  }
+  .pad button:active { transform: translateY(3px); box-shadow: none; }
+  /* 弹窗 */
+  .overlay {
+    position: fixed; inset: 0; z-index: 50;
+    background: rgba(255,158,196,0.4); backdrop-filter: blur(6px);
+    display: none; align-items: center; justify-content: center;
+  }
+  .overlay.show { display: flex; }
+  .modal {
+    background: linear-gradient(160deg, #fff5f8, #fff);
+    border: 3px solid rgba(255,158,196,0.6);
+    border-radius: 24px; padding: 30px 36px; text-align: center;
+    box-shadow: 0 16px 40px rgba(255,107,157,0.35);
+    animation: pop 0.4s cubic-bezier(.34,1.56,.64,1);
+  }
+  @keyframes pop { from { transform: scale(0.7); } }
+  .modal .e { font-size: 52px; }
+  .modal h2 { color: var(--hk-deep); margin: 6px 0; }
+  .modal p { color: var(--hk-muted); font-size: 14px; margin-bottom: 16px; }
+  .btn {
+    border: none; cursor: pointer; font-family: inherit;
+    font-size: 14px; font-weight: 800; color: #fff;
+    background: linear-gradient(135deg, var(--hk-deep), var(--hk-pink));
+    padding: 10px 26px; border-radius: 99px; margin: 0 5px;
+    box-shadow: 0 4px 0 -1px #d15683;
+  }
+  .btn.sec { background: #fff; color: var(--hk-deep); border: 2px solid var(--hk-pink); box-shadow: 0 3px 0 -1px #f3b7cc; text-decoration: none; display: inline-block; }
+</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Nunito:wght@400;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="top">
+    <a class="home" href="../index.html">🏠 大厅</a>
+    <div class="hud"><div class="l">分数</div><div class="v" id="hud-score">0</div></div>
+    <div class="hud"><div class="l">最佳</div><div class="v" id="hud-best">0</div></div>
+    <div class="hud"><div class="l">等级</div><div class="v" id="hud-level">1</div></div>
+    <div class="hud"><div class="l">行数</div><div class="v" id="hud-lines">0</div></div>
+    <div class="hud"><div class="l">下一块</div><canvas id="next-cv" width="64" height="64"></canvas></div>
+  </div>
+
+  <canvas id="cv" width="280" height="560"></canvas>
+  <div class="tip">←→ 移动 · ↑/X 旋转 · ↓ 软降 · 空格 硬降 · P 暂停<br>手机点下方按钮,◀▶▼ 可长按连发</div>
+
+  <div class="pad">
+    <button id="b-left">◀</button>
+    <button id="b-rot">⟳</button>
+    <button id="b-right">▶</button>
+    <button id="b-down">▼</button>
+    <button id="b-drop">⤓</button>
+    <button id="b-pause">⏸</button>
+  </div>
+
+  <div class="overlay" id="over">
+    <div class="modal">
+      <div class="e">😿</div>
+      <h2>游戏结束</h2>
+      <p id="over-detail"></p>
+      <button class="btn" onclick="restart()">🔄 再来一局</button>
+      <a class="btn sec" href="../index.html">🏠 回大厅</a>
+    </div>
+  </div>
+
+<script src="../shared/common.js"></script>
+<script>
+// ===== 猫猫俄罗斯方块 =====
+const cv = document.getElementById("cv"), ctx = cv.getContext("2d");
+const ncv = document.getElementById("next-cv"), nctx = ncv.getContext("2d");
+const COLS = 10, ROWS = 20, CELL = 28, BW = COLS * CELL, BH = ROWS * CELL;
+let board, cur, nextType, bag, score, lines, level, soft, paused, dead;
+let dropAcc = 0, last = 0;
+
+function get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } }
+function set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+
+// ===== 7 种方块:柔和粉彩色系 =====
+const PIECES = {
+  I: { c: "#9ed4f2", m: [[0,0,0,0],[1,1,1,1],[0,0,0,0],[0,0,0,0]] },   // 淡雾蓝
+  O: { c: "#ffd56b", m: [[1,1],[1,1]] },                                // 奶油黄
+  T: { c: "#c9a6f2", m: [[0,1,0],[1,1,1],[0,0,0]] },                    // 香芋紫
+  S: { c: "#a9e5b5", m: [[0,1,1],[1,1,0],[0,0,0]] },                    // 抹茶绿
+  Z: { c: "#ff8fa8", m: [[1,1,0],[0,1,1],[0,0,0]] },                    // 珊瑚粉
+  J: { c: "#a3b8f7", m: [[1,0,0],[1,1,1],[0,0,0]] },                    // 婴儿蓝
+  L: { c: "#ffb37d", m: [[0,0,1],[1,1,1],[0,0,0]] },                    // 蜜桃橙
+};
+
+// ===== 7-bag 随机:每 7 个洗成一组,保证出块分布均匀 =====
+function drawFromBag() {
+  if (!bag.length) {
+    bag = Object.keys(PIECES);
+    for (let i = bag.length - 1; i > 0; i--) {
+      const j = (Math.random() * (i + 1)) | 0;
+      [bag[i], bag[j]] = [bag[j], bag[i]];
+    }
+  }
+  return bag.pop();
+}
+
+// ===== 纯逻辑:旋转矩阵 / 碰撞 / 消行 =====
+function rotateMat(m) {
+  const n = m.length, r = Array.from({ length: n }, () => Array(n).fill(0));
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) r[x][n - 1 - y] = m[y][x];
+  return r;
+}
+function collide(bd, px, py, m) {
+  for (let y = 0; y < m.length; y++) for (let x = 0; x < m.length; x++) {
+    if (!m[y][x]) continue;
+    const bx = px + x, by = py + y;
+    if (bx < 0 || bx >= COLS || by >= ROWS) return true;   // 撞墙 / 出底
+    if (by >= 0 && bd[by][bx]) return true;                // 撞已堆方块
+  }
+  return false;
+}
+function clearLines(bd) {
+  let n = 0;
+  for (let y = ROWS - 1; y >= 0; y--) {
+    if (bd[y].every(v => v)) { bd.splice(y, 1); bd.unshift(Array(COLS).fill(0)); n++; y++; }
+  }
+  return n;
+}
+
+// ===== 节奏:每 10 行升一级,下落加速 =====
+function dropInterval() { return Math.max(80, Math.round(800 * Math.pow(0.8, level - 1))); }
+
+function reset() {
+  board = Array.from({ length: ROWS }, () => Array(COLS).fill(0));
+  bag = []; nextType = drawFromBag();
+  score = 0; lines = 0; level = 1; soft = false; paused = false; dead = false; cur = null;
+  dropAcc = 0;
+  updateHud();
+  document.getElementById("over").classList.remove("show");
+  spawn();
+}
+
+function spawn() {
+  cur = { t: nextType, m: PIECES[nextType].m.map(r => r.slice()), x: 0, y: 0 };
+  nextType = drawFromBag();
+  cur.x = Math.floor((COLS - cur.m.length) / 2);
+  drawNext();
+  if (collide(board, cur.x, cur.y, cur.m)) return gameOver();   // 堆到顶部:结束
+  dropAcc = 0;
+}
+
+function move(dx) {
+  if (dead || paused || !cur) return;
+  if (!collide(board, cur.x + dx, cur.y, cur.m)) { cur.x += dx; beep(520, 0.03, "square", 0.03); }
+}
+
+// 简化 SRS:顺时针旋转,踢墙尝试偏移 0 / -1 / +1
+function rotate() {
+  if (dead || paused || !cur) return;
+  const r = rotateMat(cur.m);
+  for (const k of [0, -1, 1]) {
+    if (!collide(board, cur.x + k, cur.y, r)) { cur.m = r; cur.x += k; beep(760, 0.05, "triangle", 0.05); return; }
+  }
+}
+
+function stepDown(bySoft) {
+  if (dead || paused || !cur) return false;
+  if (!collide(board, cur.x, cur.y + 1, cur.m)) {
+    cur.y++;
+    if (bySoft) { score += 1; updateHud(); }   // 软降 +1 分/格
+    return true;
+  }
+  lock();
+  return false;
+}
+
+function hardDrop() {
+  if (dead || paused || !cur) return;
+  let n = 0;
+  while (!collide(board, cur.x, cur.y + 1, cur.m)) { cur.y++; n++; }
+  score += n * 2;                              // 硬降 +2 分/格
+  updateHud();
+  beep(300, 0.07, "square", 0.07);
+  lock();
+}
+
+function lock() {
+  const c = PIECES[cur.t].c;
+  cur.m.forEach((row, y) => row.forEach((v, x) => {
+    if (v && cur.y + y >= 0) board[cur.y + y][cur.x + x] = c;
+  }));
+  beep(220, 0.05, "square", 0.05);
+  const n = clearLines(board);
+  if (n) {
+    score += [0, 100, 300, 500, 800][n] * level;   // 消行 100/300/500/800 ×等级
+    lines += n;
+    clearBeep(n);                                   // 消行音效上扬
+    const lv = Math.floor(lines / 10) + 1;
+    if (lv > level) { level = lv; setTimeout(() => beep(1240, 0.18, "triangle", 0.1), 260); }
+    updateHud();
+  }
+  spawn();
+}
+
+function togglePause() {
+  if (dead) return;
+  paused = !paused;
+  beep(paused ? 380 : 620, 0.08, "triangle", 0.06);
+}
+
+function updateHud() {
+  document.getElementById("hud-score").textContent = score;
+  document.getElementById("hud-level").textContent = level;
+  document.getElementById("hud-lines").textContent = lines;
+}
+
+function gameOver() {
+  dead = true;
+  beep(300, 0.25, "sawtooth", 0.12);
+  const best = get("nikki_tetris_best", 0);
+  let isBest = false;
+  if (score > best) { set("nikki_tetris_best", score); isBest = true; document.getElementById("hud-best").textContent = score; }
+  // 💰 金币入账 + 📅 每日挑战 + 🐱 图鉴
+  const coins = Math.floor(score / 20);
+  Nikki.Wallet.add(coins);
+  const dailyGain = Nikki.Daily.report("tetris", { score });
+  const fresh = Nikki.Dex.check({ tetrisScore: score });
+  Nikki.announce(fresh);
+  document.getElementById("over-detail").innerHTML =
+    `本局 <b>${score}</b> 分 · 消除 <b>${lines}</b> 行 · 等级 <b>${level}</b> · 💰 <b>+${coins}</b><br>` +
+    (dailyGain ? `📅 每日挑战完成!+${dailyGain.reward} 金币<br>` : "") +
+    (isBest ? "🏆 <b>新纪录!</b>" : `最高纪录:${best} 分`);
+  document.getElementById("over").classList.add("show");
+}
+
+// ===== 绘制 =====
+function block(g, px, py, size, color, r) {
+  g.fillStyle = color;
+  g.beginPath();
+  g.roundRect(px + 1, py + 1, size - 2, size - 2, r);
+  g.fill();
+  g.fillStyle = "rgba(255,255,255,0.4)";   // 顶部高光,奶油质感
+  g.beginPath();
+  g.roundRect(px + 4, py + 4, size - 8, Math.max(3, (size - 8) / 3), Math.max(1, r - 2));
+  g.fill();
+}
+function eachCell(p, fn) {
+  p.m.forEach((row, y) => row.forEach((v, x) => { if (v) fn((p.x + x) * CELL, (p.y + y) * CELL); }));
+}
+
+function draw() {
+  // 背景 + 网格
+  ctx.fillStyle = "#fff6fa";
+  ctx.fillRect(0, 0, BW, BH);
+  ctx.strokeStyle = "rgba(255,158,196,0.15)";
+  for (let x = 1; x < COLS; x++) { ctx.beginPath(); ctx.moveTo(x * CELL, 0); ctx.lineTo(x * CELL, BH); ctx.stroke(); }
+  for (let y = 1; y < ROWS; y++) { ctx.beginPath(); ctx.moveTo(0, y * CELL); ctx.lineTo(BW, y * CELL); ctx.stroke(); }
+  // 已堆叠
+  board.forEach((row, y) => row.forEach((v, x) => { if (v) block(ctx, x * CELL, y * CELL, CELL, v, 7); }));
+  // 当前方块 + 落点投影
+  if (cur && !dead) {
+    let gy = cur.y;
+    while (!collide(board, cur.x, gy + 1, cur.m)) gy++;
+    if (gy > cur.y) {
+      const dy = (gy - cur.y) * CELL;
+      ctx.globalAlpha = 0.22;
+      eachCell(cur, (px, py) => block(ctx, px, py + dy, CELL, PIECES[cur.t].c, 7));
+      ctx.globalAlpha = 1;
+    }
+    eachCell(cur, (px, py) => block(ctx, px, py, CELL, PIECES[cur.t].c, 7));
+  }
+  // 暂停遮罩
+  if (paused) {
+    ctx.fillStyle = "rgba(255,240,248,0.75)";
+    ctx.fillRect(0, 0, BW, BH);
+    ctx.fillStyle = "#ff6b9d";
+    ctx.font = "bold 26px Nunito, sans-serif";
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText("⏸ 暂停中", BW / 2, BH / 2);
+  }
+}
+
+function drawNext() {
+  nctx.clearRect(0, 0, 64, 64);
+  const m = PIECES[nextType].m, s = 14, c = PIECES[nextType].c;
+  let minX = 9, minY = 9, maxX = -1, maxY = -1;
+  m.forEach((row, y) => row.forEach((v, x) => {
+    if (v) { if (x < minX) minX = x; if (x > maxX) maxX = x; if (y < minY) minY = y; if (y > maxY) maxY = y; }
+  }));
+  const ox = (64 - (maxX - minX + 1) * s) / 2 - minX * s;
+  const oy = (64 - (maxY - minY + 1) * s) / 2 - minY * s;
+  m.forEach((row, y) => row.forEach((v, x) => { if (v) block(nctx, ox + x * s, oy + y * s, s, c, 4); }));
+}
+
+// ===== 音效(Web Audio 简易) =====
+let ac = null;
+function ensureAudio() { if (!ac) { try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} } if (ac && ac.state === "suspended") ac.resume(); }
+function beep(f, d, t, v) {
+  if (!ac) return;
+  const o = ac.createOscillator(), g = ac.createGain();
+  o.type = t; o.frequency.value = f;
+  g.gain.setValueAtTime(v, ac.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + d);
+  o.connect(g); g.connect(ac.destination);
+  o.start(); o.stop(ac.currentTime + d);
+}
+// 消行音效:随行数上扬的小音阶
+function clearBeep(n) {
+  const base = [0, 520, 640, 760, 880][n] || 520;
+  for (let i = 0; i <= n; i++) setTimeout(() => beep(base + i * 170, 0.1, "triangle", 0.1), i * 60);
+}
+
+// ===== 主循环:60Hz 累加器,按等级节奏下落 =====
+function frame(t) {
+  if (!last) last = t;
+  const dt = Math.min(100, t - last);
+  last = t;
+  if (!paused && !dead && cur) {
+    dropAcc += dt;
+    const iv = soft ? 45 : dropInterval();
+    while (dropAcc >= iv) {
+      dropAcc -= iv;
+      if (!stepDown(soft)) break;   // 落块锁定后 spawn 已重置计时
+    }
+  }
+  draw();
+  requestAnimationFrame(frame);
+}
+
+// ===== 输入:键盘 =====
+function keyHandler(e) {
+  ensureAudio();
+  const k = e.key.toLowerCase();
+  if (["arrowleft", "arrowright", "arrowdown", "arrowup", " "].indexOf(k) >= 0) e.preventDefault();
+  if (k === "p") return togglePause();
+  if (dead || paused) return;
+  if (k === "arrowleft") move(-1);
+  else if (k === "arrowright") move(1);
+  else if (k === "arrowup" || k === "x") { if (!e.repeat) rotate(); }
+  else if (k === "arrowdown") { soft = true; if (!e.repeat) { dropAcc = 0; stepDown(true); } }
+  else if (k === " ") { if (!e.repeat) hardDrop(); }
+}
+function keyUpHandler(e) { if (e.key.toLowerCase() === "arrowdown") soft = false; }
+window.addEventListener("keydown", keyHandler);
+window.addEventListener("keyup", keyUpHandler);
+document.addEventListener("click", ensureAudio, { once: true });
+
+// ===== 输入:移动端按钮(◀▶▼ 支持长按连发) =====
+function bindHold(id, fn) {
+  const el = document.getElementById(id);
+  let iv = null;
+  const stop = () => { if (iv) { clearInterval(iv); iv = null; } };
+  el.addEventListener("pointerdown", e => {
+    e.preventDefault(); ensureAudio();
+    if (dead || paused) return;
+    fn();
+    iv = setInterval(() => { if (dead || paused) return stop(); fn(); }, 110);
+  });
+  ["pointerup", "pointerleave", "pointercancel"].forEach(ev => el.addEventListener(ev, stop));
+}
+bindHold("b-left", () => move(-1));
+bindHold("b-right", () => move(1));
+bindHold("b-down", () => { dropAcc = 0; stepDown(true); });
+document.getElementById("b-rot").addEventListener("click", () => { ensureAudio(); rotate(); });
+document.getElementById("b-drop").addEventListener("click", () => { ensureAudio(); hardDrop(); });
+document.getElementById("b-pause").addEventListener("click", () => { ensureAudio(); togglePause(); });
+
+function restart() { reset(); }
+
+// 启动
+document.getElementById("hud-best").textContent = get("nikki_tetris_best", 0);
+reset();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
