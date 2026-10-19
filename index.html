@@ -289,6 +289,14 @@
       <span class="play">▶ 开始</span>
     </a>
 
+    <a class="card" href="games/golf3d.html">
+      <div class="icon">🏌️</div>
+      <h2>猫猫高尔夫 3D</h2>
+      <p>three.js 首次上车!<br>同款 9 洞 3D 化 · 镜头跟瞄 · 方块猫观众</p>
+      <div class="best" id="best-golf3d">⭐ 加载中…</div><br>
+      <span class="play">▶ 开始</span>
+    </a>
+
     <a class="card" href="art.html">
       <div class="icon">🎨</div>
       <h2>陈皮穿越艺术史</h2>
@@ -394,6 +402,9 @@ document.getElementById("best-shmup").textContent = shmup ? `🏆 最高 ${shmup
 // 猫猫高尔夫:杆数越少越好
 const golf = get("nikki_golf_best", 0);
 document.getElementById("best-golf").textContent = golf ? `🏆 最少 ${golf} 杆` : "⭐ 尚无纪录";
+// 猫猫高尔夫 3D:杆数越少越好
+const golf3d = get("nikki_golf3d_best", 0);
+document.getElementById("best-golf3d").textContent = golf3d ? `🏆 最少 ${golf3d} 杆` : "⭐ 尚无纪录";
 // 猫咪 2048
 const g2048 = get("nikki_2048_best", 0);
 document.getElementById("best-2048").textContent = g2048 ? `🏆 最高 ${g2048} 分` : "⭐ 尚无纪录";
