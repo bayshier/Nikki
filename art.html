@@ -47,6 +47,37 @@
   #ctrl { margin-top: 8px; display: flex; gap: 8px; }
   .home { margin-top: 12px; font-size: 13px; }
   a { color: #ffd76e; font-weight: 700; text-decoration: none; }
+  /* ═══ 3D 展馆覆盖层 ═══ */
+  #gal { position: fixed; inset: 0; z-index: 99; background: #17112a; display: none; }
+  #gal.on { display: block; }
+  #gal-cv { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; }
+  #gal-top {
+    position: absolute; top: 14px; left: 0; right: 0;
+    display: flex; align-items: center; justify-content: center; gap: 14px; pointer-events: none;
+  }
+  #gal-top b {
+    font-family: "Songti SC","Noto Serif SC","STSong",serif;
+    font-size: 17px; color: #ffd76e; letter-spacing: 2px;
+    text-shadow: 0 2px 8px rgba(0,0,0,.6);
+  }
+  #gal-exit {
+    pointer-events: auto; position: absolute; right: 14px; top: 8px;
+    border: 1px solid #5a4a7a; background: rgba(255,255,255,.08); color: #d8cdef;
+    border-radius: 999px; padding: 6px 16px; font-size: 13px; cursor: pointer; font-family: inherit;
+  }
+  #gal-exit:hover { border-color: #ffd76e; }
+  #gal-info {
+    position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(8px);
+    max-width: 92%; text-align: center; pointer-events: none;
+    font-family: "Songti SC","Noto Serif SC","STSong",serif;
+    opacity: 0; transition: opacity .35s, transform .35s;
+  }
+  #gal-info.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  #gal-info .era { font-size: 17px; color: #ffd76e; text-shadow: 0 2px 8px rgba(0,0,0,.7); }
+  #gal-info .note { font-size: 12.5px; color: #d8cdef; margin-top: 3px; }
+  #gal-hint {
+    position: absolute; bottom: 20px; right: 16px; font-size: 11px; color: #8a7ab0; pointer-events: none;
+  }
 </style>
 </head>
 <body>
@@ -62,15 +93,25 @@
   <button id="btn-mute">🔊 声音</button>
   <button id="btn-photo">📷 拍下来</button>
   <button id="btn-restart">↺ 从头看</button>
+  <button id="btn-gallery">🏛️ 3D 展馆</button>
 </div>
 <div id="tip">🐾 陈皮要走 10 个时代,画风随它一起变 —— 注意看每个世界里"活着"的元素</div>
 <div class="home"><a href="index.html">🏠 回游戏合集</a></div>
+
+<div id="gal">
+  <canvas id="gal-cv"></canvas>
+  <div id="gal-top"><b>🏛️ 陈皮艺术史 · 3D 展馆</b></div>
+  <button id="gal-exit">✕ 回到长卷</button>
+  <div id="gal-info"><div class="era"></div><div class="note"></div></div>
+  <div id="gal-hint">拖动环视 · 点画走近看 · 画是活的</div>
+</div>
 
 <script>
 /* ═══════════════════════════════════════════════════════════════
    〇、总开关、画布、胶片颗粒贴图
    ═══════════════════════════════════════════════════════════════ */
-const CV = document.getElementById("cv"), CTX = CV.getContext("2d");
+const CV = document.getElementById("cv");
+let CTX = CV.getContext("2d");                             // let:3D 展馆截画时临时换到离屏画布
 const W = CV.width, H = CV.height, GY = 466;
 const WORLD_W = 1400;
 const SERIF = '"Songti SC","Noto Serif SC","STSong",serif';   // 字卡衬线体,更有"作品感"
@@ -1163,7 +1204,7 @@ function frame(ts) {
   } else if (ST.ended) {
     ST.endT += dt;
   }
-  render();
+  if (!ST.gallery) render();                               // 3D 展馆开着时长卷暂停重绘
   requestAnimationFrame(frame);
 }
 /* 点画面:暂停/继续;结束后重看 */
@@ -1253,6 +1294,236 @@ setInterval(() => {
 
 resetAll();
 requestAnimationFrame(frame);
+</script>
+
+<script type="importmap">
+{ "imports": { "three": "./vendor/three/three.module.min.js" } }
+</script>
+<script type="module">
+/* ═══════════════════════════════════════════════════════════════
+   🏛️ 3D 展馆 · 把长卷十个时代"装裱"进美术馆
+   截画原理:临时把全局 CTX 换到离屏画布,直接调 WORLDS[i].sky/draw,
+   画出来的就是活的(定时重截,画里的元素持续动画)
+   参观:镜头沿展厅自动慢行,拖动环视,点画走近看
+   ═══════════════════════════════════════════════════════════════ */
+import * as THREE from "three";
+import { initRenderer } from "./shared/three-kit.js";
+
+/* ---------- 截画流水线 ---------- */
+const shotCv = document.createElement("canvas");
+shotCv.width = W; shotCv.height = H;
+const shotCtx = shotCv.getContext("2d");
+const texW = 512, texH = 288;
+const texCv = document.createElement("canvas");
+texCv.width = texW; texCv.height = texH;
+const texCtx = texCv.getContext("2d");
+function captureWorld(i, t) {
+  const old = CTX;
+  try {
+    CTX = shotCtx;
+    WORLDS[i].sky(-220);
+    WORLDS[i].draw(-220, t);
+    vignette(); grain(t);
+  } finally { CTX = old; }
+  texCtx.drawImage(shotCv, 0, 0, texW, texH);
+}
+
+/* ---------- 场景常量 ---------- */
+const HALL_X = 13, PW = 11, PH = 6.2, PY = 4.6;         // 半宽 / 画宽高 / 画心高
+const PAIR_Z = [16, 2, -12, -26, -40];                  // 五对画位
+let renderer, scene, camera, paintMeshes = [], paintTex = [], raf = 0;
+let glideZ = 27, glideDir = -1, yawOff = 0, pitchOff = 0, focusIdx = -1, liveT = 0, liveIdx = 0;
+
+const galEl = document.getElementById("gal");
+const infoEl = document.getElementById("gal-info");
+
+function plaqueTex(txt) {
+  const c = document.createElement("canvas"); c.width = 256; c.height = 64;
+  const g = c.getContext("2d");
+  g.fillStyle = "rgba(16,10,26,.85)"; g.fillRect(0, 0, 256, 64);
+  g.strokeStyle = "rgba(255,215,110,.5)"; g.strokeRect(3, 3, 250, 58);
+  g.fillStyle = "#ffd76e"; g.font = '600 22px "Songti SC","Noto Serif SC",serif';
+  g.textAlign = "center"; g.textBaseline = "middle";
+  g.fillText(txt, 128, 34);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
+function buildGallery() {
+  renderer = initRenderer(document.getElementById("gal-cv"), { shadows: false, exposure: 1.0 });
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x17112a);
+  scene.fog = new THREE.Fog(0x17112a, 30, 85);
+  camera = new THREE.PerspectiveCamera(58, 1, 0.1, 200);
+  camera.position.set(0, 4.2, 27);
+
+  scene.add(new THREE.HemisphereLight(0x9a8ac0, 0x241d3e, 0.55));
+  const key = new THREE.DirectionalLight(0xfff2dd, 0.7);
+  key.position.set(0, 18, -6);
+  scene.add(key);
+  PAIR_Z.forEach(z => {                                   // 每对画一盏暖射灯
+    const p = new THREE.PointLight(0xffe0b0, 46, 30, 2);
+    p.position.set(0, 8.4, z);
+    scene.add(p);
+  });
+
+  const wallMat = new THREE.MeshStandardMaterial({ color: 0x2c2148, roughness: 0.95 });
+  const floorMat = new THREE.MeshStandardMaterial({ color: 0x3a2c44, roughness: 0.8 });
+  const frameMat = new THREE.MeshStandardMaterial({ color: 0xc9a227, roughness: 0.45, metalness: 0.55 });
+  [-HALL_X, HALL_X].forEach(x => {
+    const w = new THREE.Mesh(new THREE.BoxGeometry(0.6, 11, 96), wallMat);
+    w.position.set(x, 5.5, -12);
+    scene.add(w);
+  });
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(2 * HALL_X, 110), floorMat);
+  floor.rotation.x = -Math.PI / 2; floor.position.set(0, 0, -14);
+  scene.add(floor);
+  const ceil = new THREE.Mesh(new THREE.BoxGeometry(2 * HALL_X, 0.5, 96), wallMat);
+  ceil.position.set(0, 11.2, -12);
+  scene.add(ceil);
+  const carpet = new THREE.Mesh(new THREE.PlaneGeometry(3.6, 96),
+    new THREE.MeshStandardMaterial({ color: 0x5a2a3a, roughness: 1 }));
+  carpet.rotation.x = -Math.PI / 2; carpet.position.set(0, 0.02, -14);
+  scene.add(carpet);
+
+  /* 十幅画:左右墙各五幅 */
+  WORLDS.forEach((wd, i) => {
+    const tcv = document.createElement("canvas");
+    tcv.width = texW; tcv.height = texH;
+    paintTex[i] = { cv: tcv, tex: new THREE.CanvasTexture(tcv) };
+    paintTex[i].tex.colorSpace = THREE.SRGBColorSpace;
+    const left = i % 2 === 0;
+    const x = left ? -HALL_X + 0.65 : HALL_X - 0.65;
+    const z = PAIR_Z[(i / 2) | 0];
+    const grp = new THREE.Group();
+    grp.position.set(x, PY, z);
+    grp.rotation.y = left ? Math.PI / 2 : -Math.PI / 2;  // 画面朝向展厅中轴
+    const frame = new THREE.Mesh(new THREE.BoxGeometry(PW + 1.1, PH + 1.1, 0.42), frameMat);
+    const art = new THREE.Mesh(new THREE.PlaneGeometry(PW, PH),
+      new THREE.MeshBasicMaterial({ map: paintTex[i].tex }));
+    art.position.z = 0.24;
+    const plaque = new THREE.Mesh(new THREE.PlaneGeometry(3.4, 0.85),
+      new THREE.MeshBasicMaterial({ map: plaqueTex(`${i + 1}. ${wd.label}`), transparent: true }));
+    plaque.position.set(0, -PH / 2 - 0.95, 0.3);
+    grp.add(frame, art, plaque);
+    art.userData.idx = i;
+    scene.add(grp);
+    paintMeshes.push(art);
+    captureWorld(i, liveT += 0.13);                      // 开馆快照 → 各画专属画布
+    tcv.getContext("2d").drawImage(texCv, 0, 0, texW, texH);
+  });
+}
+
+/* ---------- 交互:拖动环视 + 点画聚焦 ---------- */
+let drag = null, movedPx = 0;
+function bindInput() {
+  const cv = renderer.domElement;
+  cv.addEventListener("pointerdown", e => {
+    drag = { x: e.clientX, y: e.clientY }; movedPx = 0;
+    try { cv.setPointerCapture(e.pointerId); } catch (err) {}
+  });
+  cv.addEventListener("pointermove", e => {
+    if (!drag) return;
+    const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+    drag = { x: e.clientX, y: e.clientY };
+    movedPx += Math.abs(dx) + Math.abs(dy);
+    yawOff += dx * 0.0032;
+    pitchOff = Math.max(-0.5, Math.min(0.5, pitchOff + dy * 0.0026));
+  });
+  cv.addEventListener("pointerup", e => {
+    const wasTap = movedPx < 9;
+    drag = null;
+    if (!wasTap) return;
+    const r = cv.getBoundingClientRect();
+    const ndc = new THREE.Vector2(
+      ((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+    const ray = new THREE.Raycaster();
+    ray.setFromCamera(ndc, camera);
+    const hit = ray.intersectObjects(paintMeshes)[0];
+    if (hit) {
+      focusIdx = hit.object.userData.idx;
+      yawOff = pitchOff = 0;
+      const wd = WORLDS[focusIdx];
+      infoEl.querySelector(".era").textContent = wd.era;
+      infoEl.querySelector(".note").textContent = wd.note;
+      infoEl.classList.add("show");
+    } else {                                            // 点空处:回到漫步
+      focusIdx = -1;
+      infoEl.classList.remove("show");
+    }
+  });
+}
+
+/* ---------- 相机 ---------- */
+const camPos = new THREE.Vector3(0, 4.2, 27), camAim = new THREE.Vector3();
+function updateCamera() {
+  if (focusIdx >= 0) {
+    const left = focusIdx % 2 === 0;
+    const tx = left ? -HALL_X : HALL_X;
+    const tz = PAIR_Z[(focusIdx / 2) | 0];
+    camPos.lerp(new THREE.Vector3(left ? tx + 7.6 : tx - 7.6, PY, tz), 0.055);
+    camAim.lerp(new THREE.Vector3(tx, PY, tz), 0.09);
+  } else {
+    glideZ += glideDir * 0.026;
+    if (glideZ < -50) { glideZ = -50; glideDir = 1; }
+    if (glideZ > 27) { glideZ = 27; glideDir = -1; }
+    camPos.lerp(new THREE.Vector3(0, 4.2, glideZ), 0.08);
+    camAim.lerp(new THREE.Vector3(0, 4.0, glideZ + glideDir * 14), 0.08);
+  }
+  camera.position.copy(camPos);
+  camera.lookAt(camAim);
+  camera.rotateY(-yawOff);
+  camera.rotateX(-pitchOff);
+}
+
+/* ---------- 开馆 / 闭馆 ---------- */
+let open = false, liveTimer = 0;
+function openGallery() {
+  if (open) return;
+  open = true;
+  ST.gallery = true;                                    // 长卷暂停重绘
+  galEl.classList.add("on");
+  paintMeshes = []; paintTex = [];
+  glideZ = 27; glideDir = -1; yawOff = pitchOff = 0; focusIdx = -1; liveT = 0; liveIdx = 0;
+  infoEl.classList.remove("show");
+  buildGallery();
+  bindInput();
+  resize();
+  let last = performance.now();
+  (function loop(now) {
+    if (!open) return;
+    raf = requestAnimationFrame(loop);
+    const dt = Math.min(0.05, (now - last) / 1000); last = now;
+    liveT += dt;
+    updateCamera();
+    renderer.render(scene, camera);
+  })(last);
+  liveTimer = setInterval(() => {                       // 活画:轮流派一幅保持动态
+    if (!open || document.hidden) return;
+    const i = liveIdx++ % 10;
+    captureWorld(i, liveT);
+    paintTex[i].cv.getContext("2d").drawImage(texCv, 0, 0, texW, texH);
+    paintTex[i].tex.needsUpdate = true;
+  }, 620);
+}
+function closeGallery() {
+  open = false;
+  ST.gallery = false;
+  galEl.classList.remove("on");
+  cancelAnimationFrame(raf);
+  clearInterval(liveTimer);
+  renderer.dispose();
+}
+function resize() {
+  if (!open) return;
+  const w = innerWidth, h = innerHeight;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+}
+addEventListener("resize", resize);
+document.getElementById("btn-gallery").onclick = () => { tone(440, 660, 0.25, "triangle", 0.1); openGallery(); };
+document.getElementById("gal-exit").onclick = closeGallery;
 </script>
 </body>
 </html>

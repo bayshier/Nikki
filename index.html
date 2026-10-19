@@ -55,6 +55,37 @@
   }
   .hero .sub { font-size: 13px; color: var(--hk-muted); font-weight: 700; margin-top: 4px; }
 
+  /* ═══ 3D 猫窝大厅(three.js)═══ */
+  #cat3d {
+    position: relative; margin-bottom: 20px;
+    border-radius: 24px; overflow: hidden;
+    border: 3px solid rgba(255,158,196,0.55);
+    box-shadow: 0 6px 0 -1px #f3b7cc, 0 14px 26px rgba(255,158,196,0.3);
+    background: linear-gradient(180deg, #fff0f6 0%, #ffe0ec 100%);
+  }
+  #cat3d canvas { display: block; width: 100%; height: 300px; touch-action: none; }
+  @media (max-width: 560px) { #cat3d canvas { height: 240px; } }
+  .c3d-chip {
+    position: absolute; top: 10px; right: 12px;
+    font-size: 11px; font-weight: 800; color: var(--hk-text);
+    background: rgba(255,255,255,0.85); border: 2px solid rgba(255,158,196,0.5);
+    padding: 3px 12px; border-radius: 99px; pointer-events: none;
+  }
+  .c3d-hint {
+    position: absolute; left: 12px; bottom: 8px;
+    font-size: 11px; font-weight: 700; color: var(--hk-muted); pointer-events: none;
+  }
+  .c3d-toast {
+    position: absolute; top: 12px; left: 50%; transform: translateX(-50%) translateY(-6px);
+    background: linear-gradient(135deg, var(--hk-red), var(--hk-deep));
+    color: #fff; font-size: 13px; font-weight: 800; white-space: nowrap;
+    padding: 8px 20px; border-radius: 99px;
+    box-shadow: 0 6px 16px rgba(233,69,96,0.4);
+    opacity: 0; transition: opacity .25s, transform .25s; pointer-events: none;
+    max-width: 92%; overflow: hidden; text-overflow: ellipsis;
+  }
+  .c3d-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
   .assets-bar {
     display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;
     margin-bottom: 20px;
@@ -176,6 +207,13 @@
   <div class="hero">
     <div class="title"><span>🎀</span> Nikki 游戏合集 <span>🎀</span></div>
     <div class="sub">💕 和猫咪们一起玩遍所有小游戏 ✨</div>
+  </div>
+
+  <div id="cat3d">
+    <canvas id="cat3d-cv"></canvas>
+    <div class="c3d-chip" id="c3d-count">🐱 …</div>
+    <div class="c3d-hint">左右拖动看看猫窝 · 点点猫咪们</div>
+    <div class="c3d-toast" id="c3d-toast"></div>
   </div>
 
   <div class="assets-bar" id="assets-bar">
@@ -300,7 +338,7 @@
     <a class="card" href="art.html">
       <div class="icon">🎨</div>
       <h2>陈皮穿越艺术史</h2>
-      <p>黑白猫陈皮走过十个时代<br>画风随它变 · 画里的东西都是活的!</p>
+      <p>黑白猫陈皮走过十个时代<br>画风随它变 · 新增 3D 展馆!</p>
       <div class="best">✨ 纯代码绘制 · 灵感 huashu-art-motion</div><br>
       <span class="play">▶ 观赏</span>
     </a>
@@ -414,6 +452,207 @@ document.getElementById("best-breakout").textContent = breakout ? `🏆 最高 $
 // 猫咪俄罗斯方块
 const tetris = get("nikki_tetris_best", 0);
 document.getElementById("best-tetris").textContent = tetris ? `🏆 最高 ${tetris} 分` : "⭐ 尚无纪录";
+</script>
+
+<script type="importmap">
+{ "imports": { "three": "./vendor/three/three.module.min.js" } }
+</script>
+<script type="module">
+/* ═══════════════════════════════════════════════════════════
+   3D 猫窝大厅 · three.js
+   八只猫住在大厅顶部的猫窝里:已收集的按各自毛色出镜,
+   未收集的是半透明小幽灵(点它看解锁条件);图鉴解锁后刷新页面入住
+   ═══════════════════════════════════════════════════════════ */
+import * as THREE from "three";
+import { initRenderer, makeCat, idleCat, makeYarn } from "./shared/three-kit.js";
+
+const cv = document.getElementById("cat3d-cv");
+const renderer = initRenderer(cv, { alpha: true });
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(44, 2, 1, 500);
+
+scene.add(new THREE.HemisphereLight(0xfff4f7, 0xffd9ea, 1.0));
+const key = new THREE.DirectionalLight(0xfff2dd, 1.6);
+key.position.set(60, 90, 50);
+key.castShadow = true;
+key.shadow.mapSize.set(1024, 1024);
+Object.assign(key.shadow.camera, { left: -110, right: 110, top: 110, bottom: -110, near: 10, far: 300 });
+key.shadow.bias = -0.0004;
+scene.add(key, key.target);
+
+/* 地面:地毯 + 影子承接 */
+const rug = new THREE.Mesh(new THREE.CircleGeometry(95, 40),
+  new THREE.MeshStandardMaterial({ color: 0xffd9ea, roughness: 1 }));
+rug.rotation.x = -Math.PI / 2; rug.receiveShadow = true;
+const shadowCatch = new THREE.Mesh(new THREE.CircleGeometry(220, 24),
+  new THREE.ShadowMaterial({ opacity: 0.14 }));
+shadowCatch.rotation.x = -Math.PI / 2; shadowCatch.receiveShadow = true;
+scene.add(rug, shadowCatch);
+
+/* 猫爬架:双层平台 + 剑麻柱 */
+{
+  const plat = new THREE.MeshStandardMaterial({ color: 0xf0bfda, roughness: 1 });
+  const post = new THREE.MeshStandardMaterial({ color: 0xd9b98a, roughness: 1 });
+  const base = new THREE.Mesh(new THREE.BoxGeometry(58, 8, 42), plat);
+  base.position.set(0, 4, -22); base.castShadow = base.receiveShadow = true;
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(6, 6, 38, 12), post);
+  pole.position.set(0, 27, -22); pole.castShadow = true;
+  const top = new THREE.Mesh(new THREE.BoxGeometry(52, 8, 38), plat);
+  top.position.set(0, 50, -22); top.castShadow = top.receiveShadow = true;
+  scene.add(base, pole, top);
+}
+/* 软垫 */
+[[-8, 32], [24, 30]].forEach(([x, z]) => {
+  const c = new THREE.Mesh(new THREE.BoxGeometry(26, 6, 20),
+    new THREE.MeshStandardMaterial({ color: 0xffb8d2, roughness: 1 }));
+  c.position.set(x, 3, z); c.castShadow = c.receiveShadow = true;
+  scene.add(c);
+});
+/* 毛线球道具 */
+[[-30, 28], [44, -2]].forEach(([x, z]) => {
+  const y = makeYarn(0xffb0c8, 5);
+  y.position.set(x, 5, z); scene.add(y);
+});
+
+/* 八只猫:颜色即身份;未收集 = 半透明幽灵 */
+const CAT_STYLE = {
+  chenpi:   { body: 0xfbf7ee, patch: 0x23232c },          // 陈皮:黑白奶牛猫
+  baozi:    { body: 0xfff5f0, belly: 0xffe4ec },          // 包子:白胖
+  niannian: { body: 0xffb38a },                           // 年年:橘
+  songlu:   { body: 0x6b4a3a },                           // 松露:深棕
+  youyu:    { body: 0xffc9a0, belly: 0xffffff },          // 有鱼:橘白
+  jinzhang: { body: 0x9aa7b8 },                           // 警长:灰蓝
+  daer:     { body: 0xff9e5e },                           // 大儿:大橘
+  ali:      { body: 0xd9776e, belly: 0xffe0d2 },          // 阿狸:红棕
+};
+const SPOTS = [
+  [0, 54, -22], [-21, 8, -14], [21, 8, -14],
+  [-44, 0, 10], [40, 0, 16], [-12, 6, 30], [28, 6, 28], [-58, 0, -6],
+];
+const cats = [];
+const catsGroup = new THREE.Group();
+scene.add(catsGroup);
+{
+  const rules = Nikki.Dex.owned();                       // [{id,name,how,owned}]
+  rules.forEach((r, i) => {
+    const cat = makeCat({ ...(CAT_STYLE[r.id] || { body: 0xffb38a }), scale: r.owned ? 1 : 0.8 });
+    const [x, y, z] = SPOTS[i];
+    cat.position.set(x, y, z);
+    cat.userData.baseY = y;
+    cat.rotation.y = Math.atan2(0 - x, 46 - z) * 0.6;    // 大致朝向镜头侧
+    if (!r.owned) {                                      // 幽灵化:灰透 + 头顶"❓"
+      cat.traverse(o => {
+        if (!o.isMesh) return;
+        o.material = o.material.clone();
+        o.material.color.set(0xbfb8cc);
+        o.material.transparent = true; o.material.opacity = 0.38;
+        o.castShadow = false;
+      });
+      const sp = new THREE.Sprite(new THREE.SpriteMaterial(
+        { map: qTexSprite(), transparent: true, depthWrite: false }));
+      sp.scale.setScalar(9); sp.position.set(0, 46, 0);
+      cat.add(sp);
+    }
+    cat.userData.rule = r;
+    cats.push(cat); catsGroup.add(cat);
+  });
+  function qTexSprite() {
+    const c = document.createElement("canvas"); c.width = c.height = 64;
+    const g = c.getContext("2d");
+    g.font = "44px serif"; g.textAlign = "center"; g.textBaseline = "middle";
+    g.fillText("❓", 32, 36);
+    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+    return t;
+  }
+}
+document.getElementById("c3d-count").textContent =
+  `🐱 ${Nikki.Dex.count()} / 8 已入住`;
+
+/* 交互:拖动环绕 + 点猫(raycast) */
+let yaw = 0, dragX = null, moved = 0;
+const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
+cv.addEventListener("pointerdown", e => { dragX = e.clientX; moved = 0; try { cv.setPointerCapture(e.pointerId); } catch (err) {} });
+cv.addEventListener("pointermove", e => {
+  if (dragX === null) return;
+  const dx = e.clientX - dragX; dragX = e.clientX; moved += Math.abs(dx);
+  yaw = Math.max(-0.6, Math.min(0.6, yaw - dx * 0.004));
+});
+let AC = null;
+function meow(happy) {
+  try {
+    AC ??= new (window.AudioContext || window.webkitAudioContext)();
+    const t0 = AC.currentTime;
+    [[880, 660, 0], [740, 980, 0.14]].forEach(([f0, f1, d]) => {
+      if (!happy && d > 0) return;
+      const o = AC.createOscillator(), g = AC.createGain();
+      o.type = "triangle";
+      o.frequency.setValueAtTime(f0, t0 + d); o.frequency.exponentialRampToValueAtTime(f1, t0 + d + 0.16);
+      g.gain.setValueAtTime(0.1, t0 + d); g.gain.exponentialRampToValueAtTime(0.001, t0 + d + 0.18);
+      o.connect(g).connect(AC.destination); o.start(t0 + d); o.stop(t0 + d + 0.2);
+    });
+  } catch (e) {}
+}
+const toastEl = document.getElementById("c3d-toast");
+let toastTimer = 0;
+function toast(html) {
+  toastEl.innerHTML = html;
+  toastEl.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toastEl.classList.remove("show"), 2200);
+}
+const PRAISE = ["最帅!", "摸摸头~", "蹭你一下 💕", "咕噜咕噜…", "要小鱼干!", "翻个肚皮~"];
+cv.addEventListener("pointerup", e => {
+  dragX = null;
+  if (moved > 8) return;                                  // 拖动不算点猫
+  const r = cv.getBoundingClientRect();
+  ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+  ray.setFromCamera(ndc, camera);
+  const hit = ray.intersectObjects(catsGroup.children, true)[0];
+  if (!hit) return;
+  let o = hit.object;
+  while (o && !cats.includes(o)) o = o.parent;
+  if (!o) return;
+  const ru = o.userData.rule;
+  if (ru.owned) {
+    o.userData.jumpV = 7.5;                               // 开心跳
+    meow(true);
+    toast(`🐾 ${ru.name} · ${PRAISE[(Math.random() * PRAISE.length) | 0]}`);
+  } else {
+    meow(false);
+    toast(`👻 ${ru.name} 还没入住 · ${ru.how}`);
+  }
+});
+
+/* 自适应 + 可见性暂停 */
+function resize() {
+  const w = cv.clientWidth, h = cv.clientHeight;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+}
+addEventListener("resize", resize);
+resize();
+let inView = true;
+new IntersectionObserver(en => { inView = en[0].isIntersecting; }).observe(cv);
+function frame(t) {
+  requestAnimationFrame(frame);
+  if (document.hidden || !inView) return;
+  cats.forEach(c => {
+    idleCat(c, t / 16.7);
+    const u = c.userData;
+    if (u.jumpV !== undefined) {                          // 被点到的小跳
+      u.jumpY = (u.jumpY || 0) + u.jumpV;
+      u.jumpV -= 0.55;
+      if (u.jumpY <= 0) { u.jumpY = 0; delete u.jumpV; }
+      c.position.y = (u.baseY || 0) + u.jumpY;
+    }
+  });
+  const sway = Math.sin(t * 0.0004) * 0.06;
+  camera.position.set(Math.sin(yaw + sway) * 134, 47, Math.cos(yaw + sway) * 134);
+  camera.lookAt(0, 21, -2);
+  renderer.render(scene, camera);
+}
+requestAnimationFrame(frame);
 </script>
 </body>
 </html>
