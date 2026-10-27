@@ -119,6 +119,7 @@ function flap() {
 
 function gameOver() {
   state = "dead";
+  Nikki.Feel.shake(0.55); Nikki.Feel.hitStop(5);   // 撞击:屏震 + 顿帧
   beep(280, 0.3, "sawtooth", 0.12);
   const best = get("nikki_flappy_best", 0);
   let isBest = false;
@@ -164,10 +165,12 @@ function update() {
 }
 
 function draw() {
+  const [shx, shy] = Nikki.Feel.offset(9, 7);      // 屏震:平移整个画面,背景多画一圈
+  ctx.save(); ctx.translate(shx, shy);
   // 天空
   const sky = ctx.createLinearGradient(0, 0, 0, H);
   sky.addColorStop(0, "#a8e0ff"); sky.addColorStop(0.6, "#ffe8f2"); sky.addColorStop(1, "#ffd9ea");
-  ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = sky; ctx.fillRect(-14, -14, W + 28, H + 28);
   // 云朵
   clouds.forEach(c => {
     ctx.fillStyle = "rgba(255,255,255,0.9)";
@@ -191,7 +194,7 @@ function draw() {
   });
   // 地面:草地
   ctx.fillStyle = "#b8e986";
-  ctx.fillRect(0, H - GROUND, W, GROUND);
+  ctx.fillRect(-14, H - GROUND, W + 28, GROUND + 14);
   ctx.fillStyle = "#9fd968";
   for (let x = -(frame % 24); x < W; x += 24) ctx.fillRect(x, H - GROUND, 12, 6);
   // 猫咪:圆脸 + 耳朵 + 眼睛(翅膀 = 挥动的小爪)
@@ -231,6 +234,7 @@ function draw() {
     ctx.textAlign = "center";
     ctx.fillText("点击画面起飞!", W / 2, H / 2 + 60);
   }
+  ctx.restore();
 }
 
 // ===== 音效 =====
@@ -246,8 +250,8 @@ function beep(f, d, t, v) {
   o.start(); o.stop(ac.currentTime + d);
 }
 
-// ===== 主循环 =====
-function loop() { update(); draw(); requestAnimationFrame(loop); }
+// ===== 主循环(固定 60Hz 步长:高刷屏不加速)=====
+function loop() { Nikki.Feel.play(update, draw); }
 
 // ===== 输入 =====
 cv.addEventListener("mousedown", flap);

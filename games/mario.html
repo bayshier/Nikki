@@ -136,6 +136,7 @@ const G_RISE = 0.28125;                        // 上升中且按住跳跃键:�
 const G_FALL = 0.984375;                       // 下落 / 中途松开跳跃键:高重力(干脆收跳落地,原版 0.4375)
 const MAX_FALL = 10.125;                       // 终端下落速度封顶(原版 4.5)
 const JUMP_V = 9.0, JUMP_V_FAST = 10.5;        // 起跳初速:走路 4 格高 / 跑步 5 格高(原版 -4.0/-5.0)
+const COYOTE = 6, JUMP_BUF = 7;                // 土狼时间 0.10s(刚离地仍可跳)/ 跳跃缓冲 0.12s(落地前的按键仍生效)
 const STOMP_V = 6.0;                           // 踩扁敌人反弹(按住跳跃弹得更高)
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -257,6 +258,7 @@ function stopBGM() { if (bgmTimer) { clearInterval(bgmTimer); bgmTimer = null; }
 // ============================================================
 const keys = { left: false, right: false, run: false };
 let jumpPressed = false, jumpHeld = false;   // 跳跃键:本帧刚按下(边缘触发起跳)/ 按住中(变高跳跃)
+let coyoteT = 0, jumpBufT = 0;               // 土狼时间 / 跳跃缓冲倒计时(tick)
 let jumpLock = 0;                            // 刚开局的第一下按键不立即起跳
 window.addEventListener("keydown", e => {
   ensureAudio();
@@ -579,15 +581,20 @@ function updatePlayer() {
   // 镜头不回卷:不能向左走出屏幕左缘(经典规则)
   if (p.x < cam.x + 2) { p.x = cam.x + 2; if (p.vx < 0) p.vx = 0; }
 
-  // ===== 跳跃:只在地面起跳(边缘触发),跑得快跳得高,按住跳得高 =====
-  if (jumpPressed && p.onGround) {
+  // ===== 跳跃:地面起跳 + 土狼时间(刚离开边缘仍可起跳)+ 跳跃缓冲(落地前一瞬按的键仍生效)=====
+  if (p.onGround) coyoteT = COYOTE;
+  if (jumpPressed) jumpBufT = JUMP_BUF;
+  if (coyoteT > 0 && jumpBufT > 0) {
     p.vy = Math.abs(p.vx) > (WALK_MAX + RUN_MAX) / 2 ? -JUMP_V_FAST : -JUMP_V;
     p.onGround = false;
     p.sqY = 1.16; p.sqX = 0.86;                       // 起跳拉长
     p.slipT = 0;                                      // 起跳立刻解除打滑(自救手段)
     sfx("jump");
+    jumpBufT = 0; coyoteT = 0;                        // 消费掉,防止连跳
   }
   jumpPressed = false;
+  if (coyoteT > 0) coyoteT--;
+  if (jumpBufT > 0) jumpBufT--;
   const g = (p.vy < 0 && jumpHeld) ? G_RISE : G_FALL;  // 变重力:按住=滞空,松手=收跳
   p.vy = Math.min(p.vy + g, MAX_FALL);
   p.y += p.vy;

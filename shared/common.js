@@ -4,8 +4,18 @@
    所有游戏共用;金币、图鉴跨游戏通用
    ============================================================ */
 const Nikki = (() => {
-  const jget = (k, d) => { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } };
-  const jset = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
+  /* 存档 schema 版本:写入时打上 {v,d} 包裹,读取时新旧格式都认,
+     以后字段升级可以按 v 走迁移链,不会一脚踢坏老玩家的存档 */
+  const SAVE_VERSION = 1;
+  const jget = (k, d) => {
+    try {
+      const raw = localStorage.getItem(k);
+      if (raw === null) return d;
+      const p = JSON.parse(raw);
+      return (p && typeof p === "object" && p.v === SAVE_VERSION && "d" in p) ? p.d : p;
+    } catch (e) { return d; }
+  };
+  const jset = (k, v) => { try { localStorage.setItem(k, JSON.stringify({ v: SAVE_VERSION, d: v })); } catch (e) {} };
 
   /* ---------- 💰 统一钱包 ----------
      兼容迁移:首次访问时,把消消乐存档里的金币(nikki_save.coins)
@@ -115,5 +125,48 @@ const Nikki = (() => {
     });
   }
 
-  return { Wallet, Daily, Dex, jget, jset, announce };
+  /* ---------- 🎮 手感系统(game feel)----------
+     Feel.play:固定 60Hz 步长驱动游戏逻辑 —— 裸 requestAnimationFrame 按渲染帧跑,
+     在 144Hz 高刷屏上整个游戏会等比加速;固定步长让所有刷新率下手感一致。
+     同时内建两个 game-feel 核心手法:
+     · hitStop 顿帧 —— 命中瞬间冻结逻辑若干 tick(60 tick=1 秒),画面照常渲染;
+     · shake 屏震 —— trauma 模型:受击叠加 0..1,平方后按正弦摆动、随真实时间自然衰减 */
+  const Feel = (() => {
+    const STEP = 1000 / 60, MAX_STEPS = 4, MAX_LAG = 250;
+    let trauma = 0, stopTicks = 0, phase = 0, lastSeen = 0;
+    function play(update, draw) {
+      let last = 0, acc = 0;
+      const frame = (t) => {
+        requestAnimationFrame(frame);            // 先注册再执行:逻辑抛错也不停转
+        if (!last) last = t;
+        acc += Math.min(t - last, MAX_LAG);      // 切后台回来不追帧,防死亡螺旋
+        last = t;
+        let n = 0;
+        while (acc >= STEP && n < MAX_STEPS) {
+          acc -= STEP;
+          if (stopTicks > 0) { stopTicks--; continue; }   // 顿帧:跳过逻辑,不跳过渲染
+          update(); n++;
+        }
+        if (acc >= STEP) acc = 0;
+        draw();
+      };
+      requestAnimationFrame(frame);
+    }
+    function shake(n) { trauma = Math.min(1, trauma + n); }
+    function hitStop(ticks) { stopTicks = Math.max(stopTicks, ticks); }
+    /* 屏震偏移:draw() 开头 ctx.translate(ox, oy),背景比画布多画一圈遮住露边 */
+    function offset(maxX, maxY) {
+      if (trauma <= 0) return [0, 0];
+      const now = performance.now();
+      const dt = Math.min(100, now - (lastSeen || now));
+      lastSeen = now;
+      phase += dt * 0.03;                        // 正弦驱动,不是每帧随机抖
+      trauma = Math.max(0, trauma - dt / 1000 * 1.5);
+      const s = trauma * trauma;                 // 平方:小震轻微,大震剧烈
+      return [maxX * s * Math.sin(phase * 1.7), maxY * s * Math.sin(phase * 2.3)];
+    }
+    return { play, shake, hitStop, offset };
+  })();
+
+  return { Wallet, Daily, Dex, Feel, jget, jset, announce };
 })();

@@ -188,6 +188,7 @@ function update() {
     /* 落水:罚 1 杆,退回上次击球点 */
     if (h.waters.some(wt => b.x > wt[0] && b.x < wt[0]+wt[2] && b.y > wt[1] && b.y < wt[1]+wt[3])) {
       sfx.splash();
+      Nikki.Feel.shake(0.35);                                // 落水:溅起一震
       splashParts(b.x, b.y);
       G.strokes++;                                           // 罚杆
       G.msg = "💧 落水!罚 1 杆"; G.msgT = 90;
@@ -233,6 +234,7 @@ function splashParts(x, y) {
 /* 进洞!算成绩(低于标准杆有称号),然后播放吸入动画 */
 function sinkHole() {
   sfx.sink();
+  Nikki.Feel.shake(G.strokes === 1 ? 0.6 : 0.3);             // 进洞:一杆进洞震得更狠
   const b = G.ball, h = HOLES[G.hole];
   G.total += G.strokes;
   const diff = G.strokes - h.par;
@@ -307,6 +309,9 @@ CV.addEventListener("pointerup", () => {
    七、渲染
    ═══════════════════════════════════════════════════════════ */
 function render() {
+  const [shx, shy] = Nikki.Feel.offset(8, 6);      // 屏震:平移整个画面
+  CTX.save(); CTX.translate(shx, shy);
+  CTX.fillStyle = "#74bb56"; CTX.fillRect(-14, -14, W + 28, H + 28);   // 底色垫底,震时不露边
   const h = HOLES[G.hole];
   /* —— 草地:横向修剪条纹 —— */
   for (let y = HUD; y < H; y += 40) {
@@ -433,12 +438,14 @@ function render() {
   CTX.fillText(`本洞 ${G.strokes} 杆`, 410, HUD/2);
   CTX.textAlign = "right";
   CTX.fillText(`总杆 ${G.total}(${diffNow === 0 ? "E" : diffNow > 0 ? "+" + diffNow : diffNow})`, W - 12, HUD/2);
+  CTX.restore();
 }
 
 /* ═══════════════════════════════════════════════════════════
    八、主循环
    ═══════════════════════════════════════════════════════════ */
-function frame() { update(); render(); requestAnimationFrame(frame); }
+// ===== 主循环(固定 60Hz 步长:高刷屏不加速)=====
+function frame() { Nikki.Feel.play(update, render); }
 document.getElementById("btn-start").onclick = () => {
   if (!AC) tone(1, 1, .01);                                  // 手势里解锁音频
   document.getElementById("overlay").style.display = "none";

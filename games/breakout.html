@@ -218,6 +218,7 @@ function collideBricks() {
     else ball.vy = ball.vy > 0 ? -Math.abs(ball.vy) : Math.abs(ball.vy);
     bricks.splice(i, 1);
     addScore(b.pts);
+    Nikki.Feel.shake(0.14);                       // 砸碎砖块:轻震
     beep(b.pts >= 30 ? 990 : b.pts >= 20 ? 830 : 660, 0.06, "square", 0.07);
     if (bricks.length === 0) nextLevel();
     return;
@@ -226,6 +227,7 @@ function collideBricks() {
 
 function nextLevel() {
   level++;
+  Nikki.Feel.shake(0.25);
   buildBricks(level);
   stickBall();
   state = "ready";
@@ -237,6 +239,7 @@ function nextLevel() {
 
 function dropBall() {
   lives--;
+  Nikki.Feel.shake(0.5); Nikki.Feel.hitStop(4);   // 掉球:大震 + 顿帧
   updateLives();
   beep(240, 0.28, "sawtooth", 0.12);
   if (lives <= 0) return gameOver();
@@ -246,6 +249,7 @@ function dropBall() {
 
 function gameOver() {
   state = "over";
+  Nikki.Feel.shake(0.6);
   beep(300, 0.25, "sawtooth", 0.12);
   const best = get("nikki_breakout_best", 0);
   let isBest = false;
@@ -288,9 +292,11 @@ function update() {
 
 // ===== 绘制 =====
 function draw() {
+  const [shx, shy] = Nikki.Feel.offset(8, 6);     // 屏震:平移整个画面,背景多画一圈
+  ctx.save(); ctx.translate(shx, shy);
   // 背景
   ctx.fillStyle = "#fff6fa";
-  ctx.fillRect(0, 0, W, H);
+  ctx.fillRect(-14, -14, W + 28, H + 28);
   // 淡淡的爪印
   ctx.textAlign = "center"; ctx.textBaseline = "middle";
   ctx.globalAlpha = 0.08;
@@ -317,6 +323,7 @@ function draw() {
     ctx.font = "bold 16px Nunito, sans-serif";
     ctx.fillText("点击 / 空格 发射毛线球!", W / 2, PADDLE_Y - 60);
   }
+  ctx.restore();
 }
 
 // 猫爪板:粉色圆角 + 肉垫
@@ -366,8 +373,8 @@ function beep(f, d, t, v) {
   o.start(); o.stop(ac.currentTime + d);
 }
 
-// ===== 主循环 =====
-function loop() { update(); draw(); requestAnimationFrame(loop); }
+// ===== 主循环(固定 60Hz 步长:高刷屏不加速)=====
+function loop() { Nikki.Feel.play(update, draw); }
 
 // ===== 输入 =====
 function pointerX(clientX) {

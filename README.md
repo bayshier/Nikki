@@ -45,6 +45,17 @@
 
 ## 🗓️ 更新日志
 
+### 2026-10-27 · 手感与帧率正确性:游戏开发技能审查清单落地
+
+用 [awesome-gamedev-agent-skills](https://github.com/gamedev-skills/awesome-gamedev-agent-skills)(76 个游戏开发 agent 技能)当审查清单,把 game-feel / performance-optimization / physics-tuning / platformer 等技能的标准逐项过了一遍全仓库,相关技能已装进本机全局技能目录供后续开发复用:
+
+- **帧率正确性修复**(physics-tuning「固定时间步」):飞飞猫 / 打砖块 / 高尔夫 / 弹幕 / 守塔 / 高尔夫 3D 原来是裸 `requestAnimationFrame` 按渲染帧跑逻辑,在 144Hz 高刷屏上整个游戏等比加速 2.4 倍;现在统一走 `Nikki.Feel.play` 的 60Hz 固定步长驱动(马里奥 / 俄罗斯方块 / 猫岛本来就是固定步长,顺手表扬),切后台回来不追帧不爆炸
+- **公共手感层 `Nikki.Feel`**(game-feel):hit-stop 顿帧(命中瞬间冻结逻辑、画面照常渲染)+ trauma 屏震(受击叠加、平方衰减、正弦驱动不抖动感);接进五个游戏的死亡 / 击杀 / 落水 / 突破瞬间
+- **马里奥补齐跳跃手感三件套**(platformer):土狼时间 0.10s + 跳跃缓冲 0.12s(变重力收跳、起跳拉长落地压扁原本就有)
+- **高尔夫 3D 相机**(camera-systems):镜头跟随从每帧 `lerp(0.06)` 改为帧率无关的指数平滑,云 / 水纹动画按真实 dt 缩放
+- **存档版本化**(save-systems):`common.js` 的读写打上 `{v:1}` schema 包裹,读取新旧格式都认,以后字段升级可走迁移链不踢老存档
+- 全流程本地实测:七个改动页面加载 / 开局 / 死亡 / 进洞零报错,`__golf3d.step()` 确定性钩子跑通一杆进洞
+
 ### 2026-10-19 · 3D 化改造:高尔夫 3D + 猫窝大厅 + 艺术展馆
 
 - **three.js 首次进项目**(`vendor/three/three.module.min.js`,r160,本地 vendor + importmap,零构建不变),引入方式参考 [pelican-isle](https://github.com/bayshier/pelican-isle)

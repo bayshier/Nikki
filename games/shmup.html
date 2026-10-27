@@ -319,6 +319,8 @@ G.float = txt => { (G.floats = G.floats || []).push({ x: G.px, y: G.py - 30, txt
 /* 击杀结算 */
 function killEnemy(e) {
   e.dead = true; sfx.boom();
+  Nikki.Feel.shake(e.type === "boss" ? 0.55 : 0.12);
+  if (e.type === "boss") Nikki.Feel.hitStop(6);    // Boss 击破:重震 + 顿帧
   G.score += e.score;
   spawnParts(e.x, e.y, e.type === "boss" ? 40 : 12, "#ffd0e2");
   G.float(`+${e.score}`);
@@ -329,6 +331,7 @@ function killEnemy(e) {
 /* 玩家被打:掉命 + 清弹 + 无敌 90 帧 */
 function playerHit() {
   G.lives--; G.inv = 100; sfx.hit();
+  Nikki.Feel.shake(0.7); Nikki.Feel.hitStop(5);    // 中弹:大震 + 顿帧
   spawnParts(G.px, G.py, 20, "#ff6b9d");
   G.eBullets = [];                                          // 被弹幕埋了太亏,清屏仁慈一回
   G.float(G.lives > 0 ? "哎呀!" : "");
@@ -362,8 +365,10 @@ function doOver() {
    八、渲染
    ═══════════════════════════════════════════════════════════ */
 function render() {
+  const [shx, shy] = Nikki.Feel.offset(10, 8);     // 屏震:平移整个画面,背景多画一圈
+  CTX.save(); CTX.translate(shx, shy);
   /* —— 夜空背景 + 星星 —— */
-  CTX.fillStyle = "#1a1a3e"; CTX.fillRect(0, 0, W, H);
+  CTX.fillStyle = "#1a1a3e"; CTX.fillRect(-14, -14, W + 28, H + 28);
   CTX.fillStyle = "#fff";
   for (const s of G.stars) { CTX.globalAlpha = s.v / 1.6; CTX.fillRect(s.x, s.y, s.s, s.s); }
   CTX.globalAlpha = 1;
@@ -453,18 +458,20 @@ function render() {
   CTX.globalAlpha = 1;
 
   /* —— HUD —— */
-  CTX.fillStyle = "rgba(20,16,44,.75)"; CTX.fillRect(0, 0, W, 30);
+  CTX.fillStyle = "rgba(20,16,44,.75)"; CTX.fillRect(-14, -14, W + 28, 44);
   CTX.fillStyle = "#fff"; CTX.font = "bold 14px sans-serif"; CTX.textAlign = "left"; CTX.textBaseline = "middle";
   CTX.fillText(`⭐ ${G.score}`, 12, 15);
   CTX.fillText(`🌊 ${G.wave}`, 120, 15);
   CTX.fillText(`P${G.power}`, 190, 15);
   CTX.fillText("❤️".repeat(Math.max(0, G.lives)), 240, 15);
+  CTX.restore();
 }
 
 /* ═══════════════════════════════════════════════════════════
    九、主循环
    ═══════════════════════════════════════════════════════════ */
-function frame() { update(); render(); requestAnimationFrame(frame); }
+// ===== 主循环(固定 60Hz 步长:高刷屏不加速)=====
+function frame() { Nikki.Feel.play(update, render); }
 document.getElementById("btn-start").onclick = () => {
   if (!AC) tone(1, 1, .01);                                 // 用户手势里解锁 AudioContext
   document.getElementById("overlay").style.display = "none";

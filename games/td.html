@@ -240,6 +240,7 @@ function update() {
       e.x = tx; e.y = ty; e.wp++;
       if (e.wp >= WAYPOINTS.length) {                     // 走完全程 → 突破!扣猫窝血
         e.dead = true; e.leaked = true;
+        Nikki.Feel.shake(0.45);                           // 突破防线:重震
         G.lives -= ENEMY_DEF[e.type].leak;
         sfx.leak();
         if (G.lives <= 0) doLose();
@@ -294,6 +295,8 @@ function update() {
 /* 击杀结算:发金币+分数+粒子,顺便统计 */
 function killEnemy(e) {
   e.dead = true;
+  Nikki.Feel.shake(e.type === "boss" ? 0.5 : 0.1);
+  if (e.type === "boss") Nikki.Feel.hitStop(4);     // Boss 击破:顿帧一瞬
   const d = ENEMY_DEF[e.type];
   G.coins += d.coin; G.kills++;
   G.score += d.coin * 2;
@@ -343,6 +346,9 @@ function showOverlay(title, html, btnTxt) {
    七、渲染:草地 / 沙路 / 塔 / 敌人 / 子弹 / HUD
    ═══════════════════════════════════════════════════════════ */
 function render() {
+  const [shx, shy] = Nikki.Feel.offset(9, 7);       // 屏震:平移整个画面
+  CTX.save(); CTX.translate(shx, shy);
+  CTX.fillStyle = "#84c463"; CTX.fillRect(-14, -14, W + 28, H + 28);   // 底色垫底,震时不露边
   /* —— 草地:双色棋盘格,波光粼粼的院子 —— */
   for (let cy = 0; cy < ROWS; cy++)
     for (let cx = 0; cx < COLS; cx++) {
@@ -448,6 +454,7 @@ function render() {
     CTX.textAlign = "right";
     CTX.fillText(`下一波 ${Math.ceil(G.interTimer / 60)}s…`, W - 14, HUD/2);
   }
+  CTX.restore();
 }
 /* 塔的实际射程:每升一级 +15 */
 function towerRange(t) { return TOWERS[t.type].range + (t.lv - 1) * 15; }
@@ -543,12 +550,10 @@ document.getElementById("btn-speed").onclick = function () {
 };
 
 /* ═══════════════════════════════════════════════════════════
-   九、主循环:60fps 固定步调,2x 时每帧更新两次
+   九、主循环:固定 60Hz 步长(高刷屏不加速),2x 时每 tick 更新两次
    ═══════════════════════════════════════════════════════════ */
 function frame() {
-  for (let i = 0; i < G.speed; i++) update();
-  render();
-  requestAnimationFrame(frame);
+  Nikki.Feel.play(() => { for (let i = 0; i < G.speed; i++) update(); }, render);
 }
 document.getElementById("btn-start").onclick = () => {
   document.getElementById("overlay").style.display = "none";
