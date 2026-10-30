@@ -106,13 +106,15 @@
   <div id="gal-hint">拖动环视 · 点画走近看 · 画是活的</div>
 </div>
 
+<script src="shared/art-paint.js"></script>
 <script>
 /* ═══════════════════════════════════════════════════════════════
    〇、总开关、画布、胶片颗粒贴图
    ═══════════════════════════════════════════════════════════════ */
 const CV = document.getElementById("cv");
-let CTX = CV.getContext("2d");                             // let:3D 展馆截画时临时换到离屏画布
-const W = CV.width, H = CV.height, GY = 466;
+let CTX = CV.getContext("2d");        // 3D 展馆截画 / 烘培时临时换到离屏画布
+const W0 = CV.width, H = CV.height, GY = 466;
+let W = W0;                            // 烘培时临时放宽到 WORLD_W
 const WORLD_W = 1400;
 const SERIF = '"Songti SC","Noto Serif SC","STSong",serif';   // 字卡衬线体,更有"作品感"
 
@@ -852,6 +854,157 @@ const WORLDS = [
 ];
 
 /* ═══════════════════════════════════════════════════════════════
+   三·五、签名渲染器接入(T2 升级)
+   方法论:huashu-art-motion「04 纯代码绘制」五层法 ——
+     平涂底稿 → 风格渲染器整幅重画 → 小物件单独一层 → 角色 → 会动的母题。
+   每个世界只有一种「签名语言」,不是一律刷笔触:
+     洞穴=流场笔触吃进岩面 / 莫奈=色点 / 克里姆特=金箔纹样 /
+     包豪斯=纯几何 / 8bit=真低分辨率 / 蒸汽波=VHS 后期 / 新海诚=泛光丁达尔
+   ═══════════════════════════════════════════════════════════════ */
+const PAINT_CFG = {
+  cave: {
+    // 岩画:方向场贴着岩壁起伏走,赭石色板,每笔带深色描边才有厚涂感
+    angle: (x, y) => -0.15 + AP.noise2(x * 0.004, y * 0.006, 3) * 1.1,
+    palette: ["#ce925a", "#8a5426", "#b6643a", "#6e4426", "#21150d", "#d9a86a"],
+    cell: 13, len: 30, width: 5.2, density: 0.9, outline: "#1b1008", alpha: 0.7,
+    veil: 0.82,                    // 岩面要盖住底稿,火光在后期补回来
+  },
+  monet: {
+    // 印象派:横向短色点,冷暖偏移;不吸色板——吸了会把整幅洗白(实测)
+    angle: (x, y) => (y > GY - 60 ? 0.03 : -0.22) + AP.noise2(x * 0.01, y * 0.01, 9) * 0.5,
+    cell: 9, rx: 7, ry: 2.6,
+    veil: 0.46,
+  },
+  klimt: { pattern: true },
+  pixel: { pixel: true, fx: 3 },   // 320×180:再低就只剩色块,建筑细节会丢
+};
+
+/* 14 色 NES 风色板(8bit 世界专用) */
+const PAL14 = ["#0a0a12", "#1c2a4a", "#2c5aa0", "#0856ef", "#47c4f8", "#aae9fb",
+               "#fbe2a6", "#e8a048", "#c0522a", "#7a2a4a", "#f2f2e8", "#9aa0b0",
+               "#5a8a5a", "#2a6a3a"];
+
+const OVERLAYS = {};             // key → 已烘焙的绘画层(1400 宽)
+const POST_CACHE = {};           // 后期缓存(丁达尔楔形等)
+
+function bakeOverlay(wd) {
+  if (OVERLAYS[wd.key]) return OVERLAYS[wd.key];
+  const cfg = PAINT_CFG[wd.key];
+  if (!cfg) { OVERLAYS[wd.key] = null; return null; }
+  const cv = AP.mk(WORLD_W, H, true);
+  const realCtx = CTX, realW = W;
+  CTX = cv.getContext("2d", { willReadFrequently: true });
+  W = WORLD_W;                                   // 烘培时世界铺满整幅
+  try {
+    wd.sky(0);
+    wd.draw(0, 0);                               // t=0 的底稿:只要静态构图
+    if (cfg.pattern) {
+      /* 纹样只上墙(y < GY-140),地面留给原本的花毯——否则满屏图案读成壁纸 */
+      AP.klimtPattern(CTX, 0, 0, WORLD_W, GY - 140, 0, 77, 130);
+    } else if (cfg.pixel) {
+      AP.pixelize(CTX, cv, WORLD_W, H, PAL14, cfg.fx);
+    } else if (cfg.rx) {
+      /* 印象派走色点,不走笔触(配方 28:莫奈是 dabs,不是 strokes) */
+      AP.dabPass(CTX, {
+        w: WORLD_W, h: H, seed: 43, cell: cfg.cell, rx: cfg.rx, ry: cfg.ry,
+        palette: cfg.palette, angle: (x, y) => cfg.angle(x, y),
+      });
+    } else if (cfg.palette) {
+      AP.flowPass(CTX, {
+        w: WORLD_W, h: H, seed: 31, cell: cfg.cell, len: cfg.len, width: cfg.width,
+        palette: cfg.palette, angle: (x, y) => cfg.angle(x, y),
+        outline: cfg.outline, density: cfg.density, alpha: cfg.alpha,
+      });
+    }
+  } finally { CTX = realCtx; W = realW; }
+  OVERLAYS[wd.key] = cv;
+  return cv;
+}
+
+/* ── 签名转场:九处边界各用"下一个世界"的母语咬合 ──
+   接缝左侧是旧世界、右侧是新世界;抓一条带子,让两界像素按风格互相侵入 */
+const SEAM = {
+  cave:  (c, bx, bw, h, t, s) => AP.TRANS.stone(c, bx, bw, h, t, s),
+  egypt: (c, bx, bw, h, t, s) => AP.TRANS.misreg(c, bx, bw, h, t, s),
+  ukiyo: (c, bx, bw, h, t, s) => AP.TRANS.ink(c, bx, bw, h, t, s),
+  monet: (c, bx, bw, h, t, s) => AP.TRANS.dabs(c, bx, bw, h, t, s),
+  vangogh: (c, bx, bw, h, t, s) => AP.TRANS.shards(c, bx, bw, h, t, s),
+  klimt: (c, bx, bw, h, t, s) => AP.TRANS.geo(c, bx, bw, h, t, s),
+  bauhaus: (c, bx, bw, h, t, s) => AP.TRANS.pixel(c, bx, bw, h, t, s),
+  pixel: (c, bx, bw, h, t, s) => AP.TRANS.scan(c, bx, bw, h, t, s),
+  vapor: (c, bx, bw, h, t, s) => AP.TRANS.glow(c, bx, bw, h, t, s),
+};
+const SEAM_KEYS = ["cave", "egypt", "ukiyo", "monet", "vangogh", "klimt", "bauhaus", "pixel", "vapor"];
+
+function seamFX(bx, idx, t) {
+  const bw = 300;
+  const left = bx - bw / 2;
+  /* 边界还在画面外侧:画一层风格化的软过渡,避免"硬切"先露脸 */
+  if (left + bw < 0 || left > W0) return;
+  if (left < 0 || left + bw > W0) {
+    const gx = clamp(bx, 0, W0);
+    const g = CTX.createLinearGradient(gx - 90, 0, gx + 90, 0);
+    g.addColorStop(0, "rgba(8,5,14,0)");
+    g.addColorStop(0.5, "rgba(8,5,14,.42)");
+    g.addColorStop(1, "rgba(8,5,14,0)");
+    CTX.fillStyle = g; CTX.fillRect(gx - 90, 0, 180, H);
+    return;
+  }
+  const snap = AP.mk(bw, H), sg = snap.getContext("2d");
+  sg.drawImage(CV, left, 0, bw, H, 0, 0, bw, H);
+  const fn = SEAM[SEAM_KEYS[idx % SEAM_KEYS.length]];
+  if (fn) fn(CTX, bx, bw, H, t, snap);
+  /* 接缝再压一层极淡的过渡光:两界硬切边不至于刺眼 */
+  const g2 = CTX.createLinearGradient(bx - 46, 0, bx + 46, 0);
+  g2.addColorStop(0, "rgba(10,7,16,0)");
+  g2.addColorStop(0.5, "rgba(10,7,16,.2)");
+  g2.addColorStop(1, "rgba(10,7,16,0)");
+  CTX.fillStyle = g2; CTX.fillRect(bx - 46, 0, 92, H);
+}
+
+/* ── 世界专属后期:每帧,只作用于该世界可见区域 ── */
+function postFX(wd, x0, t) {
+  const k = wd.key;
+  const vx = Math.max(0, x0), vw = Math.min(WORLD_W, W0 - x0) - Math.max(0, x0);
+  if (k === "cave") {
+    /* 火光要在颜料层之上重新打一遍(配方 01:用 overlay,用 lighter 会把赭石洗成粉白) */
+    const fx = x0 + 500;
+    const fl = 0.75 + Math.sin(t * 7) * 0.12 + Math.sin(t * 13.7) * 0.08;
+    const g = CTX.createRadialGradient(fx, GY - 46, 12, fx, GY - 46, 470);
+    g.addColorStop(0, `rgba(255,166,66,${0.46 * fl})`);
+    g.addColorStop(0.6, `rgba(255,120,40,${0.16 * fl})`);
+    g.addColorStop(1, "rgba(255,120,40,0)");
+    CTX.save();
+    CTX.globalCompositeOperation = "overlay";
+    CTX.fillStyle = g; CTX.fillRect(x0, 0, WORLD_W, H);
+    /* 余烬:亮核 + 光晕,首尾淡入淡出 */
+    CTX.globalCompositeOperation = "lighter";
+    const rnd = AP.rng(61);
+    for (let i = 0; i < 40; i++) {
+      const bx = x0 + 380 + rnd() * 620;
+      const q = ((t * 0.22 + rnd()) % 1);
+      const by = GY - 10 - q * 300;
+      const a = Math.sin(q * Math.PI) * (0.35 + 0.65 * Math.abs(Math.sin(t * 6 + i * 1.9)));
+      const r = 1.6 + rnd() * 2.2;
+      CTX.fillStyle = `rgba(255,224,130,${a * 0.85})`;
+      CTX.beginPath(); CTX.arc(bx + Math.sin(t * 1.7 + i) * 9, by, r, 0, TAU); CTX.fill();
+      CTX.fillStyle = `rgba(255,180,80,${a * 0.22})`;
+      CTX.beginPath(); CTX.arc(bx + Math.sin(t * 1.7 + i) * 9, by, r * 3.4, 0, TAU); CTX.fill();
+    }
+    CTX.restore();
+  } else if (k === "klimt") {
+    AP.goldShimmer(CTX, WORLD_W, H * 0.55, t, 13, 380);
+    AP.goldShards(CTX, WORLD_W, H, t, 19, 26);
+  } else if (k === "vapor" && vw > 60) {
+    AP.vhs(CTX, vx, 0, vw, H, t, ST.t);
+  } else if (k === "shinkai" && vw > 60) {
+    AP.bloom(CTX, vx, 0, vw, H, 0.17);
+    if (!POST_CACHE.shinkai) POST_CACHE.shinkai = {};
+    AP.godRays(CTX, vx, 0, vw, H, t, 5, POST_CACHE.shinkai);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
    四、陈皮:黑白奶牛猫骨架(锥度腿/双段尾/八开头/黄绿大眼)
    所有风格共用骨架参数,再按 key 换画法
    ═══════════════════════════════════════════════════════════════ */
@@ -864,113 +1017,192 @@ function catPose(t) {
     blink: (t % 3.7) < 0.13,
   };
 }
-/* 身+头轮廓(填充/裁剪两用) */
+/* 身+头轮廓(填充/裁剪两用):横向猫身 + 小一号的头 + 适度耳朵。
+   v3 的猫只有两个椭圆、没有耳朵,读起来像仓鼠;耳朵过大又像兔子 —— 这里按照片比例收。 */
+/* 猫体剪影:一条闭合轮廓(鼻→右耳→下巴→胸→腹→臀→背→左耳→头顶)。
+   早期版本用"身体椭圆 + 头椭圆"两条路径合并,描边时会把颈部交线一起画出来,
+   看起来像被绳子勒住;单一路径才只有外轮廓。 */
 function catPath(ctx, p) {
+  const b = p.bob, br = Math.sin(p.ph * 0.5) * 0.7;
   ctx.beginPath();
-  ctx.ellipse(-2, -30 - p.bob, 35, 21, 0, 0, TAU);
-  ctx.ellipse(30, -52 - p.bob, 19, 17.5, 0, 0, TAU);
+  ctx.moveTo(36, -70.5 - b);
+  /* 右耳 */
+  ctx.lineTo(42, -67 - b); ctx.lineTo(49, -77 - b); ctx.lineTo(50, -62 - b);
+  /* 头右侧到下巴 */
+  ctx.bezierCurveTo(50, -57 - b, 49, -51 - b, 46.5, -47 - b);
+  ctx.bezierCurveTo(44, -44 - b, 41, -42.5 - b, 38, -43 - b);
+  /* 颈前(短凹,不是长勒痕) */
+  ctx.bezierCurveTo(36.5, -43.5 - b, 33.5, -44 - b, 31, -45 - b);
+  /* 前胸(贴着头的下缘外侧走,别穿进头部,否则描边会在脸上划一道) */
+  ctx.bezierCurveTo(28, -40 - b, 27.4, -35 - b, 28, -31 - b);
+  /* 胸底到腹 */
+  ctx.bezierCurveTo(25, -27 - b, 19, -25 - b, 12, -23 - b);
+  ctx.bezierCurveTo(2, -21.0 - b, -12, -20.0 - b, -22, -21.0 - b);
+  /* 后臀 */
+  ctx.bezierCurveTo(-30, -22 - b, -36, -26 - b, -37, -33 - b);
+  ctx.bezierCurveTo(-38, -41 - b, -33, -48 - b, -25, -51 - b);
+  /* 脊背(带呼吸起伏) */
+  ctx.bezierCurveTo(-14, -54.5 - b - br, 0, -56 - b - br, 12, -56.5 - b - br);
+  /* 颈后接左耳 */
+  ctx.bezierCurveTo(16, -57.5 - b, 21, -59.5 - b, 23.8, -63 - b);
+  ctx.lineTo(27, -78 - b); ctx.lineTo(32, -68 - b);
+  ctx.bezierCurveTo(32.5, -69 - b, 34.5, -70.5 - b, 36, -70.5 - b);
+  ctx.closePath();
 }
-/* 锥度腿:两段圆头线(宽→窄)+ 爪 */
+/* 躯干(风格笔触的裁剪用):不含头,避免点彩糊到脸上 */
+function catBodyPath(ctx, p) {
+  const b = p.bob, br = Math.sin(p.ph * 0.5) * 0.7;
+  ctx.beginPath();
+  ctx.moveTo(27, -27 - b);
+  ctx.bezierCurveTo(24, -33 - b, 22, -40 - b, 22, -47 - b);
+  ctx.bezierCurveTo(12, -54 - b - br, -4, -56 - b - br, -16, -53 - b - br);
+  ctx.bezierCurveTo(-28, -50 - b - br, -37, -43 - b, -37, -32 - b);
+  ctx.bezierCurveTo(-36, -27 - b, -31, -22 - b, -22, -21 - b);
+  ctx.bezierCurveTo(-12, -20 - b, 2, -21 - b, 12, -22 - b);
+  ctx.bezierCurveTo(19, -23 - b, 25, -25 - b, 27, -29 - b);
+  ctx.closePath();
+}
+/* 耳内:粉色三角 + 一撮耳毛 */
+function catEarInner(ctx, p, o, t) {
+  const b = p.bob;
+  ctx.fillStyle = o.earIn || "rgba(230,146,164,.9)";
+  ctx.beginPath(); ctx.moveTo(29, -66 - b); ctx.lineTo(28.5, -74 - b); ctx.lineTo(34, -67.5 - b); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(44.5, -65 - b); ctx.lineTo(48.5, -73 - b); ctx.lineTo(50, -63 - b); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = "rgba(250,246,238,.7)"; ctx.lineWidth = 1; ctx.lineCap = "round";
+  const fw = Math.sin(t * 1.3) * 0.8;
+  ctx.beginPath(); ctx.moveTo(30.5, -68 - b); ctx.lineTo(30.2 + fw, -72 - b); ctx.stroke();
+}
+/* 锥度腿:两段圆头线(宽→窄)+ 爪关节 */
 function leg(ctx, x, swing, w, color) {
-  const kx = x + swing * 5, ky = -13 - 0;
-  const fx = x + swing * 10;
+  const kx = x + swing * 4, ky = -9;
+  const fx = x + swing * 8;
   ctx.strokeStyle = color; ctx.lineCap = "round";
   ctx.lineWidth = w;
   ctx.beginPath(); ctx.moveTo(x, -22); ctx.lineTo(kx, ky); ctx.stroke();
-  ctx.lineWidth = w - 2.4;
-  ctx.beginPath(); ctx.moveTo(kx, ky); ctx.lineTo(fx, -3); ctx.stroke();
+  ctx.lineWidth = w - 2;
+  ctx.beginPath(); ctx.moveTo(kx, ky); ctx.lineTo(fx, -2); ctx.stroke();
   ctx.fillStyle = color;
-  ctx.beginPath(); ctx.ellipse(fx + 1.5, -2.5, 4.6, 3.4, 0, 0, TAU); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(fx + 1.2, -1.8, 4.4, 2.7, 0, 0, TAU); ctx.fill();
 }
-/* 双段锥度尾 */
+/* 双段锥度尾:从臀部向后上方甩出去,不压到背上 */
 function tail(ctx, p, color, tipColor) {
-  ctx.save(); ctx.translate(-33, -34 - p.bob); ctx.rotate(p.tail);
+  ctx.save();
+  ctx.translate(-32, -40 - p.bob);
+  ctx.rotate(p.tail * 0.5);
   ctx.strokeStyle = color; ctx.lineCap = "round";
-  ctx.lineWidth = 8;
-  ctx.beginPath(); ctx.moveTo(0, 0); ctx.quadraticCurveTo(-12, -6, -19, -18); ctx.stroke();
-  ctx.lineWidth = 5.4;
-  ctx.beginPath(); ctx.moveTo(-19, -18); ctx.quadraticCurveTo(-24, -26, -22, -34); ctx.stroke();
+  ctx.lineWidth = 8.2;
+  ctx.beginPath(); ctx.moveTo(0, 0); ctx.bezierCurveTo(-10, -3, -17, -12, -18, -22); ctx.stroke();
+  ctx.lineWidth = 5;
+  ctx.beginPath(); ctx.moveTo(-18, -22); ctx.bezierCurveTo(-20, -34, -28, -44, -37, -46); ctx.stroke();
   ctx.fillStyle = tipColor;
-  ctx.beginPath(); ctx.arc(-22, -36, 3.6, 0, TAU); ctx.fill();
+  ctx.beginPath(); ctx.arc(-38.6, -46.4, 3, 0, TAU); ctx.fill();
   ctx.restore();
 }
 /* 主绘制:s = 世界 key */
 function drawCat(ctx, s, t) {
   const p = catPose(t), P = CAT_PAL;
   const o = catOpts(s);
+  if (s === "bauhaus") { drawCatBauhaus(ctx, p); return; }      // 几何猫自成比例
+  const K = o.scale || 1.3;                                    // 放大:角色是视线落点
+  ctx.save();
+  ctx.scale(K, K);
   /* 接触影(随步伐微缩) */
   ctx.fillStyle = `rgba(8,6,16,${o.shadow ?? 0.24})`;
-  ctx.beginPath(); ctx.ellipse(4, 0, 42 + Math.sin(p.ph) * 2, 8, 0, 0, TAU); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(3, 1, 38 + Math.sin(p.ph) * 2, 7, 0, 0, TAU); ctx.fill();
 
-  if (s === "pixel") { drawCatPixel(ctx, p); return; }
-  if (s === "bauhaus") { drawCatBauhaus(ctx, p); return; }
-  if (s === "cave") { drawCatCave(ctx, p); return; }
+  if (s === "pixel") { drawCatPixel(ctx, p); ctx.restore(); return; }
+  if (s === "cave") { drawCatCave(ctx, p); ctx.restore(); return; }
 
   /* —— 尾巴(压在身体后) —— */
   tail(ctx, p, o.tail, o.tailTip || o.tail);
-  /* —— 四条腿 —— */
-  for (const [lx, sw] of [[18, p.legA * 0.85], [10, p.legB * 0.85], [-18, p.legB], [-27, p.legA]])
-    leg(ctx, lx, sw, 8.6, o.leg);
-  /* —— 身体 —— */
+  /* —— 四条腿:后腿带踝,前腿直 —— */
+  for (const [lx, sw, lw] of [[22, p.legA * 0.7, 8.2], [14, p.legB * 0.7, 8.2], [-22, p.legB * 0.8, 9], [-31, p.legA * 0.8, 9]])
+    leg(ctx, lx, sw, lw, o.leg);
+  /* —— 身体:先按两倍粗细描轮廓,再用身体色填充盖住内半圈 ——
+     直接给合并路径描边会连带画出"头与身体的交线"(看着像被绳子勒住),
+     先描后填只剩外轮廓,耳根也不会多一道横线。 */
+  if (o.outline) {
+    ctx.strokeStyle = o.outline; ctx.lineWidth = (o.olw || 2.6) * 2; ctx.lineJoin = "round";
+    catPath(ctx, p); ctx.stroke();
+  }
   ctx.fillStyle = o.body; catPath(ctx, p); ctx.fill();
-  if (o.outline) { ctx.strokeStyle = o.outline; ctx.lineWidth = o.olw || 3; catPath(ctx, p); ctx.stroke(); }
   /* —— 斑块与风格笔触(裁剪进身形) —— */
   ctx.save(); catPath(ctx, p); ctx.clip();
-  /* 背部大黑斑(所有常规风格的底) */
   if (o.patch) {
+    /* 背部鞍斑:三团叠出不规则边,像真猫的花斑(只盖背,不扫到肚皮) */
     ctx.fillStyle = o.patch;
-    ctx.beginPath(); ctx.ellipse(-12, -40 - p.bob, 22, 12, -0.12, 0, TAU); ctx.fill();
-    ctx.beginPath(); ctx.ellipse(-30, -28 - p.bob, 12, 9, 0.3, 0, TAU); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(-13, -50 - p.bob, 14.5, 6.4, -0.08, 0, TAU); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(-27, -44 - p.bob, 8, 5.6, 0.28, 0, TAU); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(-2, -53 - p.bob, 6, 3.8, -0.28, 0, TAU); ctx.fill();
+    /* 头顶黑帽(只盖额头)+ 左耳整只黑 —— 眼睛必须露在帽沿下面 */
+    ctx.beginPath(); ctx.ellipse(39.5, -66.5 - p.bob, 11.2, 5.8, 0.04, 0, TAU); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(29, -66 - p.bob); ctx.lineTo(27, -78.5 - p.bob); ctx.lineTo(35, -68 - p.bob); ctx.closePath(); ctx.fill();
+    /* 白口鼻 + 白胸腹(奶牛猫的大白脸) */
+    ctx.fillStyle = o.body;
+    ctx.beginPath(); ctx.ellipse(39.5, -49.5 - p.bob, 8.2, 5.2, 0, 0, TAU); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(24, -30 - p.bob, 8.5, 6.4, 0.06, 0, TAU); ctx.fill();
   }
-  /* 头部:黑帽 + 八字垂斑(陈皮的身份证) */
-  if (o.patch) {
-    ctx.fillStyle = o.patch;
-    ctx.beginPath(); ctx.ellipse(29, -62 - p.bob, 17.5, 10.5, 0.05, 0, TAU); ctx.fill();   // 头顶黑帽(小一圈)
-    ctx.save(); ctx.translate(23.5, -50 - p.bob); ctx.rotate(0.52);                        // 左垂斑(向鼻梁 dip)
-    ctx.beginPath(); ctx.ellipse(0, 0, 3.8, 9, 0, 0, TAU); ctx.fill(); ctx.restore();
-    ctx.save(); ctx.translate(36.5, -50 - p.bob); ctx.rotate(-0.52);                       // 右垂斑
-    ctx.beginPath(); ctx.ellipse(0, 0, 3.8, 9, 0, 0, TAU); ctx.fill(); ctx.restore();
-    ctx.fillStyle = o.body;                                                                 // 白口鼻(照片大白脸)
-    ctx.beginPath(); ctx.ellipse(30, -43 - p.bob, 10, 7, 0, 0, TAU); ctx.fill();
-    ctx.beginPath(); ctx.ellipse(-6, -22 - p.bob, 16, 8, 0.1, 0, TAU); ctx.fill();          // 白胸
-  }
-  /* 风格化笔触(叠在斑块上) */
-  if (o.fx) o.fx(ctx, p, t);
   ctx.restore();
+  /* 风格笔触只作用在躯干上,别糊到脸上 */
+  if (o.fx) {
+    ctx.save(); catBodyPath(ctx, p); ctx.clip(); o.fx(ctx, p, t); ctx.restore();
+  }
+  /* 耳内 */
+  catEarInner(ctx, p, o, t);
 
-  /* —— 脸部细节(在裁剪外,保持锐利) —— */
-  const hy = -52 - p.bob, hx = 30;
-  /* 大眼(黄绿 + 双层高光),眨眼变横线 */
+  /* —— 脸部(在裁剪外,保持锐利) —— */
+  const hy = -56 - p.bob, hx = 39;
+  /* 大眼:杏仁形 + 竖瞳 + 双高光;眨眼变弯眼 */
   if (p.blink) {
-    ctx.strokeStyle = "#1a1a20"; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.moveTo(hx - 10, hy - 1); ctx.lineTo(hx - 4, hy - 1);
-    ctx.moveTo(hx + 4, hy - 1); ctx.lineTo(hx + 10, hy - 1); ctx.stroke();
+    ctx.strokeStyle = "#1a1a20"; ctx.lineWidth = 1.7; ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(hx - 11, hy); ctx.quadraticCurveTo(hx - 7.2, hy + 2.6, hx - 3.4, hy);
+    ctx.moveTo(hx + 3.4, hy); ctx.quadraticCurveTo(hx + 7.2, hy + 2.6, hx + 11, hy);
+    ctx.stroke();
   } else {
-    for (const ex of [hx - 7, hx + 7]) {
+    for (const ex of [hx - 6.6, hx + 6.6]) {
+      ctx.save();
+      ctx.translate(ex, hy + 0.4); ctx.rotate(ex < hx ? -0.1 : 0.1);
       ctx.fillStyle = o.eyeC || P.eye;
-      ctx.beginPath(); ctx.ellipse(ex, hy - 1, 3.4, 4.4, 0, 0, TAU); ctx.fill();
-      ctx.fillStyle = "#1a1a20";
-      ctx.beginPath(); ctx.ellipse(ex, hy - 0.5, 1.7, 2.6, 0, 0, TAU); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(0, 0, 4.7, 5.3, 0, 0, TAU); ctx.fill();
+      ctx.fillStyle = "#20202a";                        // 竖瞳
+      ctx.beginPath(); ctx.ellipse(0, 0.4, 1.6, 3.6, 0, 0, TAU); ctx.fill();
       ctx.fillStyle = "#fff";
-      ctx.beginPath(); ctx.arc(ex - 1, hy - 2.6, 1, 0, TAU); ctx.fill();
-      ctx.beginPath(); ctx.arc(ex + 0.8, hy + 1, 0.5, 0, TAU); ctx.fill();
+      ctx.beginPath(); ctx.arc(-1.8, -2.2, 1.35, 0, TAU); ctx.fill();
+      ctx.beginPath(); ctx.arc(1.7, 2.1, 0.7, 0, TAU); ctx.fill();
+      ctx.strokeStyle = "rgba(34,30,38,.5)"; ctx.lineWidth = 1;   // 上眼睑
+      ctx.beginPath(); ctx.ellipse(0, 0, 4.9, 5.5, 0, Math.PI * 1.08, Math.PI * 1.92); ctx.stroke();
+      ctx.restore();
     }
   }
-  /* 鼻上黑点(照片同款) + 嘴 */
+  /* 鼻(圆角三角) + 人中 + 嘴 */
   ctx.fillStyle = o.noseC || P.nose;
-  ctx.beginPath(); ctx.ellipse(hx, hy + 5, 2.6, 2, 0, 0, TAU); ctx.fill();
-  ctx.strokeStyle = "rgba(30,26,28,.7)"; ctx.lineWidth = 1.4; ctx.lineCap = "round";
-  ctx.beginPath(); ctx.moveTo(hx, hy + 6.6); ctx.quadraticCurveTo(hx - 1.6, hy + 8.4, hx - 3, hy + 7);
-  ctx.moveTo(hx, hy + 6.6); ctx.quadraticCurveTo(hx + 1.6, hy + 8.4, hx + 3, hy + 7); ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(hx - 2.3, hy + 4.4); ctx.lineTo(hx + 2.3, hy + 4.4);
+  ctx.quadraticCurveTo(hx + 1.9, hy + 6.8, hx, hy + 7.2);
+  ctx.quadraticCurveTo(hx - 1.9, hy + 6.8, hx - 2.3, hy + 4.4);
+  ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = "rgba(36,30,32,.6)"; ctx.lineWidth = 1.1; ctx.lineCap = "round";
+  ctx.beginPath(); ctx.moveTo(hx, hy + 7.2); ctx.lineTo(hx, hy + 8.4);
+  ctx.moveTo(hx, hy + 8.4); ctx.quadraticCurveTo(hx - 1.8, hy + 9.8, hx - 3.2, hy + 8.3);
+  ctx.moveTo(hx, hy + 8.4); ctx.quadraticCurveTo(hx + 1.8, hy + 9.8, hx + 3.2, hy + 8.3); ctx.stroke();
+  /* 腮毛(两三根短弧,猫感全在这里) */
+  ctx.strokeStyle = "rgba(60,54,58,.3)"; ctx.lineWidth = 0.9;
+  for (const s2 of [-1, 1]) {
+    ctx.beginPath();
+    ctx.moveTo(hx + s2 * 8.6, hy + 3.4); ctx.quadraticCurveTo(hx + s2 * 12.4, hy + 5, hx + s2 * 13.6, hy + 8.4);
+    ctx.stroke();
+  }
   /* 胡须(灰,微颤) */
   if (o.whisk) {
-    ctx.strokeStyle = "rgba(60,58,64,.75)"; ctx.lineWidth = 1.3;
-    for (const wy of [-1, 2.4, 5.6]) {
+    ctx.strokeStyle = "rgba(58,56,62,.62)"; ctx.lineWidth = 1;
+    for (const wy of [-0.6, 2, 4.6]) {
       const wob = Math.sin(t * 2.4 + wy) * 0.7;
-      ctx.beginPath(); ctx.moveTo(hx + 3, hy + wy); ctx.lineTo(hx + 17, hy + wy - 3.4 + wob); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(hx - 3, hy + wy); ctx.lineTo(hx - 17, hy + wy - 3.4 + wob); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(hx + 3.4, hy + wy); ctx.quadraticCurveTo(hx + 11, hy + wy - 1.8, hx + 17, hy + wy - 3.4 + wob); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(hx - 3.4, hy + wy); ctx.quadraticCurveTo(hx - 11, hy + wy - 1.8, hx - 17, hy + wy - 3.4 + wob); ctx.stroke();
     }
   }
+  ctx.restore();
 }
 /* 各时代画法参数(身体色/斑块/腿尾/描边 + 风格笔触钩子 fx) */
 function catOpts(s) {
@@ -980,8 +1212,8 @@ function catOpts(s) {
     egypt:   { body: "#f2e6c4", patch: "#1c1c22", outline: "#3a2a10", olw: 3, tail: "#1c1c22", leg: "#1c1c22", whisk: true,
                fx(c2, p2) {                                          // 金项圈 + 金耳环
                  c2.fillStyle = "#d9b23c";
-                 for (let i = 0; i < 3; i++) { c2.beginPath(); c2.ellipse(13 + i * 7.5, -40 - p2.bob, 4, 14, 1.25, 0, TAU); c2.fill(); }
-                 c2.fillStyle = "#f2d06b"; c2.beginPath(); c2.arc(44, -64 - p2.bob, 3, 0, TAU); c2.fill();
+                 for (let i = 0; i < 3; i++) { c2.beginPath(); c2.ellipse(28 + i * 7.2, -44 - p2.bob, 3.6, 12, 1.25, 0, TAU); c2.fill(); }
+                 c2.fillStyle = "#f2d06b"; c2.beginPath(); c2.arc(47, -63 - p2.bob, 2.8, 0, TAU); c2.fill();
                }, eyeC: "#1c1c22", noseC: "#1c1c22" },
     ukiyo:   { body: "#f6f1e6", patch: "#1f1f26", outline: "#26303e", olw: 3.4, tail: "#1f1f26", leg: "#1f1f26", whisk: true,
                fx(c2, p2, t2) {                                      // 木版套印错位(斑块右侧淡蓝重影)
@@ -1040,26 +1272,34 @@ function catOpts(s) {
   };
   return M[s] || M.ukiyo;
 }
-/* 岩洞陈皮:整猫赭石剪影 + 炭色抖动轮廓 + 颜料滴痕 */
+/* 岩洞陈皮:赭石剪影 + 一道深赭错位(代替三重抖动,三重会糊成一团) */
 function drawCatCave(ctx, p) {
-  for (const [jx, jy, col, lw] of [[0, 0, "#c9764a", 0], [2, 1, "rgba(58,31,14,.55)", 3], [-2, -1, "rgba(58,31,14,.3)", 1.6]]) {
-    ctx.save(); ctx.translate(jx, jy);
-    ctx.fillStyle = col || "#c9764a";
-    catPath(ctx, p);
-    if (lw) { ctx.strokeStyle = col; ctx.lineWidth = lw; catPath(ctx, p); ctx.stroke(); }
-    ctx.fill();
-    ctx.strokeStyle = col || "#8a4a26"; ctx.lineCap = "round";
-    for (const [lx, sw] of [[18, p.legA * 0.85], [10, p.legB * 0.85], [-18, p.legB], [-27, p.legA]])
-      leg(ctx, lx, sw, 8, col || "#c9764a");
-    tail(ctx, p, col || "#8a4a26", col || "#8a4a26");
-    ctx.restore();
-  }
-  /* 眼点 + 滴痕 */
+  /* 错位的深赭垫底:模仿颜料渗进岩缝 */
+  ctx.save(); ctx.translate(2.2, 1.6);
+  ctx.fillStyle = "rgba(88,44,20,.55)";
+  catPath(ctx, p); ctx.fill();
+  for (const [lx, sw] of [[22, p.legA * 0.7], [14, p.legB * 0.7], [-22, p.legB * 0.8], [-31, p.legA * 0.8]])
+    leg(ctx, lx, sw, 8, "rgba(88,44,20,.55)");
+  tail(ctx, p, "rgba(88,44,20,.55)", "rgba(88,44,20,.55)");
+  ctx.restore();
+  /* 主剪影 */
+  ctx.fillStyle = "#c9764a";
+  catPath(ctx, p); ctx.fill();
+  for (const [lx, sw] of [[22, p.legA * 0.7], [14, p.legB * 0.7], [-22, p.legB * 0.8], [-31, p.legA * 0.8]])
+    leg(ctx, lx, sw, 8, "#c9764a");
+  tail(ctx, p, "#b96a3e", "#d9865a");
+  /* 炭笔五官:只留眼点、鼻梁和一道嘴线,原始壁画的"少即是多" */
   ctx.fillStyle = "#3a1f0e";
-  ctx.beginPath(); ctx.arc(26, -54 - p.bob, 1.8, 0, TAU); ctx.arc(36, -54 - p.bob, 1.8, 0, TAU); ctx.fill();
+  ctx.beginPath(); ctx.arc(33.5, -58 - p.bob, 1.9, 0, TAU); ctx.arc(43.5, -58 - p.bob, 1.9, 0, TAU); ctx.fill();
+  ctx.strokeStyle = "rgba(58,31,14,.7)"; ctx.lineWidth = 1.3; ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.moveTo(38.5, -54 - p.bob); ctx.lineTo(38.5, -50 - p.bob);
+  ctx.moveTo(38.5, -50 - p.bob); ctx.quadraticCurveTo(36.6, -48.4 - p.bob, 35 - p.bob * 0, -50 - p.bob);
+  ctx.stroke();
+  /* 颜料滴痕 */
   for (let i = 0; i < 3; i++) {
     const dx = -20 + i * 18 + srnd(i) * 8;
-    ctx.fillStyle = "rgba(138,74,38,.5)";
+    ctx.fillStyle = "rgba(138,74,38,.45)";
     ctx.fillRect(dx, -22, 2.2, 10 + srnd(i + 4) * 16);
   }
 }
@@ -1132,15 +1372,35 @@ function render() {
   const x0 = wi * WORLD_W - ST.camX;
   wd.sky(x0);
   wd.draw(x0, t);
-  /* 过界预告:下一世界在右侧先露一条 */
-  const rightEdge = x0 + WORLD_W;
-  if (rightEdge < W && wi < 9) {
-    CTX.save(); CTX.beginPath(); CTX.rect(rightEdge, 0, W - rightEdge, H); CTX.clip();
-    WORLDS[wi + 1].sky(rightEdge - (wi + 1) * WORLD_W);
-    WORLDS[wi + 1].draw(rightEdge - (wi + 1) * WORLD_W, t);
+  /* 绘画层:把底稿整幅重画成该世界的"颜料" */
+  const ov = bakeOverlay(wd);
+  if (ov) {
+    const cfg = PAINT_CFG[wd.key];
+    CTX.save();
+    CTX.globalAlpha = cfg && cfg.palette ? 0.72 : 1;   // 笔触层是罩染;纹样/像素层必须实
+    CTX.drawImage(ov, x0, 0);
     CTX.restore();
-    CTX.fillStyle = "rgba(8,5,14,.55)"; CTX.fillRect(rightEdge - 3, 0, 6, H);
   }
+  postFX(wd, x0, t);
+  /* 过界预告:下一世界在右侧先露一条(同样带上自己的颜料) */
+  const rightEdge = x0 + WORLD_W;
+  if (rightEdge < W0 && wi < 9) {
+    const nw = WORLDS[wi + 1];
+    CTX.save(); CTX.beginPath(); CTX.rect(rightEdge, 0, W0 - rightEdge, H); CTX.clip();
+    nw.sky(rightEdge - (wi + 1) * WORLD_W);
+    nw.draw(rightEdge - (wi + 1) * WORLD_W, t);
+    const nov = bakeOverlay(nw);
+    if (nov) {
+      const ncfg = PAINT_CFG[nw.key];
+      CTX.save();
+      CTX.globalAlpha = ncfg && ncfg.palette ? 0.72 : 1;
+      CTX.drawImage(nov, rightEdge, 0);
+      CTX.restore();
+    }
+    CTX.restore();
+  }
+  /* 签名转场:接缝不再是一条硬线,而是两界用各自的语言咬合 */
+  seamFX(rightEdge, wi, t);
   /* 陈皮 */
   CTX.save();
   CTX.translate(ST.catX - ST.camX, GY);
