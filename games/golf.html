@@ -103,6 +103,21 @@ const HOLES = [
 ];
 const TOTAL_PAR = HOLES.reduce((s, h) => s + h.par, 0);      // 总标准杆 24
 
+/* 每个洞的风与果岭坡度:风全程轻推,坡度只在果岭(洞口周围)起作用。
+   两者都做成"看得见"(HUD 箭头 + 果岭斜纹),玩家能提前算进去,不是纯随机惩罚。 */
+const HOLE_WIND = [
+  [0.0, 0.0], [0.10, 0.0], [-0.12, 0.05], [0.14, 0.0], [0.0, -0.13],
+  [0.11, 0.09], [-0.15, 0.0], [0.0, 0.12], [-0.10, -0.10],
+];
+const HOLE_SLOPE = [                                    // [dx, dy] 单位:像素/帧²
+  [0, 0], [0, 0], [0.030, 0.020], [0, 0], [-0.026, 0.024],
+  [0, 0], [0.028, -0.018], [0, 0], [0.024, 0.022],
+];
+HOLES.forEach((h, i) => {                               // 洞数比表短时不越界
+  h.wind = HOLE_WIND[i] || [0, 0];
+  h.slope = HOLE_SLOPE[i] || [0, 0];
+});
+
 /* ═══════════════════════════════════════════════════════════
    三、音效
    ═══════════════════════════════════════════════════════════ */
@@ -169,6 +184,21 @@ function update() {
     if (inSand && b.sandT !== 1) { if (b.sandT !== 1) { sfx.sand(); b.sandT = 1; } }
     else b.sandT = 0;
     b.vx *= fr; b.vy *= fr;
+
+    /* 风:全程轻推(速度越低影响越明显,等于"逆风推不进去") */
+    const wind = h.wind || [0, 0];
+    b.vx += wind[0] * 0.055;
+    b.vy += wind[1] * 0.055;
+
+    /* 果岭坡度:只在洞口周围 78px 内生效,球慢下来以后才明显 */
+    const sl = h.slope || [0, 0];
+    if (sl[0] || sl[1]) {
+      const dS = Math.hypot(h.cup[0] - b.x, h.cup[1] - b.y);
+      if (dS < 78) {
+        const k = (1 - dS / 78);                       // 越近越陡
+        b.vx += sl[0] * k; b.vy += sl[1] * k;
+      }
+    }
 
     /* 洞口吸力:慢球靠近时被轻轻拉进去 */
     const dxC = h.cup[0] - b.x, dyC = h.cup[1] - b.y, dC = Math.hypot(dxC, dyC);
@@ -438,6 +468,46 @@ function render() {
   CTX.fillText(`本洞 ${G.strokes} 杆`, 410, HUD/2);
   CTX.textAlign = "right";
   CTX.fillText(`总杆 ${G.total}(${diffNow === 0 ? "E" : diffNow > 0 ? "+" + diffNow : diffNow})`, W - 12, HUD/2);
+
+  /* —— 风向标:场地右上角的小胶囊(放 HUD 里会压住杆数文字) —— */
+  const wd = h.wind || [0, 0];
+  const wmag = Math.hypot(wd[0], wd[1]);
+  const pw = 96, ph = 22, px = W - pw - 10, py = HUD + 10;
+  CTX.fillStyle = "rgba(18,44,22,.42)";
+  CTX.beginPath();
+  if (CTX.roundRect) CTX.roundRect(px, py, pw, ph, 11); else CTX.rect(px, py, pw, ph);
+  CTX.fill();
+  const wx0 = px + 10, wy0 = py + ph / 2;
+  if (wmag < 0.01) {
+    CTX.fillStyle = "rgba(255,255,255,.75)";
+    CTX.font = "bold 11px sans-serif"; CTX.textAlign = "left";
+    CTX.fillText("无风", wx0, wy0);
+  } else {
+    const ang = Math.atan2(wd[1], wd[0]);
+    const len = 12 + Math.min(16, wmag * 110);
+    CTX.save(); CTX.translate(wx0 + 12, wy0); CTX.rotate(ang);
+    CTX.strokeStyle = "#d8f0ff"; CTX.lineWidth = 2.2; CTX.lineCap = "round";
+    CTX.beginPath(); CTX.moveTo(-len * 0.5, 0); CTX.lineTo(len * 0.5, 0); CTX.stroke();
+    CTX.beginPath(); CTX.moveTo(len * 0.5, 0); CTX.lineTo(len * 0.5 - 6, -4.5);
+    CTX.moveTo(len * 0.5, 0); CTX.lineTo(len * 0.5 - 6, 4.5); CTX.stroke();
+    CTX.restore();
+    CTX.fillStyle = "rgba(255,255,255,.85)"; CTX.font = "bold 10px sans-serif"; CTX.textAlign = "left";
+    CTX.fillText(wmag > 0.11 ? "强风" : "微风", wx0 + 34, wy0);
+  }
+  /* —— 果岭坡度箭头:画在洞口上方,斜纹方向就是球会滑的方向 —— */
+  const sl = h.slope || [0, 0];
+  if (Math.hypot(sl[0], sl[1]) > 0.005) {
+    CTX.save();
+    CTX.translate(h.cup[0], h.cup[1] - 34);
+    CTX.rotate(Math.atan2(sl[1], sl[0]));
+    CTX.globalAlpha = 0.55;
+    CTX.strokeStyle = "#0d2a12"; CTX.lineWidth = 2;
+    for (let i = 0; i < 3; i++) {                      // 三个递减的>"表示下坡
+      const ox = -10 + i * 9;
+      CTX.beginPath(); CTX.moveTo(ox - 4, -6); CTX.lineTo(ox + 2, 0); CTX.lineTo(ox - 4, 6); CTX.stroke();
+    }
+    CTX.restore();
+  }
   CTX.restore();
 }
 

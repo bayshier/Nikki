@@ -107,6 +107,7 @@
 </div>
 
 <script src="shared/art-paint.js"></script>
+<script src="shared/art-music.js"></script>
 <script>
 /* ═══════════════════════════════════════════════════════════════
    〇、总开关、画布、胶片颗粒贴图
@@ -598,6 +599,19 @@ const WORLDS = [
     CTX.fillStyle = "rgba(26,26,26,.06)";
     for (let gx = 0; gx < W; gx += 22) for (let gy = 30; gy < H; gy += 22) CTX.fillRect(x0 + gx, gy, 2, 2);
     /* 构成:斜线 + 半透明叠色圆 + 旋转条 + 横排线 */
+    /* 左缘簇:走到接缝时这一侧不能是空白,呼应转场里的红圆/蓝方/黄三角 */
+    CTX.fillStyle = "#2b5ea7";
+    CTX.beginPath(); CTX.arc(x0 + 150, 250 + Math.sin(t * 0.9) * 8, 72, 0, TAU); CTX.fill();
+    CTX.fillStyle = "#1a1a1a"; CTX.fillRect(x0 + 236, 92, 20, 300);
+    CTX.fillStyle = "#f2b705";
+    CTX.beginPath(); CTX.moveTo(x0 + 52, 430); CTX.lineTo(x0 + 168, 430); CTX.lineTo(x0 + 110, 330); CTX.closePath(); CTX.fill();
+    CTX.strokeStyle = "#d93a2b"; CTX.lineWidth = 5;
+    CTX.beginPath(); CTX.arc(x0 + 150, 250 + Math.sin(t * 0.9) * 8, 96, 0.4, 2.6); CTX.stroke();
+    /* 右缘:一道竖排细线组,别让世界在 1400 处突然断掉 */
+    CTX.strokeStyle = "rgba(26,26,26,.55)"; CTX.lineWidth = 3;
+    for (let i = 0; i < 6; i++) {
+      CTX.beginPath(); CTX.moveTo(x0 + 1345 + i * 9, 300); CTX.lineTo(x0 + 1345 + i * 9, 300 + 120 - i * 12); CTX.stroke();
+    }
     CTX.strokeStyle = "#1a1a1a"; CTX.lineWidth = 8;
     CTX.beginPath(); CTX.moveTo(x0 + 90, 0); CTX.lineTo(x0 + 720, H); CTX.stroke();
     const oc = (t * 30) % 520;
@@ -1544,13 +1558,26 @@ const SCALES = [
   [262, 294, 330, 349, 392], [262, 330, 392, 523, 659], [220, 277, 330, 440, 554],
   [294, 330, 370, 440, 494],
 ];
-function sfxEra(i) { tone(SCALES[i % 10][0], SCALES[i % 10][0] * 1.01, 0.3, "triangle", 0.12); }
+function sfxEra(i) {
+  tone(SCALES[i % 10][0], SCALES[i % 10][0] * 1.01, 0.3, "triangle", 0.12);
+  /* 换时代 = 换曲子:每个时代有自己的 BPM/调式/和弦/鼓组 */
+  if (AC) AM.setEra(i);
+}
+/* 配乐:第一次交互后才建 AudioContext(浏览器策略),之后整段跟着走 */
+function ensureMusic() {
+  if (!AC) { try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return; } }
+  if (AC && AC.state === "suspended") AC.resume();
+  AM.attach(AC);
+  AM.setMuted(ST.muted);
+  AM.start(worldIdxAt(ST.catX));
+}
+addEventListener("pointerdown", ensureMusic, { once: true });
+addEventListener("keydown", ensureMusic, { once: true });
+/* 暂停/静音时把配乐让开 */
 setInterval(() => {
-  if (ST.paused || ST.ended || ST.muted) return;
-  const sc = SCALES[worldIdxAt(ST.catX) % 10];
-  const n = sc[Math.floor(Math.random() * sc.length)] * (Math.random() < 0.3 ? 2 : 1);
-  tone(n, n, 0.9, "triangle", 0.045);
-}, 640);
+  AM.setMuted(ST.muted);
+  AM.duck(ST.paused || ST.ended);
+}, 400);
 
 resetAll();
 requestAnimationFrame(frame);

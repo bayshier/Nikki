@@ -100,26 +100,45 @@ const CV = document.getElementById("cv"), CTX = CV.getContext("2d");
 const CELL = 48, COLS = 13, ROWS = 9, HUD = 48;      // 格子尺寸 / 列数 / 行数 / 顶部HUD高
 const W = CV.width, H = CV.height;
 
-/* 路径拐点(格子坐标):入口在 (-1,4) 界外,出口 (13,4) 界外进猫窝 */
-const WAYPOINTS_CELL = [[-1,4],[2,4],[2,1],[6,1],[6,7],[10,7],[10,4],[13,4]];
+/* 路径拐点(格子坐标):入口在 (-1,4) 界外,出口 (13,4) 界外进猫窝。
+   三条备选路线:每 5 波换一条,逼玩家重新布塔(不再一套阵型通到底) */
+const PATHS_CELL = [
+  [[-1,4],[2,4],[2,1],[6,1],[6,7],[10,7],[10,4],[13,4]],
+  [[-1,4],[1,4],[1,7],[5,7],[5,2],[9,2],[9,6],[13,6],[13,4]],
+  [[-1,6],[3,6],[3,2],[8,2],[8,7],[11,7],[11,4],[13,4]],
+];
+let pathIdx = 0;
 /* 把格子坐标换算成像素坐标(格子中心点),供移动逻辑使用 */
-const WAYPOINTS = WAYPOINTS_CELL.map(([cx, cy]) => [cx*CELL + CELL/2, HUD + cy*CELL + CELL/2]);
-
-/* 计算路径覆盖了哪些格子 → 这些格子不能建塔 */
-const pathCells = new Set();
-for (let i = 0; i < WAYPOINTS_CELL.length - 1; i++) {
-  const [x1, y1] = WAYPOINTS_CELL[i], [x2, y2] = WAYPOINTS_CELL[i+1];
-  const dx = Math.sign(x2 - x1), dy = Math.sign(y2 - y1);
-  let x = x1, y = y1;
-  while (true) {
-    for (let ox = -1; ox <= 1; ox++)           // 路径带一点宽度(-1~1 行/列),视觉上路宽约一格半
-      for (let oy = -1; oy <= 1; oy++)
-        if (x+ox >= 0 && x+ox < COLS && y+oy >= 0 && y+oy < ROWS)
-          pathCells.add((x+ox) + "," + (y+oy));
-    if (x === x2 && y === y2) break;
-    x += dx; y += dy;
+let WAYPOINTS = [];
+/* 计算某条路线覆盖了哪些格子 → 这些格子不能建塔 */
+function buildPathCells(cells) {
+  const set = new Set();
+  for (let i = 0; i < cells.length - 1; i++) {
+    const [x1, y1] = cells[i], [x2, y2] = cells[i + 1];
+    const dx = Math.sign(x2 - x1), dy = Math.sign(y2 - y1);
+    let x = x1, y = y1;
+    while (true) {
+      for (let ox = -1; ox <= 1; ox++)         // 路径带一点宽度(-1~1 行/列),视觉上路宽约一格半
+        for (let oy = -1; oy <= 1; oy++)
+          if (x+ox >= 0 && x+ox < COLS && y+oy >= 0 && y+oy < ROWS)
+            set.add((x+ox) + "," + (y+oy));
+      if (x === x2 && y === y2) break;
+      x += dx; y += dy;
+    }
   }
+  return set;
 }
+/* 全部路线的并集:建塔禁用区按并集算,换路线时不会有塔突然压在路上 */
+const blockedCells = new Set();
+for (const cells of PATHS_CELL) for (const k of buildPathCells(cells)) blockedCells.add(k);
+let pathCells = new Set();
+function setPath(i) {
+  pathIdx = ((i % PATHS_CELL.length) + PATHS_CELL.length) % PATHS_CELL.length;
+  const cells = PATHS_CELL[pathIdx];
+  WAYPOINTS = cells.map(([cx, cy]) => [cx*CELL + CELL/2, HUD + cy*CELL + CELL/2]);
+  pathCells = buildPathCells(cells);
+}
+setPath(0);
 
 /* ═══════════════════════════════════════════════════════════
    二、塔的定义与敌人波次表
@@ -154,6 +173,7 @@ const MAX_WAVE = 15;
    ═══════════════════════════════════════════════════════════ */
 const G = {};
 function reset() {
+  setPath(0);                                               // 重开回到第一条鼠道
   Object.assign(G, {
     coins: 140, lives: 10, wave: 0, waveActive: false,     // 金币/生命/波数
     spawnQueue: [], spawnTimer: 0, interTimer: 90,          // 刷怪队列 / 刷怪计时 / 波间休息
@@ -208,6 +228,12 @@ function update() {
         for (let i = 0; i < n; i++) G.spawnQueue.push({ type, gap });
       G.spawnTimer = 1;
       G.floats.push({ x: W/2, y: HUD+90, txt: `🌊 第 ${G.wave} 波!`, t: 80, big: true });
+      /* 每 5 波换一条路线:老阵型不再是万能解 */
+      if (G.wave > 1 && G.wave % 5 === 1) {
+        setPath(pathIdx + 1);
+        G.floats.push({ x: W/2, y: HUD+130, txt: "🗺️ 鼠道改线!", t: 80, big: true });
+        sfx.up();
+      }
     }
   } else if (G.spawnQueue.length) {
     if (--G.spawnTimer <= 0) {                            // 到点刷一只
@@ -366,11 +392,12 @@ function render() {
     const [cx, cy] = key.split(",").map(Number);
     CTX.fillRect(cx*CELL + 10, HUD + cy*CELL + 10, CELL - 20, CELL - 20);
   }
-  /* —— 入口黑洞 & 出口猫窝 —— */
+  /* —— 入口黑洞 & 出口猫窝(跟着当前路线走,换线时才不会错位) —— */
+  const inY = WAYPOINTS[0][1], outY = WAYPOINTS[WAYPOINTS.length - 1][1];
   CTX.fillStyle = "#3a3a4a";
-  CTX.beginPath(); CTX.ellipse(8, HUD + 4*CELL + CELL/2, 16, 20, 0, 0, 6.28); CTX.fill();
+  CTX.beginPath(); CTX.ellipse(8, inY, 16, 20, 0, 0, 6.28); CTX.fill();
   CTX.font = "38px serif"; CTX.textAlign = "center"; CTX.textBaseline = "middle";
-  CTX.fillText("🧺", W - 26, HUD + 4*CELL + CELL/2);
+  CTX.fillText("🧺", W - 26, outY);
 
   /* —— 建塔预览:选中建造类型时,鼠标格高亮 + 显示射程圈 —— */
   if (G.buildSel && G.hoverCell) {
@@ -461,7 +488,7 @@ function towerRange(t) { return TOWERS[t.type].range + (t.lv - 1) * 15; }
 /* 能否建造:格子界内 + 不是路 + 没有别的塔 */
 function canBuild(cx, cy) {
   if (cx < 0 || cy < 0 || cx >= COLS || cy >= ROWS) return false;
-  return !pathCells.has(cx + "," + cy) && !G.towers.some(t => t.cx === cx && t.cy === cy);
+  return !blockedCells.has(cx + "," + cy) && !G.towers.some(t => t.cx === cx && t.cy === cy);
 }
 
 /* ═══════════════════════════════════════════════════════════

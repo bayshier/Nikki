@@ -95,6 +95,7 @@ const sfx = {
   boom:  () => tone(300, 60, .25, "sawtooth", .12),
   hit:   () => tone(180, 80, .35, "sawtooth", .16),
   pow:   () => tone(660, 1320, .15, "triangle", .12),
+  graze: () => tone(1560, 2100, .05, "sine", .05),        // 擦弹:极短的高频轻响,不盖住主音
   boss:  () => tone(120, 80, .6, "sawtooth", .14),
   win:   () => [0,.12,.24,.4].forEach((d,i)=>setTimeout(()=>tone([523,659,784,1046][i],[523,659,784,1046][i],.18,"triangle",.14),d*1000)),
 };
@@ -193,6 +194,9 @@ function update() {
   G.px = Math.max(14, Math.min(W-14, G.px));
   G.py = Math.max(40, Math.min(H-20, G.py));
   if (G.inv > 0) G.inv--;
+  /* 擦弹倍率:一段时间没擦到就回落,逼你继续贴弹 */
+  G.grazeIdle = (G.grazeIdle || 0) + 1;
+  if (G.grazeIdle > 150 && G.grazeCombo) { G.grazeCombo = Math.max(0, G.grazeCombo - 1); G.grazeIdle = 120; }
 
   /* —— 自动开火:火力等级越高弹越多 —— */
   if (--G.fireCd <= 0) {
@@ -279,13 +283,24 @@ function update() {
   G.pBullets = G.pBullets.filter(b => !b.dead);
   G.enemies = G.enemies.filter(e => !e.dead);
 
-  /* —— 敌弹移动 + 撞玩家判定 —— */
+  /* —— 敌弹移动 + 撞玩家判定 + 擦弹 —— */
   for (const b of G.eBullets) {
     b.x += b.vx; b.y += b.vy;
     if (b.x < -20 || b.x > W+20 || b.y < -20 || b.y > H+20) { b.dead = true; continue; }
-    if (G.inv <= 0 && Math.hypot(b.x - G.px, b.y - G.py) < b.r + G.pw * 0.45) {  // 判定点比看着的小,弹幕游戏惯例
+    const dist = Math.hypot(b.x - G.px, b.y - G.py);
+    if (G.inv <= 0 && dist < b.r + G.pw * 0.45) {             // 判定点比看着的小,弹幕游戏惯例
       b.dead = true;
       playerHit();
+    } else if (!b.grazed && dist < b.r + G.pw * 0.45 + 13) {
+      /* 擦弹:从子弹边上蹭过去 → 加轻微分 + 攒倍率(风险奖励) */
+      b.grazed = true;
+      G.graze = (G.graze || 0) + 1;
+      G.grazeIdle = 0;
+      G.grazeCombo = Math.min(20, (G.grazeCombo || 0) + 1);
+      G.score += 20 + G.grazeCombo * 3;
+      sfx.graze && sfx.graze();
+      spawnParts(b.x, b.y, 2, "#bfe8ff");
+      if (G.graze % 10 === 0) G.float(`擦弹 x${G.graze} · +${G.grazeCombo}`);
     }
   }
   G.eBullets = G.eBullets.filter(b => !b.dead);
@@ -331,6 +346,7 @@ function killEnemy(e) {
 /* 玩家被打:掉命 + 清弹 + 无敌 90 帧 */
 function playerHit() {
   G.lives--; G.inv = 100; sfx.hit();
+  G.grazeCombo = 0; G.grazeIdle = 0;                        // 中弹清掉擦弹倍率
   Nikki.Feel.shake(0.7); Nikki.Feel.hitStop(5);    // 中弹:大震 + 顿帧
   spawnParts(G.px, G.py, 20, "#ff6b9d");
   G.eBullets = [];                                          // 被弹幕埋了太亏,清屏仁慈一回
