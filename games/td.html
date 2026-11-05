@@ -90,6 +90,7 @@
 <div class="home"><a href="../index.html">🏠 回游戏合集</a></div>
 
 <script src="../shared/common.js"></script>
+<script src="../shared/art-slots.js"></script>
 <script>
 /* ═══════════════════════════════════════════════════════════
    一、基础常量:格子地图与路径
@@ -99,6 +100,12 @@
 const CV = document.getElementById("cv"), CTX = CV.getContext("2d");
 const CELL = 48, COLS = 13, ROWS = 9, HUD = 48;      // 格子尺寸 / 列数 / 行数 / 顶部HUD高
 const W = CV.width, H = CV.height;
+
+/* 美术槽位:往 assets/art/td/ 丢同名图片即换装,没图走代码绘制 */
+ArtSlots.define("td", {
+  mouse: { file: "../assets/art/td/mouse.png", size: [256, 256] },
+  boss:  { file: "../assets/art/td/boss.png",  size: [256, 256] },
+});
 
 /* 路径拐点(格子坐标):入口在 (-1,4) 界外,出口 (13,4) 界外进猫窝。
    三条备选路线:每 5 波换一条,逼玩家重新布塔(不再一套阵型通到底) */
@@ -172,6 +179,7 @@ const MAX_WAVE = 15;
    三、游戏状态(全部放在 G 里,重开一局时 reset())
    ═══════════════════════════════════════════════════════════ */
 const G = {};
+window.__autoplay = new URLSearchParams(location.search).has("autoplay");
 function reset() {
   setPath(0);                                               // 重开回到第一条鼠道
   Object.assign(G, {
@@ -216,6 +224,16 @@ const sfx = {
 function update() {
   if (G.over || G.paused) return;
   G.tick++;
+
+  /* 自动试玩(dsh-game-studio 的 __autoplay 约定):?autoplay=1 时自己布塔开波 */
+  if (window.__autoplay && !G.over && G.tick % 150 === 60) {
+    const types = Object.keys(TOWERS);
+    const type = types[((G.tick / 150) | 0) % types.length];
+    for (let tries = 0; tries < 60; tries++) {
+      const cx = (Math.random() * COLS) | 0, cy = (Math.random() * ROWS) | 0;
+      if (placeTower(type, cx, cy)) break;
+    }
+  }
 
   /* —— 波次调度:没开波就倒计时,倒完开下一波 —— */
   if (!G.waveActive) {
@@ -432,17 +450,20 @@ function render() {
     CTX.fillText("⭐".repeat(t.lv), t.x, t.y + 24);
   }
 
-  /* —— 敌人:机器人老鼠(灰身子+粉耳朵+电眼+血条),被冻住显示蓝色 —— */
+  /* —— 敌人:机器人老鼠。有自定义美术用图,没图走代码画。血条两者都画 —— */
   for (const e of G.enemies) {
     const frozen = e.slowT > 0;
-    CTX.fillStyle = frozen ? "#7fb8d8" : "#9aa2b5";
-    CTX.beginPath(); CTX.ellipse(e.x, e.y, e.r, e.r * 0.9, 0, 0, 6.28); CTX.fill();
-    CTX.fillStyle = frozen ? "#a8d4ee" : "#ffc3d8";                     // 耳朵
-    CTX.beginPath(); CTX.arc(e.x - e.r*0.7, e.y - e.r*0.8, e.r*0.38, 0, 6.28); CTX.fill();
-    CTX.beginPath(); CTX.arc(e.x + e.r*0.7, e.y - e.r*0.8, e.r*0.38, 0, 6.28); CTX.fill();
-    CTX.fillStyle = "#ff3b3b";                                          // 机器人红眼
-    CTX.beginPath(); CTX.arc(e.x - 4, e.y - 2, 2.5, 0, 6.28); CTX.fill();
-    CTX.beginPath(); CTX.arc(e.x + 4, e.y - 2, 2.5, 0, 6.28); CTX.fill();
+    const artKey = e.type === "boss" ? "boss" : "mouse";
+    if (!ArtSlots.draw(CTX, "td", artKey, e.x, e.y, e.r * 2.5, 0)) {
+      CTX.fillStyle = frozen ? "#7fb8d8" : "#9aa2b5";
+      CTX.beginPath(); CTX.ellipse(e.x, e.y, e.r, e.r * 0.9, 0, 0, 6.28); CTX.fill();
+      CTX.fillStyle = frozen ? "#a8d4ee" : "#ffc3d8";                     // 耳朵
+      CTX.beginPath(); CTX.arc(e.x - e.r*0.7, e.y - e.r*0.8, e.r*0.38, 0, 6.28); CTX.fill();
+      CTX.beginPath(); CTX.arc(e.x + e.r*0.7, e.y - e.r*0.8, e.r*0.38, 0, 6.28); CTX.fill();
+      CTX.fillStyle = "#ff3b3b";                                          // 机器人红眼
+      CTX.beginPath(); CTX.arc(e.x - 4, e.y - 2, 2.5, 0, 6.28); CTX.fill();
+      CTX.beginPath(); CTX.arc(e.x + 4, e.y - 2, 2.5, 0, 6.28); CTX.fill();
+    }
     if (e.type === "boss") { CTX.font = "16px serif"; CTX.fillText("💣", e.x, e.y + e.r); }
     const w = e.r * 2;                                                  // 血条
     CTX.fillStyle = "rgba(0,0,0,.4)"; CTX.fillRect(e.x - w/2, e.y - e.r - 9, w, 4);
@@ -504,6 +525,17 @@ CV.addEventListener("mousemove", ev => {
   if (y < HUD) { G.hoverCell = null; return; }
   G.hoverCell = [Math.floor(x / CELL), Math.floor((y - HUD) / CELL)];
 });
+/* 建塔:点击与自动试玩共用这一条路 */
+function placeTower(type, cx, cy) {
+  const def = TOWERS[type];
+  if (!canBuild(cx, cy) || G.coins < def.cost) return false;
+  G.coins -= def.cost;
+  G.towers.push({ type, cx, cy, x: cx*CELL + CELL/2, y: HUD + cy*CELL + CELL/2, lv: 1, cd: 0, angle: -Math.PI/2 });
+  sfx.place();
+  syncBar();
+  return true;
+}
+
 CV.addEventListener("click", ev => {
   if (G.over) return;
   const [x, y] = canvasPos(ev);
@@ -516,13 +548,9 @@ CV.addEventListener("click", ev => {
     return;
   }
   if (G.buildSel) {                                     // 点空地 → 尝试建造
-    const def = TOWERS[G.buildSel];
     if (!canBuild(cx, cy)) return flash("这里不能建!");
-    if (G.coins < def.cost) return flash("金币不够!");
-    G.coins -= def.cost;
-    G.towers.push({ type: G.buildSel, cx, cy, x: cx*CELL + CELL/2, y: HUD + cy*CELL + CELL/2, lv: 1, cd: 0, angle: -Math.PI/2 });
-    sfx.place();
-    syncBar();
+    if (G.coins < TOWERS[G.buildSel].cost) return flash("金币不够!");
+    placeTower(G.buildSel, cx, cy);
   } else G.selTower = null;
 });
 /* 底部提示闪现 */

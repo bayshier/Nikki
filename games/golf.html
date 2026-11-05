@@ -68,6 +68,7 @@
 <div class="home"><a href="../index.html">🏠 回游戏合集</a></div>
 
 <script src="../shared/common.js"></script>
+<script src="../shared/art-slots.js"></script>
 <script>
 /* ═══════════════════════════════════════════════════════════
    一、画布与常量
@@ -144,6 +145,11 @@ const sfx = {
    四、游戏状态
    ═══════════════════════════════════════════════════════════ */
 const G = {};
+window.__autoplay = new URLSearchParams(location.search).has("autoplay");
+/* 美术槽位:assets/art/golf/ 下放同名图片即换装 */
+ArtSlots.define("golf", {
+  ball: { file: "../assets/art/golf/ball.png", size: [128, 128] },
+});
 function loadHole(i) {
   const h = HOLES[i];
   G.ball = { x: h.start[0], y: h.start[1], vx: 0, vy: 0, moving: false };
@@ -174,6 +180,19 @@ function update() {
   if (G.sinkT > 0) {
     if (--G.sinkT === 0) nextHole();
     return;
+  }
+
+  /* 自动试玩(dsh 的 __autoplay 约定):瞄准洞口,按距离定力度 */
+  if (window.__autoplay && !b.moving && G.tick % 90 === 45) {
+    const dx = h.cup[0] - b.x, dy = h.cup[1] - b.y;
+    G.aimAng = Math.atan2(dy, dx);
+    const pow = Math.min(MAX_POW, 3.2 + Math.hypot(dx, dy) * 0.0165);
+    b.vx = Math.cos(G.aimAng) * pow;
+    b.vy = Math.sin(G.aimAng) * pow;
+    b.moving = true; b.sandT = 0;
+    G.strokes++;
+    G.preShot = { x: b.x, y: b.y };
+    sfx.tee();
   }
 
   /* —— 击球后物理 —— */
@@ -435,11 +454,13 @@ function render() {
   if (br > 0.5) {
     CTX.fillStyle = "rgba(0,0,0,.2)";
     CTX.beginPath(); CTX.ellipse(b.x + 2, by2 + 4, br, br * 0.5, 0, 0, 6.28); CTX.fill();
-    CTX.fillStyle = "#fff8f0";
-    CTX.beginPath(); CTX.arc(b.x, by2, br, 0, 6.28); CTX.fill();
-    CTX.strokeStyle = "#ffb0c8"; CTX.lineWidth = 1.6;         // 毛线纹
-    CTX.beginPath(); CTX.arc(b.x, by2, br * 0.65, 0.4 + G.tick * 0.02, 4.2 + G.tick * 0.02); CTX.stroke();
-    CTX.beginPath(); CTX.arc(b.x, by2, br * 0.35, 2.6 - G.tick * 0.02, 5.8 - G.tick * 0.02); CTX.stroke();
+    if (!ArtSlots.draw(CTX, "golf", "ball", b.x, by2, br * 2.4, 0)) {
+      CTX.fillStyle = "#fff8f0";
+      CTX.beginPath(); CTX.arc(b.x, by2, br, 0, 6.28); CTX.fill();
+      CTX.strokeStyle = "#ffb0c8"; CTX.lineWidth = 1.6;         // 毛线纹
+      CTX.beginPath(); CTX.arc(b.x, by2, br * 0.65, 0.4 + G.tick * 0.02, 4.2 + G.tick * 0.02); CTX.stroke();
+      CTX.beginPath(); CTX.arc(b.x, by2, br * 0.35, 2.6 - G.tick * 0.02, 5.8 - G.tick * 0.02); CTX.stroke();
+    }
   }
 
   /* —— 粒子 —— */

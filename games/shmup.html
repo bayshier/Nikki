@@ -69,6 +69,7 @@
 <div class="home"><a href="../index.html">🏠 回游戏合集</a></div>
 
 <script src="../shared/common.js"></script>
+<script src="../shared/art-slots.js"></script>
 <script>
 /* ═══════════════════════════════════════════════════════════
    一、画布与工具
@@ -104,6 +105,15 @@ const sfx = {
    三、游戏状态
    ═══════════════════════════════════════════════════════════ */
 const G = {};
+window.__autoplay = new URLSearchParams(location.search).has("autoplay");
+/* 美术槽位:assets/art/shmup/ 下放同名图片即换装 */
+ArtSlots.define("shmup", {
+  plane:  { file: "../assets/art/shmup/plane.png",  size: [256, 256] },
+  enemy:  { file: "../assets/art/shmup/enemy.png",  size: [256, 256] },
+  "enemy-dive":   { file: "../assets/art/shmup/enemy-dive.png",   size: [256, 256] },
+  "enemy-gunner": { file: "../assets/art/shmup/enemy-gunner.png", size: [256, 256] },
+  boss:   { file: "../assets/art/shmup/boss.png",   size: [512, 256] },
+});
 function reset() {
   Object.assign(G, {
     mode: "play", tick: 0, score: 0, wave: 1,
@@ -187,6 +197,10 @@ function update() {
 
   /* —— 玩家移动(键盘),并限制在画布内 —— */
   const SPD = 4.2;
+  if (window.__autoplay) {                                // 自动试玩:走位躲弹(贴底左右巡游)
+    G.px = W / 2 + Math.sin(G.tick * 0.021) * (W * 0.34);
+    G.py = H - 96 + Math.cos(G.tick * 0.017) * 26;
+  }
   if (keys["arrowleft"] || keys["a"])  G.px -= SPD;
   if (keys["arrowright"] || keys["d"]) G.px += SPD;
   if (keys["arrowup"] || keys["w"])    G.py -= SPD;
@@ -397,38 +411,44 @@ function render() {
     CTX.fillText(d.kind === "P" ? "P" : "❤", d.x, d.y + 1);
   }
 
-  /* —— 敌人:机器人老鼠(不同型号不同色) —— */
+  /* —— 敌人:机器人老鼠(不同型号不同色);有槽位图优先 —— */
   for (const e of G.enemies) {
-    const body = e.type === "dive" ? "#9aa2b5" : e.type === "gunner" ? "#b58cd8" : "#d88c5b";
-    CTX.fillStyle = e.flash > 0 ? "#fff" : body;
-    if (e.flash > 0) e.flash--;
-    CTX.beginPath(); CTX.ellipse(e.x, e.y, e.r, e.r*0.9, 0, 0, 6.28); CTX.fill();
-    CTX.fillStyle = "#ffc3d8";                              // 耳朵
-    CTX.beginPath(); CTX.arc(e.x - e.r*0.7, e.y - e.r*0.8, e.r*0.36, 0, 6.28); CTX.fill();
-    CTX.beginPath(); CTX.arc(e.x + e.r*0.7, e.y - e.r*0.8, e.r*0.36, 0, 6.28); CTX.fill();
-    CTX.fillStyle = "#ff3b3b";
-    CTX.beginPath(); CTX.arc(e.x - 3.5, e.y - 2, 2.2, 0, 6.28); CTX.fill();
-    CTX.beginPath(); CTX.arc(e.x + 3.5, e.y - 2, 2.2, 0, 6.28); CTX.fill();
+    if (ArtSlots.drawFirst(CTX, "shmup", e.x, e.y, e.r * 2.5, ["enemy-" + e.type, "enemy"], 0)) {
+      // 自定义美术:只留血条
+    } else {
+      const body = e.type === "dive" ? "#9aa2b5" : e.type === "gunner" ? "#b58cd8" : "#d88c5b";
+      CTX.fillStyle = e.flash > 0 ? "#fff" : body;
+      if (e.flash > 0) e.flash--;
+      CTX.beginPath(); CTX.ellipse(e.x, e.y, e.r, e.r*0.9, 0, 0, 6.28); CTX.fill();
+      CTX.fillStyle = "#ffc3d8";                              // 耳朵
+      CTX.beginPath(); CTX.arc(e.x - e.r*0.7, e.y - e.r*0.8, e.r*0.36, 0, 6.28); CTX.fill();
+      CTX.beginPath(); CTX.arc(e.x + e.r*0.7, e.y - e.r*0.8, e.r*0.36, 0, 6.28); CTX.fill();
+      CTX.fillStyle = "#ff3b3b";
+      CTX.beginPath(); CTX.arc(e.x - 3.5, e.y - 2, 2.2, 0, 6.28); CTX.fill();
+      CTX.beginPath(); CTX.arc(e.x + 3.5, e.y - 2, 2.2, 0, 6.28); CTX.fill();
+    }
     if (e.type !== "dive") {                                // 会打枪的显示血条
       CTX.fillStyle = "rgba(0,0,0,.4)"; CTX.fillRect(e.x - e.r, e.y - e.r - 8, e.r*2, 3.5);
       CTX.fillStyle = "#6dff6d"; CTX.fillRect(e.x - e.r, e.y - e.r - 8, e.r*2 * Math.max(0, e.hp / e.hp0), 3.5);
     }
   }
 
-  /* —— Boss 轰炸母舰:大老鼠 + 血条 —— */
+  /* —— Boss 轰炸母舰:大老鼠 + 血条;有槽位图优先 —— */
   const B = G.boss;
   if (B) {
-    CTX.fillStyle = B.flash > 0 ? "#fff" : "#6a6f8a";
     if (B.flash > 0) B.flash--;
-    CTX.beginPath(); CTX.ellipse(B.x, B.y, B.r + 16, B.r, 0, 0, 6.28); CTX.fill();   // 机身
-    CTX.fillStyle = "#9aa2b5";
-    CTX.beginPath(); CTX.ellipse(B.x, B.y, B.r, B.r*0.85, 0, 0, 6.28); CTX.fill();   // 头
-    CTX.fillStyle = "#ffc3d8";
-    CTX.beginPath(); CTX.arc(B.x - 22, B.y - 24, 12, 0, 6.28); CTX.fill();
-    CTX.beginPath(); CTX.arc(B.x + 22, B.y - 24, 12, 0, 6.28); CTX.fill();
-    CTX.fillStyle = "#ff3b3b";
-    CTX.beginPath(); CTX.arc(B.x - 10, B.y - 4, 4, 0, 6.28); CTX.fill();
-    CTX.beginPath(); CTX.arc(B.x + 10, B.y - 4, 4, 0, 6.28); CTX.fill();
+    if (!ArtSlots.draw(CTX, "shmup", "boss", B.x, B.y, B.r * 3.2, 0)) {
+      CTX.fillStyle = B.flash > 0 ? "#fff" : "#6a6f8a";
+      CTX.beginPath(); CTX.ellipse(B.x, B.y, B.r + 16, B.r, 0, 0, 6.28); CTX.fill();   // 机身
+      CTX.fillStyle = "#9aa2b5";
+      CTX.beginPath(); CTX.ellipse(B.x, B.y, B.r, B.r*0.85, 0, 0, 6.28); CTX.fill();   // 头
+      CTX.fillStyle = "#ffc3d8";
+      CTX.beginPath(); CTX.arc(B.x - 22, B.y - 24, 12, 0, 6.28); CTX.fill();
+      CTX.beginPath(); CTX.arc(B.x + 22, B.y - 24, 12, 0, 6.28); CTX.fill();
+      CTX.fillStyle = "#ff3b3b";
+      CTX.beginPath(); CTX.arc(B.x - 10, B.y - 4, 4, 0, 6.28); CTX.fill();
+      CTX.beginPath(); CTX.arc(B.x + 10, B.y - 4, 4, 0, 6.28); CTX.fill();
+    }
     CTX.fillStyle = "rgba(0,0,0,.5)"; CTX.fillRect(W/2 - 90, 16, 180, 9);
     CTX.fillStyle = "#ff5b7b"; CTX.fillRect(W/2 - 90, 16, 180 * Math.max(0, B.hp / B.hpMax), 9);
   }
@@ -445,17 +465,19 @@ function render() {
 
   /* —— 玩家:纸飞机上的猫猫(无敌时闪烁) —— */
   if (G.mode === "play" && (G.inv <= 0 || G.tick % 8 < 4)) {
-    CTX.save(); CTX.translate(G.px, G.py);
-    CTX.fillStyle = "#e8e8f4";                              // 纸飞机
-    CTX.beginPath(); CTX.moveTo(0, -18); CTX.lineTo(-16, 16); CTX.lineTo(0, 8); CTX.lineTo(16, 16); CTX.closePath(); CTX.fill();
-    CTX.fillStyle = "#ffb257";                              // 猫头
-    CTX.beginPath(); CTX.arc(0, -6, 9, 0, 6.28); CTX.fill();
-    CTX.beginPath(); CTX.moveTo(-9, -10); CTX.lineTo(-5, -17); CTX.lineTo(-2, -10); CTX.fill();   // 耳朵
-    CTX.beginPath(); CTX.moveTo(9, -10); CTX.lineTo(5, -17); CTX.lineTo(2, -10); CTX.fill();
-    CTX.fillStyle = "#3a2a30";
-    CTX.beginPath(); CTX.arc(-3.5, -7, 1.6, 0, 6.28); CTX.fill();
-    CTX.beginPath(); CTX.arc(3.5, -7, 1.6, 0, 6.28); CTX.fill();
-    CTX.restore();
+    if (!ArtSlots.draw(CTX, "shmup", "plane", G.px, G.py, 54, 0)) {
+      CTX.save(); CTX.translate(G.px, G.py);
+      CTX.fillStyle = "#e8e8f4";                              // 纸飞机
+      CTX.beginPath(); CTX.moveTo(0, -18); CTX.lineTo(-16, 16); CTX.lineTo(0, 8); CTX.lineTo(16, 16); CTX.closePath(); CTX.fill();
+      CTX.fillStyle = "#ffb257";                              // 猫头
+      CTX.beginPath(); CTX.arc(0, -6, 9, 0, 6.28); CTX.fill();
+      CTX.beginPath(); CTX.moveTo(-9, -10); CTX.lineTo(-5, -17); CTX.lineTo(-2, -10); CTX.fill();   // 耳朵
+      CTX.beginPath(); CTX.moveTo(9, -10); CTX.lineTo(5, -17); CTX.lineTo(2, -10); CTX.fill();
+      CTX.fillStyle = "#3a2a30";
+      CTX.beginPath(); CTX.arc(-3.5, -7, 1.6, 0, 6.28); CTX.fill();
+      CTX.beginPath(); CTX.arc(3.5, -7, 1.6, 0, 6.28); CTX.fill();
+      CTX.restore();
+    }
   }
 
   /* —— 粒子 / 飘字 —— */
