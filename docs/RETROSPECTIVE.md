@@ -157,3 +157,12 @@
 ### T2 剩余
 - 三个新游戏的粒子/光效层还没统一(各自有一套 parts,风格够用但不统一)
 - 真 BGM 只有长卷在用,三款小游戏仍是单音音效
+
+### 美术槽位与自动试玩(2026-11-05,main = d2135a0)
+研究 dsh-game-studio 后搬来两个工程约定,为 T1「AI 美术」铺路:
+- **美术槽位** `shared/art-slots.js`:守塔(mouse/boss)、弹幕(plane/enemy/
+  enemy-dive/enemy-gunner/boss)、高尔夫(ball)。往 assets/art/<游戏>/ 丢同名
+  PNG 刷新即换装;没图自动走代码绘制。踩坑:槽位文件路径相对的是 games/ 目录,
+  必须写 ../assets/…(第一版写错,换装一直 404,靠像素采样才发现)。
+- **`window.__autoplay`**(?autoplay=1):塔防自动布塔、弹幕自动走位、高尔夫自动
+  推杆——无头浏览器可批量验收,对齐 dsh 的 playtest 约定。
