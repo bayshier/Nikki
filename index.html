@@ -336,6 +336,14 @@
       <span class="play">▶ 开始</span>
     </a>
 
+    <a class="card" href="games/kart.html">
+      <div class="icon">🏎️</div>
+      <h2>八猫卡丁车</h2>
+      <p>八猫同场三圈争冠<br>漂移蓄力 · 火箭腾空 · 香蕉尾气!</p>
+      <div class="best" id="best-kart">⭐ 加载中…</div><br>
+      <span class="play">▶ 出发</span>
+    </a>
+
     <a class="card" href="art.html">
       <div class="icon">🎨</div>
       <h2>陈皮穿越艺术史</h2>
@@ -461,6 +469,9 @@ document.getElementById("best-breakout").textContent = breakout ? `🏆 最高 $
 // 猫咪俄罗斯方块
 const tetris = get("nikki_tetris_best", 0);
 document.getElementById("best-tetris").textContent = tetris ? `🏆 最高 ${tetris} 分` : "⭐ 尚无纪录";
+// 八猫卡丁车:名次越小越好
+const kart = get("nikki_kart_best", 0);
+document.getElementById("best-kart").textContent = kart ? `🏆 最佳第 ${kart} 名` : "⭐ 尚无纪录";
 </script>
 
 <script type="importmap">

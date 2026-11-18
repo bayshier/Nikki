@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>🏎️ 八猫卡丁车 · Nikki 游戏合集</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='0.9em' font-size='90'%F0%9F%8F%8E%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<!-- ═════════════════════════════════════════════════════════════
+     八猫卡丁车 · 三圈樱花环岛赛
+     玩法复刻致敬:CCCIRCCCLE715/chinese-can-fly-kart(MIT)
+       · 漂移蓄力三段出弯加速(1.12/1.25/1.36 × 0.95/1.8/3.0s)
+       · 道具三件套:「中国人能飞」火箭(腾空 3s)/香蕉×3/尾气×3
+       · 8 车对局(玩家 + 7 只电脑猫)、道具盒、圈数排名
+     Nikki 体系:Feel 固定 60Hz + Wallet/Daily + __kart 测试钩子
+     赛道:猫岛环线——用 isle3d 同款粉紫晚霞色板,环路过亭/桥/雕像道
+     ═════════════════════════════════════════════════════════════ -->
+<style>
+  :root { --hk-deep: #ff6b9d; --hk-muted: #c98ba0; }
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
+  body {
+    font-family: "Nunito", -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: linear-gradient(160deg, #ffe3ee 0%, #ffd0e2 50%, #ffc3da 100%);
+    min-height: 100vh; display: flex; flex-direction: column; align-items: center;
+    padding: 10px; color: #5a3a48;
+  }
+  header { text-align: center; margin-bottom: 6px; }
+  header h1 { font-size: 22px; color: var(--hk-deep); text-shadow: 0 2px 0 #fff; }
+  header p { font-size: 12px; color: var(--hk-muted); }
+  #stage { position: relative; width: min(96vw, 900px); }
+  #cv {
+    display: block; width: 100%; aspect-ratio: 16 / 9;
+    border-radius: 18px; box-shadow: 0 8px 24px rgba(255, 107, 157, .35);
+    background: #b48ae0; touch-action: none;
+  }
+  #hud {
+    position: absolute; top: 10px; left: 14px; right: 14px;
+    display: flex; justify-content: space-between; gap: 8px;
+    color: #fff; font-size: 13px; font-weight: 800; pointer-events: none;
+    text-shadow: 0 1px 3px rgba(60,30,60,.7);
+  }
+  #lap { font-size: 16px; }
+  #pos { font-size: 16px; }
+  #item {
+    position: absolute; right: 14px; top: 44px; width: 54px; height: 54px;
+    border-radius: 14px; background: rgba(255,255,255,.28); border: 2px solid rgba(255,255,255,.6);
+    display: flex; align-items: center; justify-content: center; font-size: 30px;
+    pointer-events: none; opacity: .35; transition: opacity .2s;
+  }
+  #item.ready { opacity: 1; animation: itemPop 2.2s ease-in-out infinite; }
+  @keyframes itemPop { 0%,100% { transform: scale(1); } 50% { transform: scale(1.1); } }
+  #msg {
+    position: absolute; top: 34%; left: 0; right: 0; text-align: center;
+    font-size: clamp(22px, 5vw, 40px); font-weight: 900; color: #fff; pointer-events: none;
+    text-shadow: 0 0 8px rgba(120,40,90,.8), 0 3px 0 rgba(120,40,90,.8);
+  }
+  #touch {
+    position: absolute; inset: auto 0 0 0; height: 34%;
+    display: none; justify-content: space-between; align-items: flex-end; padding: 14px;
+  }
+  #touch .tb {
+    width: 74px; height: 74px; border-radius: 50%;
+    background: rgba(255,255,255,.3); border: 2px solid rgba(255,255,255,.65);
+    color: #fff; font-size: 30px; display: flex; align-items: center; justify-content: center;
+  }
+  #touch .tb:active { background: rgba(255,255,255,.55); }
+  @media (pointer: coarse) { #touch { display: flex; } }
+  #overlay {
+    position: absolute; inset: 0; border-radius: 18px; background: rgba(70, 40, 70, .55);
+    backdrop-filter: blur(3px); display: flex; flex-direction: column; align-items: center; justify-content: center;
+    color: #fff; text-align: center; padding: 18px;
+  }
+  #overlay h2 { font-size: 26px; margin-bottom: 8px; text-shadow: 0 2px 6px rgba(0,0,0,.4); }
+  #overlay p { font-size: 13.5px; line-height: 1.8; margin-bottom: 12px; }
+  #overlay button {
+    border: none; background: var(--hk-deep); color: #fff; font-size: 16px; font-weight: 800;
+    padding: 10px 28px; border-radius: 999px; cursor: pointer; box-shadow: 0 4px 0 #d94f83; font-family: inherit; margin: 3px;
+  }
+  #overlay button:active { transform: translateY(3px); box-shadow: 0 1px 0 #d94f83; }
+  .home { margin-top: 8px; font-size: 13px; }
+  a { color: var(--hk-deep); font-weight: 700; text-decoration: none; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🏎️ 八猫卡丁车</h1>
+  <p>漂移蓄力出弯加速 · 捡道具整活 · 三圈争冠(玩法致敬 chinese-can-fly-kart)</p>
+</header>
+
+<div id="stage">
+  <canvas id="cv"></canvas>
+  <div id="hud">
+    <span id="lap">🏁 圈 1/3</span>
+    <span id="spd">0 km/h</span>
+    <span id="pos">第 1 名</span>
+  </div>
+  <div id="item">?</div>
+  <div id="msg"></div>
+  <div id="touch">
+    <div style="display:flex; gap:10px;">
+      <div class="tb" data-k="left">◀</div>
+      <div class="tb" data-k="right">▶</div>
+    </div>
+    <div style="display:flex; gap:10px;">
+      <div class="tb" data-k="drift">💨</div>
+      <div class="tb" data-k="gas">⛽</div>
+    </div>
+  </div>
+  <div id="overlay">
+    <h2>🏎️ 八猫卡丁车</h2>
+    <p>八只猫同场竞技,三圈定冠军!<br>
+       ⬆️/W 油 · ⬅️➡️ 转向 · ⬇️ 刹 · <b>Shift 漂移蓄力</b>(蓝→橙→红三段加速)<br>
+       空格/<b>E 用道具</b>:🚀「猫能飞」火箭腾空 3 秒 · 🍌香蕉×3 · 💨尾气×3<br>
+       道具盒 🎁 谁捡谁有,电脑猫也会中招打转~</p>
+    <button id="btn-start">🏁 出发!</button>
+  </div>
+</div>
+<div class="home"><a href="../index.html">🏠 回游戏合集</a></div>
+
+<script src="../shared/common.js"></script>
+<script type="importmap">
+{ "imports": { "three": "../vendor/three/three.module.min.js" } }
+</script>
+<script type="module">
+import * as THREE from "three";
+import { initRenderer, canvasTex } from "../shared/three-kit.js";
+
+/* ═══════════════════════════════════════════════════════════
+   一、常量:手感参数抄自 chinese-can-fly-kart(60Hz 每 tick 值)
+   ═══════════════════════════════════════════════════════════ */
+const TICK = 1 / 60;
+const K = {
+  accel: 0.055, brake: 0.10, revMax: -4.5,
+  topSpeed: 14, aero: 0.0055, roll: 0.004,
+  steerLo: 0.045, steerHi: 0.020,          // 低/高速每 tick 转向率
+  driftGripOut: 0.62, driftGripIn: 0.99,   // 漂移中外/内侧抓地
+  driftArmTicks: 48,                        // 0.8s 漂移起势
+  hopV: 3.05, gravity: 20 / 3600,
+  boostTime: [0, 57, 108, 180],             // 0.95/1.8/3.0s
+  boostMul: [1, 1.12, 1.25, 1.36],
+  sparkTicks: [70, 140, 260],               // 蓝/橙/红蓄力阈值
+  spinTicks: 96,                             // 中招打转 1.6s
+  rocketTicks: 180,                          // 火箭 3s
+  laps: 3, itemRespawn: 150,                 // 2.5s
+};
+const CATS = [
+  { id: "chenpi", name: "陈皮", body: 0xfbf7ee, patch: 0x23232c },
+  { id: "baozi", name: "包子", body: 0xfff5f0 },
+  { id: "niannian", name: "年年", body: 0xffb38a },
+  { id: "songlu", name: "松露", body: 0x6b4a3a },
+  { id: "youyu", name: "有鱼", body: 0xffc9a0 },
+  { id: "jinzhang", name: "警长", body: 0x9aa7b8 },
+  { id: "daer", name: "大儿", body: 0xff9e5e },
+  { id: "ali", name: "阿狸", body: 0xd9776e },
+];
+
+/* ═══════════════════════════════════════════════════════════
+   二、赛道:猫岛环线(中心样条 + 路宽)
+   ═══════════════════════════════════════════════════════════ */
+const PTS = [
+  [0, -52], [30, -38], [36, -10], [22, 14], [34, 40], [8, 54],
+  [-24, 46], [-38, 22], [-24, -2], [-44, -20], [-30, -46], [-12, -40],
+].map(p => new THREE.Vector2(p[0], p[1]));
+const curve = new THREE.CatmullRomCurve3(
+  PTS.map(p => new THREE.Vector3(p.x, 0, p.y)), true, "catmullrom", 0.5);
+const TRACK_LEN = curve.getLength();
+const HALF_W = 4.2;                          // 半路宽
+/* 赛道取样缓存:progress → {pos, tangent} */
+const SAMPLES = 420;
+const trackPts = [], trackTan = [];
+for (let i = 0; i < SAMPLES; i++) {
+  const u = i / SAMPLES;
+  trackPts.push(curve.getPointAt(u));
+  trackTan.push(curve.getTangentAt(u).normalize());
+}
+function nearestProgress(pos, hint = -1) {   // hint:上一帧进度,省全扫
+  let best = -1, bd = 1e9;
+  const from = hint < 0 ? 0 : Math.floor(hint * SAMPLES - 30 + SAMPLES) % SAMPLES;
+  const span = hint < 0 ? SAMPLES : 60;
+  for (let k = 0; k < span; k++) {
+    const i = (from + k) % SAMPLES;
+    const d = pos.distanceToSquared(trackPts[i]);
+    if (d < bd) { bd = d; best = i; }
+  }
+  return best / SAMPLES;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   三、three.js 场景(粉紫晚霞色板,对齐猫岛)
+   ═══════════════════════════════════════════════════════════ */
+const cv = document.getElementById("cv");
+const renderer = initRenderer(cv, { exposure: 1.08 });
+const scene = new THREE.Scene();
+scene.background = canvasTex(4, 256, (g) => {
+  const gr = g.createLinearGradient(0, 0, 0, 256);
+  gr.addColorStop(0, "#b48ae0"); gr.addColorStop(0.4, "#e8a8d8");
+  gr.addColorStop(0.66, "#ffc9d8"); gr.addColorStop(1, "#ffe3b8");
+  g.fillStyle = gr; g.fillRect(0, 0, 4, 256);
+});
+scene.background.colorSpace = THREE.SRGBColorSpace;
+scene.fog = new THREE.Fog(0xe8c8ec, 90, 260);
+const camera = new THREE.PerspectiveCamera(56, 16 / 9, 0.5, 500);
+scene.add(camera);
+scene.add(new THREE.HemisphereLight(0xffe9f3, 0x7fb8d0, 1.0));
+const sun = new THREE.DirectionalLight(0xffd9a8, 1.5);
+sun.position.set(60, 80, -40);
+scene.add(sun);
+
+/* 地面 */
+{
+  const ground = new THREE.Mesh(
+    new THREE.CircleGeometry(220, 40),
+    new THREE.MeshStandardMaterial({ color: 0x8ed07a, roughness: 1 }));
+  ground.rotation.x = -Math.PI / 2;
+  scene.add(ground);
+}
+/* 赛道带:TubeGeometry 压扁成路面 + 中线虚线 */
+{
+  const roadGeo = new THREE.TubeGeometry(curve, 420, HALF_W, 10, true);
+  roadGeo.rotateX(0);
+  const pos = roadGeo.attributes.position;
+  for (let i = 0; i < pos.count; i++) {
+    if (pos.getY(i) > HALF_W * 0.5) pos.setY(i, 0.05);      // 上半压平
+  }
+  const road = new THREE.Mesh(roadGeo,
+    new THREE.MeshStandardMaterial({ color: 0x9b8f9c, roughness: 0.95 }));
+  scene.add(road);
+  /* 路缘:内外圈红白条 */
+  const edgeMat = new THREE.MeshBasicMaterial({ color: 0xff6b6b });
+  const edgeGeo = new THREE.SphereGeometry(0.45, 6, 5);
+  const edges = new THREE.InstancedMesh(edgeGeo, edgeMat, SAMPLES);
+  const m4 = new THREE.Matrix4(), off = new THREE.Vector3();
+  for (let i = 0; i < SAMPLES; i += 2) {
+    const t = trackTan[i];
+    off.set(-t.z, 0, t.x);                                   // 法向
+    edges.setMatrixAt(i / 2 | 0, m4.makeTranslation(
+      trackPts[i].x + off.x * (HALF_W + 0.5), 0.5, trackPts[i].z + off.z * (HALF_W + 0.5)));
+  }
+  edges.count = Math.ceil(SAMPLES / 2);
+  scene.add(edges);
+}
+/* 起跑线 */
+{
+  const p0 = trackPts[0], t0 = trackTan[0];
+  const line = new THREE.Mesh(new THREE.PlaneGeometry(HALF_W * 2, 1.6),
+    new THREE.MeshBasicMaterial({ color: 0xffffff }));
+  line.rotation.x = -Math.PI / 2;
+  line.rotation.z = -Math.atan2(t0.z, t0.x);
+  line.position.set(p0.x, 0.06, p0.z);
+  scene.add(line);
+}
+/* 场景装点:樱树/松树剪影 + 几朵云(全是低模) */
+{
+  const trunkG = new THREE.CylinderGeometry(0.18, 0.26, 2, 6);
+  const trunkM = new THREE.MeshStandardMaterial({ color: 0x8a6a52, roughness: 1 });
+  const pinkM = new THREE.MeshStandardMaterial({ color: 0xffc4dd, roughness: 1 });
+  const greenM = new THREE.MeshStandardMaterial({ color: 0x5da052, roughness: 1 });
+  const ballG = new THREE.SphereGeometry(1, 10, 8);
+  const trunks = new THREE.InstancedMesh(trunkG, trunkM, 46);
+  const crownsP = new THREE.InstancedMesh(ballG, pinkM, 92);
+  const crownsG = new THREE.InstancedMesh(ballG, greenM, 46);
+  const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(), v = new THREE.Vector3();
+  let ti = 0, pi = 0, gi = 0;
+  for (let i = 0; i < 46; i++) {
+    const side = i % 2 ? 1 : -1;
+    const tp = trackPts[(i * 9 + 20) % SAMPLES];
+    const tt = trackTan[(i * 9 + 20) % SAMPLES];
+    const dist = HALF_W + 3.5 + (i * 7 % 9);
+    const x = tp.x + -tt.z * side * dist, z = tp.z + tt.x * side * dist;
+    const sc = 1 + (i % 3) * 0.3;
+    trunks.setMatrixAt(ti++, m4.compose(v.set(x, 1, z), q, s.set(1, sc, 1)));
+    const cm = i % 3 === 0 ? (gi++, crownsG) : (pi++, crownsP);
+    cm.setMatrixAt((cm === crownsG ? gi - 1 : pi - 1),
+      m4.compose(v.set(x, 2 + sc, z), q, s.set(sc * 1.6, sc * 1.2, sc * 1.6)));
+  }
+  crownsP.count = pi; crownsG.count = gi;
+  scene.add(trunks, crownsP, crownsG);
+}
+/* 道具盒:问号浮盒 */
+const itemBoxes = [];
+{
+  const boxGeo = new THREE.BoxGeometry(1, 1, 1);
+  const boxTex = canvasTex(64, 64, (g) => {
+    g.fillStyle = "#ffd76e"; g.fillRect(0, 0, 64, 64);
+    g.fillStyle = "#5a3a48"; g.font = "bold 44px sans-serif";
+    g.textAlign = "center"; g.textBaseline = "middle"; g.fillText("?", 32, 36);
+  });
+  const boxMat = new THREE.MeshStandardMaterial({ map: boxTex, transparent: true, opacity: 0.88 });
+  for (let k = 0; k < 10; k++) {
+    const u = (k + 0.5) / 10;
+    const p = curve.getPointAt(u), t = curve.getTangentAt(u);
+    const x = p.x - t.z * (k % 2 ? 1.8 : -1.8), z = p.z + t.x * (k % 2 ? 1.8 : -1.8);
+    const m = new THREE.Mesh(boxGeo, boxMat.clone());
+    m.position.set(x, 1.2, z);
+    scene.add(m);
+    itemBoxes.push({ mesh: m, cooldown: 0, x, z });
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   四、赛车实体:卡丁车(低模)+ 骑手猫(方块猫)
+   ═══════════════════════════════════════════════════════════ */
+function buildKart(cat, isPlayer) {
+  const g = new THREE.Group();
+  const bodyM = new THREE.MeshStandardMaterial({ color: cat.body, roughness: 0.6 });
+  const darkM = new THREE.MeshStandardMaterial({ color: 0x2b2233, roughness: 0.5 });
+  const kartM = new THREE.MeshStandardMaterial({ color: isPlayer ? 0xff6b9d : 0x9b8f9c, roughness: 0.55 });
+  const chassis = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.4, 2.3), kartM);
+  chassis.position.y = 0.42; chassis.castShadow = false;
+  const nose = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.3, 0.6), kartM);
+  nose.position.set(0, 0.42, 1.35);
+  const spoiler = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.1, 0.4), kartM);
+  spoiler.position.set(0, 0.85, -1.15);
+  const spPost = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.35, 0.1), kartM);
+  spPost.position.set(0, 0.68, -1.15);
+  const wheelG = new THREE.CylinderGeometry(0.34, 0.34, 0.26, 10);
+  wheelG.rotateZ(Math.PI / 2);
+  const wheels = [];
+  [[-0.82, 0.95], [0.82, 0.95], [-0.82, -0.95], [0.82, -0.95]].forEach(([x, z]) => {
+    const w = new THREE.Mesh(wheelG, darkM);
+    w.position.set(x, 0.34, z);
+    wheels.push(w); g.add(w);
+  });
+  /* 骑手:小方块猫(three-kit 风格内联,戴头盔) */
+  const rider = new THREE.Group();
+  const head = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.52, 0.52), bodyM);
+  head.position.set(0, 0.95, 0.1);
+  if (cat.patch) {
+    const patch = new THREE.Mesh(new THREE.BoxGeometry(0.64, 0.14, 0.54),
+      new THREE.MeshStandardMaterial({ color: cat.patch, roughness: 0.9 }));
+    patch.position.set(0, 1.2, 0.08); rider.add(patch);
+  }
+  const helmet = new THREE.Mesh(new THREE.SphereGeometry(0.44, 12, 10),
+    new THREE.MeshStandardMaterial({ color: isPlayer ? 0xffd56b : 0x5a7a9a, roughness: 0.35 }));
+  helmet.position.set(0, 1.12, 0.05);
+  const earG = new THREE.ConeGeometry(0.12, 0.22, 4);
+  const earL = new THREE.Mesh(earG, bodyM); earL.position.set(-0.22, 1.5, 0.05);
+  const earR = new THREE.Mesh(earG, bodyM); earR.position.set(0.22, 1.5, 0.05);
+  rider.add(head, helmet, earL, earR);
+  g.add(chassis, nose, spoiler, spPost, rider);
+  return { group: g, wheels, rider, head };
+}
+
+/* ═══════════════════════════════════════════════════════════
+   五、比赛状态与物理(固定 60Hz)
+   ═══════════════════════════════════════════════════════════ */
+const G = { mode: "menu", tick: 0, countdown: 4.4 * 60, raceT: 0, finished: [] };
+function makeRacer(cat, isPlayer, gridIdx) {
+  const u = (2.5 + gridIdx * 2.2) / TRACK_LEN;              // 起跑线前排队,发车即算第 1 圈
+  const p = curve.getPointAt(((u % 1) + 1) % 1);
+  const t = curve.getTangentAt(((u % 1) + 1) % 1);
+  const side = (gridIdx % 2 ? 1 : -1) * 1.6;
+  const vis = buildKart(cat, isPlayer);
+  scene.add(vis.group);
+  return {
+    cat, isPlayer, vis,
+    pos: new THREE.Vector3(p.x - t.z * side, 0, p.z + t.x * side),
+    yaw: Math.atan2(t.x, t.z),
+    vx: 0, vz: 0, speed: 0, y: 0, vy: 0, air: 0,
+    steer: 0, drifting: false, driftT: 0, driftDir: 0, driftCharge: 0,
+    boostT: 0, boostMul: 1, spinT: 0, rocketT: 0,
+    item: null, itemCount: 0, itemCD: 0,
+    lap: 0, prog: nearestProgress(new THREE.Vector3(p.x, 0, p.z)), lastProg: 0,
+    aiTargetOff: (gridIdx % 3 - 1) * 1.1, aiSkill: 0.86 + (gridIdx % 5) * 0.03,
+    gasCD: 0, bananas: [], gasClouds: [],
+  };
+}
+let racers = [], player = null;
+function startRace() {
+  racers.forEach(r => scene.remove(r.vis.group));
+  racers = []; G.finished = [];
+  projectiles.length = 0; gasZones.length = 0;   // 清上一场的香蕉/尾气
+  itemBoxes.forEach(ib => { ib.cooldown = 0; ib.mesh.visible = true; });
+  const order = [...CATS.keys()];
+  // 玩家固定陈皮,其余七猫电脑
+  racers.push(makeRacer(CATS[0], true, 0));
+  for (let i = 1; i < 8; i++) racers.push(makeRacer(CATS[i], false, i));
+  player = racers[0];
+  G.mode = "countdown"; G.tick = 0; G.countdown = 4.4 * 60; G.raceT = 0;
+}
+
+/* 输入 */
+const keys = {};
+addEventListener("keydown", e => { keys[e.key.toLowerCase()] = true; if ([" ", "arrowup", "arrowdown"].includes(e.key.toLowerCase())) e.preventDefault(); });
+addEventListener("keyup", e => keys[e.key.toLowerCase()] = false);
+document.querySelectorAll("#touch .tb").forEach(b => {
+  const k = b.dataset.k;
+  const on = e => { e.preventDefault(); keys[k] = true; };
+  const off = e => { e.preventDefault(); keys[k] = false; };
+  b.addEventListener("pointerdown", on);
+  b.addEventListener("pointerup", off);
+  b.addEventListener("pointerleave", off);
+});
+
+/* 道具定义 */
+function rollItem(r) {
+  const pool = ["rocket", "banana", "banana", "gas", "gas"];
+  r.item = pool[(Math.random() * pool.length) | 0];
+  r.itemCount = r.item === "rocket" ? 1 : 3;
+  r.itemCD = 36;                                          // 0.6s 准备
+  if (r.isPlayer) sfx.item();
+}
+const projectiles = [];   // {kind:'banana', x, z, vx, vz, owner, t}
+const gasZones = [];      // {x, z, r, t, owner}
+
+/* 物理 tick */
+const tmpV = new THREE.Vector3();
+function stepRacer(r, input) {
+  if (r.spinT > 0) { r.spinT--; input = { gas: 0, steer: 0, drift: false, brake: 0 }; }
+  /* —— 漂移状态机(致敬:arm→charge→release)—— */
+  const spd = r.speed;
+  if (r.rocketT > 0) {
+    r.rocketT--;
+    r.speed = Math.max(r.speed, K.topSpeed * 1.3);
+    if (r.rocketT === 0) r.vy = -2;                       // 开始落回
+  }
+  const steerRate = spd > 9 ? K.steerHi : K.steerLo;
+  let target = input.steer * steerRate;
+  /* 漂移:Shift+转向 且有速度 */
+  if (input.drift && spd > 5 && input.steer !== 0 && !r.drifting) {
+    r.drifting = true; r.driftT = 0; r.driftDir = Math.sign(input.steer);
+    r.vy = K.hopV;                                        // 起漂小跳
+    if (r.isPlayer) sfx.hop();
+  }
+  if (r.drifting) {
+    r.driftT++;
+    target = r.driftDir * steerRate * (1.7 + input.steer * r.driftDir * 0.5);
+    const charging = input.drift || r.driftT < K.driftArmTicks;
+    if (!charging || spd < 3) {                           // 松 Shift:按蓄力放加速
+      const lvl = r.driftCharge >= K.sparkTicks[2] ? 3 :
+                  r.driftCharge >= K.sparkTicks[1] ? 2 :
+                  r.driftCharge >= K.sparkTicks[0] ? 1 : 0;
+      if (lvl > 0) {
+        r.boostT = K.boostTime[lvl]; r.boostMul = K.boostMul[lvl];
+        if (r.isPlayer) { sfx.boost(lvl); Nikki.Feel.hitStop(3); Nikki.Feel.shake(0.25); }
+      }
+      r.drifting = false; r.driftCharge = 0;
+    } else {
+      r.driftCharge = Math.min(K.sparkTicks[2] + 40, r.driftCharge + Math.abs(input.steer) * (spd / K.topSpeed) * 2.2);
+    }
+  }
+  r.steer += (target - r.steer) * 0.25;
+  /* —— 纵向 —— */
+  let acc = 0;
+  const boosting = r.boostT > 0;
+  if (boosting) { r.boostT--; if (r.boostT === 0) r.boostMul = 1; }
+  const top = K.topSpeed * r.boostMul * (r.isPlayer ? 1 : r.aiSkill);
+  if (input.gas && !r.drifting) acc = K.accel * (boosting ? 1.8 : 1);
+  if (input.brake) acc = spd > 0.5 ? -K.brake : (spd > K.revMax ? -K.accel * 0.6 : 0);
+  acc -= K.roll * spd;
+  acc -= K.aero * spd * spd * (boosting ? 0.55 : 1);
+  if (spd < top || acc < 0) r.speed = Math.max(K.revMax, spd + acc);
+  else r.speed = top;
+  /* —— 车身朝向与位移(漂移侧滑简化:速度方向滞后车头)—— */
+  r.yaw += r.steer * (0.6 + Math.min(0.4, spd / K.topSpeed * 0.4));
+  if (r.spinT > 0) r.yaw += 0.24;
+  const grip = r.drifting ? K.driftGripOut : (r.spinT > 0 ? 0.02 : 0.14);
+  const cos = Math.cos(r.yaw), sin = Math.sin(r.yaw);
+  const vHeadX = sin * r.speed, vHeadZ = cos * r.speed;
+  r.vx += (vHeadX - r.vx) * (r.drifting ? K.driftGripOut : 0.22);
+  r.vz += (vHeadZ - r.vz) * (r.drifting ? K.driftGripOut : 0.22);
+  if (r.spinT > 0) { r.vx *= 0.94; r.vz *= 0.94; }
+  r.pos.x += r.vx; r.pos.z += r.vz;
+  /* —— 垂直:跳/火箭 —— */
+  if (r.y > 0 || r.vy !== 0) {
+    r.vy -= K.gravity * 60 * TICK; r.y += r.vy;
+    if (r.y <= 0) { r.y = 0; r.vy = 0; }
+  }
+  /* —— 赛道边界:软墙拉回 —— */
+  const prog = nearestProgress(r.pos, r.prog);
+  const i = Math.floor(prog * SAMPLES) % SAMPLES;
+  const cp = trackPts[i], ct = trackTan[i];
+  const dx = r.pos.x - cp.x, dz = r.pos.z - cp.z;
+  const lateral = dx * -ct.z + dz * ct.x;
+  if (Math.abs(lateral) > HALF_W - 0.6 && r.y < 0.5) {
+    const over = Math.abs(lateral) - (HALF_W - 0.6);
+    const sign = Math.sign(lateral);
+    r.pos.x -= -ct.z * sign * over * 0.4;
+    r.pos.z -= ct.x * sign * over * 0.4;
+    r.speed *= 0.985;
+    if (r.isPlayer && over > 0.5 && G.tick % 9 === 0) sfx.wall();
+  }
+  /* —— 圈数 —— */
+  const d = prog - r.lastProg;
+  if (d < -0.5 && r.lastProg > 0.75) {                  // 正向跨线(带迟滞:须先远离线)
+    r.lap++;
+    if (r.isPlayer) {
+      sfx.lap(r.lap);
+      if (r.lap >= K.laps) finishRacer(r);
+    } else if (r.lap >= K.laps) finishRacer(r);
+  } else if (d > 0.5 && r.lap > 0) r.lap--;                  // 倒穿修正(未完成首圈不扣)
+  r.lastProg = prog; r.prog = prog;
+  /* —— 道具盒拾取 —— */
+  if (r.itemCD > 0) r.itemCD--;
+  if (!r.item && r.itemCD === 0) {
+    for (const ib of itemBoxes) {
+      if (ib.cooldown > 0) continue;
+      if (Math.hypot(r.pos.x - ib.x, r.pos.z - ib.z) < 1.5 && r.y < 1) {
+        ib.cooldown = K.itemRespawn; ib.mesh.visible = false;
+        rollItem(r);
+        break;
+      }
+    }
+  }
+}
+function finishRacer(r) {
+  if (G.finished.includes(r)) return;
+  G.finished.push(r);
+  if (r.isPlayer) {
+    G.mode = "over";
+    const place = G.finished.length;
+    const coins = Math.max(20, 260 - place * 45);
+    Nikki.Wallet.add(coins);
+    const gain = Nikki.Daily.report("kart", { place });
+    const old = Nikki.jget("nikki_kart_best", 99);
+    if (place < old) Nikki.jset("nikki_kart_best", place);
+    sfx.win();
+    const ov = document.getElementById("overlay");
+    ov.innerHTML = `<h2>${place === 1 ? "🏆 冠军猫!" : place <= 3 ? "🥈🥉 上领奖台!" : "🏁 完赛!"}</h2>
+      <p>${r.cat.name} 获得 <b>第 ${place} 名</b> · 全场 ${G.finished.length}/8<br>
+      结算:<b>+${coins}</b> 金币${gain ? ` · 每日挑战完成 +${gain}!` : ""}</p>
+      <button onclick="location.reload()">🔁 再跑一场</button>`;
+    ov.style.display = "flex";
+  }
+}
+
+/* AI:沿赛道目标点开 + 会用香蕉(简化:不用道具) */
+function aiInput(r) {
+  const look = (Math.floor(r.prog * SAMPLES) + 26) % SAMPLES;
+  const tp = trackPts[look], tt = trackTan[look];
+  const tx = tp.x + -tt.z * r.aiTargetOff, tz = tp.z + tt.x * r.aiTargetOff;
+  const want = Math.atan2(tx - r.pos.x, tz - r.pos.z);
+  let d = want - r.yaw;
+  while (d > Math.PI) d -= Math.PI * 2;
+  while (d < -Math.PI) d += Math.PI * 2;
+  const steer = Math.max(-1, Math.min(1, d * 2.2));
+  const sharp = Math.abs(steer) > 0.35 && r.speed > 8;   // 平滑赛道阈值放宽,电脑猫也会漂
+  return { gas: 1, steer, drift: sharp, brake: Math.abs(steer) > 0.85 ? 1 : 0 };
+}
+
+/* 道具使用与弹道 */
+function useItem(r) {
+  if (!r.item || r.itemCD > 0 || r.itemCount <= 0) return;
+  r.itemCount--;
+  const cos = Math.cos(r.yaw), sin = Math.sin(r.yaw);
+  if (r.item === "rocket") {
+    r.rocketT = K.rocketTicks; r.vy = 2.2;
+    if (r.isPlayer) { sfx.rocket(); Nikki.Feel.shake(0.4); }
+  } else if (r.item === "banana") {
+    projectiles.push({ kind: "banana", x: r.pos.x + sin * 2.5, z: r.pos.z + cos * 2.5, vx: sin * r.speed * 0.8, vz: cos * r.speed * 0.8, owner: r, t: 0 });
+    if (r.isPlayer) sfx.throw();
+  } else if (r.item === "gas") {
+    r.gasCD = K.rocketTicks;                               // 1.5s 内持续放
+    if (r.isPlayer) sfx.gas();
+  }
+  if (r.itemCount <= 0) { r.item = null; r.itemCD = 0; }
+}
+function stepProjectiles() {
+  for (let i = projectiles.length - 1; i >= 0; i--) {
+    const p = projectiles[i];
+    p.t++;
+    if (p.t < 40) { p.x += p.vx * 0.06; p.z += p.vz * 0.06; p.vx *= 0.965; p.vz *= 0.965; }
+    /* 命中判定 */
+    for (const r of racers) {
+      if (r === p.owner || r.y > 1.2) continue;
+      if (Math.hypot(r.pos.x - p.x, r.pos.z - p.z) < 1.4) {
+        r.spinT = K.spinTicks;
+        if (r.isPlayer) { sfx.hit(); Nikki.Feel.shake(0.5); Nikki.Feel.hitStop(4); }
+        projectiles.splice(i, 1);
+        break;
+      }
+    }
+    if (projectiles[i] === p && p.t > 360) projectiles.splice(i, 1);
+  }
+  /* 尾气带 */
+  for (let i = gasZones.length - 1; i >= 0; i--) {
+    if (--gasZones[i].t <= 0) gasZones.splice(i, 1);
+  }
+  for (const r of racers) {
+    if (r.gasCD > 0) {
+      r.gasCD--;
+      if (G.tick % 6 === 0) gasZones.push({ x: r.pos.x, z: r.pos.z, r: 2.2, t: 120, owner: r });
+    }
+    for (const gz of gasZones) {
+      if (gz.owner === r || r.y > 1.2 || r.spinT > 0) continue;
+      if (Math.hypot(r.pos.x - gz.x, r.pos.z - gz.z) < gz.r + 0.8) {
+        r.spinT = K.spinTicks; if (r.isPlayer) sfx.hit();
+      }
+    }
+  }
+  /* 车车碰撞(轻推) */
+  for (let a = 0; a < racers.length; a++) for (let b = a + 1; b < racers.length; b++) {
+    const A = racers[a], B = racers[b];
+    if (A.y > 1 || B.y > 1) continue;
+    const dx = B.pos.x - A.pos.x, dz = B.pos.z - A.pos.z;
+    const d = Math.hypot(dx, dz);
+    if (d < 1.7 && d > 0.01) {
+      const push = (1.7 - d) / 2;
+      A.pos.x -= dx / d * push; A.pos.z -= dz / d * push;
+      B.pos.x += dx / d * push; B.pos.z += dz / d * push;
+      if ((A.isPlayer || B.isPlayer) && G.tick % 12 === 0) sfx.wall();
+    }
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   六、音效(Web Audio 合成)
+   ═══════════════════════════════════════════════════════════ */
+let AC = null;
+function tone(f0, f1, dur, type = "square", vol = 0.12) {
+  try {
+    if (!AC) AC = new (window.AudioContext || window.webkitAudioContext)();
+    const t0 = AC.currentTime, o = AC.createOscillator(), g = AC.createGain();
+    o.type = type;
+    o.frequency.setValueAtTime(f0, t0); o.frequency.exponentialRampToValueAtTime(Math.max(1, f1), t0 + dur);
+    g.gain.setValueAtTime(vol, t0); g.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
+    o.connect(g).connect(AC.destination); o.start(t0); o.stop(t0 + dur);
+  } catch (e) {}
+}
+const sfx = {
+  hop: () => tone(300, 500, .08, "square", .08),
+  boost: lvl => tone(220 + lvl * 120, 880 + lvl * 200, .25, "sawtooth", .1),
+  wall: () => tone(180, 120, .05, "square", .07),
+  item: () => [520, 660, 780].forEach((f, i) => setTimeout(() => tone(f, f, .07, "triangle", .1), i * 60)),
+  rocket: () => tone(120, 720, .5, "sawtooth", .12),
+  throw: () => tone(500, 300, .1, "triangle", .1),
+  gas: () => tone(200, 90, .3, "sawtooth", .06),
+  hit: () => tone(400, 80, .3, "square", .13),
+  lap: n => [660, 880].forEach((f, i) => setTimeout(() => tone(f, f, .1, "triangle", .12), i * 110)),
+  win: () => [523, 659, 784, 1046].forEach((f, i) => setTimeout(() => tone(f, f, .18, "triangle", .13), i * 130)),
+};
+
+/* ═══════════════════════════════════════════════════════════
+   七、主循环:Nikki.Feel 固定 60Hz + 渲染
+   ═══════════════════════════════════════════════════════════ */
+const lapEl = document.getElementById("lap"), spdEl = document.getElementById("spd"),
+      posEl = document.getElementById("pos"), msgEl = document.getElementById("msg"),
+      itemEl = document.getElementById("item");
+function update() {
+  if (G.mode !== "race" && G.mode !== "countdown") return;
+  G.tick++;
+  if (G.mode === "countdown") {
+    G.countdown--;
+    const n = Math.ceil(G.countdown / 60);
+    msgEl.textContent = G.countdown > 60 ? `${n - 1}...` : "GO!🐱💨";
+    if (G.countdown === 60) sfx.boost(3);
+    if (G.countdown <= 0) { G.mode = "race"; msgEl.textContent = ""; }
+    return;
+  }
+  G.raceT++;
+  /* 输入 */
+  const pIn = {
+    gas: keys["arrowup"] || keys["w"] || keys["gas"] ? 1 : 0,
+    brake: keys["arrowdown"] || keys["s"] ? 1 : 0,
+    steer: (keys["arrowright"] || keys["d"] || keys["right"] ? 1 : 0) - (keys["arrowleft"] || keys["a"] || keys["left"] ? 1 : 0),
+    drift: !!(keys["shift"] || keys["drift"]),
+  };
+  if ((keys[" "] || keys["e"]) && player.item && !G._itemKey) useItem(player);
+  G._itemKey = !!(keys[" "] || keys["e"]);
+  stepRacer(player, pIn);
+  for (let i = 1; i < racers.length; i++) stepRacer(racers[i], aiInput(racers[i]));
+  stepProjectiles();
+  for (const ib of itemBoxes) {
+    if (ib.cooldown > 0 && --ib.cooldown === 0) ib.mesh.visible = true;
+  }
+}
+function draw(alpha) {
+  if (!player) return;
+  /* 车体可视 */
+  for (const r of racers) {
+    const v = r.vis;
+    v.group.position.set(r.pos.x, r.y, r.pos.z);
+    v.group.rotation.y = r.yaw;
+    const sp = r.speed;
+    v.wheels.forEach(w => w.rotation.x += sp * 0.09);
+    const lean = r.drifting ? r.driftDir * 0.14 : -r.steer * 0.5 * 0.1;
+    v.group.rotation.z += (lean - v.group.rotation.z) * 0.2;
+    if (r.rocketT > 0) v.group.rotation.x = -0.18; else v.group.rotation.x += (0 - v.group.rotation.x) * 0.2;
+    /* 漂移火花色:骑手头顶光点 */
+  }
+  /* 相机追尾 */
+  const p = player;
+  const back = 7.2, height = 3.4;
+  const cx = p.pos.x - Math.sin(p.yaw) * back, cz = p.pos.z - Math.cos(p.yaw) * back;
+  camera.position.lerp(tmpV.set(cx, p.y + height, cz), 0.12);
+  camera.lookAt(p.pos.x + Math.sin(p.yaw) * 6, p.y + 1, p.pos.z + Math.cos(p.yaw) * 6);
+  /* 弹道可视(香蕉/尾气挂到场景 lazily) */
+  syncVisuals();
+  /* HUD */
+  lapEl.textContent = `🏁 圈 ${Math.min(p.lap + 1, K.laps)}/${K.laps}`;
+  spdEl.textContent = `${Math.round(Math.abs(p.speed) * 9)} km/h`;
+  const rank = 1 + racers.filter(o =>
+    o !== p && (o.lap > p.lap || (o.lap === p.lap && o.prog > p.prog))).length;
+  posEl.textContent = `第 ${rank} 名`;
+  const iconName = { rocket: "🚀", banana: "🍌", gas: "💨" }[p.item] || "?";
+  itemEl.textContent = p.item ? iconName + (p.itemCount > 1 ? p.itemCount : "") : "?";
+  itemEl.classList.toggle("ready", !!p.item && p.itemCD === 0);
+}
+/* 香蕉/尾气可视化(实例化简单 mesh) */
+let bananaIM = null, gasIM = null;
+function syncVisuals() {
+  if (!bananaIM) {
+    bananaIM = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.22, 0.28, 1.1, 7),
+      new THREE.MeshStandardMaterial({ color: 0xffe135, roughness: 0.7 }), 12);
+    gasIM = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 8, 6),
+      new THREE.MeshStandardMaterial({ color: 0xd9c26a, transparent: true, opacity: 0.4, roughness: 1 }), 60);
+    bananaIM.count = 0; gasIM.count = 0;
+    scene.add(bananaIM, gasIM);
+  }
+  const m4 = new THREE.Matrix4(), s = new THREE.Vector3(1, 1, 1), q = new THREE.Quaternion();
+  let bi = 0;
+  for (const p of projectiles) {
+    if (bi >= 12) break;
+    bananaIM.setMatrixAt(bi++, m4.compose(new THREE.Vector3(p.x, 0.4, p.z), q, s));
+  }
+  bananaIM.count = bi; bananaIM.instanceMatrix.needsUpdate = true;
+  let gi = 0;
+  for (const gz of gasZones) {
+    if (gi >= 60) break;
+    gasIM.setMatrixAt(gi++, m4.compose(new THREE.Vector3(gz.x, 0.5, gz.z), q,
+      new THREE.Vector3(gz.r * 0.8, 0.5, gz.r * 0.8)));
+  }
+  gasIM.count = gi; gasIM.instanceMatrix.needsUpdate = true;
+}
+
+Nikki.Feel.play(update, () => { draw(); renderer.render(scene, camera); });
+
+/* 开始 */
+document.getElementById("btn-start").onclick = () => {
+  if (!AC) tone(1, 1, .01);
+  document.getElementById("overlay").style.display = "none";
+  startRace();
+};
+
+/* ═══════════════════════════════════════════════════════════
+   八、测试钩子:rAF 冻结时确定性驱动
+   __kart.step(n):跑 n 个逻辑 tick(含渲染一次)
+   __kart.G / racers / autopilot():自动驾驶完赛
+   ═══════════════════════════════════════════════════════════ */
+window.__kart = {
+  G, get racers() { return racers; }, get player() { return player; },
+  startRace,
+  autopilot: true,
+  step(n = 1) {
+    for (let i = 0; i < n; i++) {
+      if (window.__kart.autopilot && player && G.mode === "race") {
+        const inp = aiInput(player); inp.gas = 1;
+        keys["arrowup"] = false;                          // 防真输入干扰
+        Object.assign(keys, {});
+        // 直接调 stepRacer 绕过输入层
+        stepRacer(player, inp);
+        for (let k = 1; k < racers.length; k++) stepRacer(racers[k], aiInput(racers[k]));
+        stepProjectiles();
+        G.raceT++; G.tick++;
+        for (const ib of itemBoxes) if (ib.cooldown > 0 && --ib.cooldown === 0) ib.mesh.visible = true;
+      } else update();
+    }
+    draw(); renderer.render(scene, camera);
+    return { mode: G.mode, tick: G.tick };
+  },
+};
+</script>
+</body>
+</html>
