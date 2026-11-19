@@ -63,7 +63,7 @@ function foamGeometry(THREE, rIn, rOut, wob) {
   for (let i = 0; i < pos.count; i++) {                  // 径向抖动,去掉死圆感
     const x = pos.getX(i), y = pos.getY(i);
     const r = Math.hypot(x, y), th = Math.atan2(y, x);
-    const w = 1 + 0.05 * Math.sin(th * 3 + wob) + 0.028 * Math.sin(th * 7 + wob * 2.7);
+    const w = 1 + 0.09 * Math.sin(th * 3 + wob) + 0.05 * Math.sin(th * 7 + wob * 2.7);
     pos.setXY(i, Math.cos(th) * r * w, Math.sin(th) * r * w);
   }
   geo.scale(1.06, 0.88, 1);                              // 椭圆化:x 略长 z 略扁,贴岛轮廓
@@ -83,8 +83,8 @@ export function build(ctx) {
   const sea = new THREE.Mesh(
     new THREE.PlaneGeometry(1300, 1300, 1, 1),
     new THREE.MeshStandardMaterial({
-      color: 0x5fc4d8, transparent: true, opacity: 0.9,
-      roughness: 0.25, metalness: 0.1,                   // 低粗糙+微金属 → 天光倒影感(ref3)
+      color: 0x37bcd6, transparent: true, opacity: 0.93,   // 加饱和的青绿(ref1 海水)
+      roughness: 0.2, metalness: 0.12,                    // 低粗糙+微金属 → 天光倒影感(ref3)
     }));
   sea.rotation.x = -Math.PI / 2;
   sea.renderOrder = 0;
@@ -93,9 +93,9 @@ export function build(ctx) {
   /* ---------- 波光层 ×3:700² 白纹平面,错向错速滚动 ---------- */
   /* 配置:[种子, 平铺数, vx, vz, 透明度, 高度y] */
   const GLINT = [
-    [11, 6.5, 0.010, 0.004, 0.17, 0.14],
-    [37, 8.0, -0.014, 0.007, 0.13, 0.26],
-    [71, 5.0, 0.007, -0.009, 0.10, 0.38],
+    [11, 6.5, 0.010, 0.004, 0.26, 0.14],
+    [37, 8.0, -0.014, 0.007, 0.19, 0.26],
+    [71, 5.0, 0.007, -0.009, 0.14, 0.38],
   ];
   const glintGeo = new THREE.PlaneGeometry(700, 700, 1, 1);
   glintGeo.rotateX(-Math.PI / 2);                        // 三层共用一份几何
@@ -112,13 +112,13 @@ export function build(ctx) {
     return { mesh, tex, vx: c[2], vz: c[3] };
   });
 
-  /* ---------- 近岸泡沫 ×2:贴崖脚与滩的白带(中径 ~62 / ~78) ---------- */
+  /* ---------- 近岸泡沫 ×2:贴岛岸的白带(收紧到岛脚,别离岸成"巨环") ---------- */
   const foamMat = (op) => new THREE.MeshStandardMaterial({
     color: 0xfff8ee, transparent: true, opacity: op,
     roughness: 0.8, depthWrite: false, side: THREE.DoubleSide,
   });
-  const foamIn = new THREE.Mesh(foamGeometry(THREE, 59, 66, 0.7), foamMat(0.5));
-  const foamOut = new THREE.Mesh(foamGeometry(THREE, 74, 82, 2.9), foamMat(0.32));
+  const foamIn = new THREE.Mesh(foamGeometry(THREE, 43, 48, 0.7), foamMat(0.42));
+  const foamOut = new THREE.Mesh(foamGeometry(THREE, 51, 57, 2.9), foamMat(0.26));
   foamIn.position.set(-3, 0.06, -2);                     // 对准岛体视觉中心
   foamOut.position.set(-3, 0.1, -2);
   foamIn.renderOrder = 5;

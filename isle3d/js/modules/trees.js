@@ -28,7 +28,9 @@ function mulberry32(seed) {
 
 /* ---------- 撒点:草台拒绝采样 + 避让(主亭/雕像道/崖缘/东南视线走廊) ---------- */
 function scatterTrees(ctx, rng) {
-  const N = 36, pts = [];
+  /* 小亭避让位(与 pavilion.js 的 SMALL 表一致):树冠不许穿屋顶 */
+  const KIOSKS = [[-14, -18], [-46, -16], [-8, 2], [-22, 10], [-3, -12], [-30, 18]];
+  const N = 30, pts = [];
   let tries = 0, corridor = 0;                 // 走廊里最多放 3 棵
   while (pts.length < N && tries < 8000) {
     tries++;
@@ -39,6 +41,12 @@ function scatterTrees(ctx, rng) {
     if (x < -44) continue;                     // 雕像道留空
     const dx = x + 34, dz = z + 6;             // 主亭(-34,-6)半径 14
     if (dx * dx + dz * dz < 196) continue;
+    let hit = false;                           // 小亭避让:半径 6.5
+    for (const [kx, kz] of KIOSKS) {
+      const ex = x - kx, ez = z - kz;
+      if (ex * ex + ez * ez < 42) { hit = true; break; }
+    }
+    if (hit) continue;
     if (x > -10 && z > 10) {                   // 东南相机视线走廊:大幅少放
       if (corridor >= 3 || rng() > 0.25) continue;
       corridor++;
@@ -101,7 +109,7 @@ export function build(ctx) {
   for (let i = 0; i < N; i++) {
     const { x, z } = pts[i];
     const gy = ctx.heightAt(x, z);
-    const h = 8 + rng() * 6;                   // 树高 8~14
+    const h = 7.5 + rng() * 5;                 // 树高 7.5~12.5:略矮于亭顶,亭台能露头
     const s = 0.85 + rng() * 0.35;             // 冠幅随机缩放
     _e.set((rng() - 0.5) * 0.14, rng() * Math.PI * 2, (rng() - 0.5) * 0.14); // 倾斜≤4°
     _q.setFromEuler(_e);

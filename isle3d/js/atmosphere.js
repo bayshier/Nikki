@@ -51,15 +51,35 @@ export function buildAtmosphere(ctx) {
   glow.position.set(300, 210, -170); glow.scale.setScalar(180);
   scene.add(glow);
 
-  /* 远岛剪影(雾中层叠,对齐 ref1 远景) */
-  const isleMat = new THREE.MeshBasicMaterial({ color: 0xc0a8d8, fog: true });
-  [[210, -80, 34, 7], [260, 60, 46, 9], [-240, -140, 40, 6], [80, -300, 60, 11], [-160, 260, 30, 5]]
-    .forEach(([x, z, r, h]) => {
-      const m = new THREE.Mesh(new THREE.ConeGeometry(r, h, 9), isleMat);
-      m.position.set(x, h / 2 - 5, z);
+  /* 远岛剪影(雾中层叠,对齐 ref1 远景):两层色 + 更近更大,肉眼可辨 */
+  const isleMatA = new THREE.MeshBasicMaterial({ color: 0xa890c8, fog: true });   // 近层偏紫
+  const isleMatB = new THREE.MeshBasicMaterial({ color: 0xc8b0e0, fog: true });   // 远层偏粉(被雾吃掉更多)
+  [[190, -70, 52, 11, 0], [250, 70, 66, 14, 0], [-210, -120, 58, 10, 0],
+   [70, -260, 84, 17, 1], [-150, 230, 46, 9, 1], [320, -180, 70, 13, 1],
+   [-300, 40, 64, 12, 1], [150, 200, 54, 10, 0]]
+    .forEach(([x, z, r, h, near]) => {
+      const m = new THREE.Mesh(new THREE.ConeGeometry(r, h, 9), near ? isleMatA : isleMatB);
+      m.position.set(x, h / 2 - 10, z);
       m.rotation.y = x * 0.37;
       scene.add(m);
     });
+  /* 地平线远山环:一圈大锥埋进雾里,补出 ref1 的层叠山影 */
+  const mtnGeo = new THREE.ConeGeometry(1, 1, 7);
+  const mtnMat = new THREE.MeshBasicMaterial({ color: 0xd8c0e4, fog: true });
+  const mtns = new THREE.InstancedMesh(mtnGeo, mtnMat, 14);
+  const _m4 = new THREE.Matrix4(), _q4 = new THREE.Quaternion(), _p4 = new THREE.Vector3(), _s4 = new THREE.Vector3();
+  for (let i = 0; i < 14; i++) {
+    const a = (i / 14) * Math.PI * 2 + 0.2;
+    const rad = 620 + (i % 3) * 60;                 // 拉远到 620~740:只做水平线薄薄一层
+    const h = 44 + (i % 5) * 16;                    // 矮山:角高度约 5~9°
+    _p4.set(Math.cos(a) * rad, h / 2 - 22, Math.sin(a) * rad);   // 底座沉到海面以下
+    _s4.set(150 + (i % 4) * 70, h, 150 + (i % 4) * 70);
+    _q4.setFromAxisAngle(new THREE.Vector3(0, 1, 0), i * 0.9);
+    _m4.compose(_p4, _q4, _s4);
+    mtns.setMatrixAt(i, _m4);
+  }
+  mtns.computeBoundingSphere();
+  scene.add(mtns);
 
   /* 云:几簇扁球,贴着天边慢慢漂 */
   const cloudMat = new THREE.MeshBasicMaterial({ color: 0xffe8f2, fog: false, transparent: true, opacity: 0.9 });

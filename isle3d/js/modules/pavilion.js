@@ -96,6 +96,7 @@ export function build(ctx) {
   const main = new THREE.Group();
   main.position.set(-34, ctx.heightAt(-34, -6) - 0.45, -6);
   main.rotation.y = Math.PI / 4;                        // 东南立面朝向相机
+  main.scale.setScalar(1.32);                           // 放大 1.32:参考图的亭台是全岛视觉主角
 
   // 石台基:下石色大方 + 上米白方台(附南侧一级踏步),台顶 y≈1.475
   const slab1 = new THREE.Mesh(new THREE.BoxGeometry(7.8, 1.1, 7.8), mats.stone);
@@ -106,7 +107,7 @@ export function build(ctx) {
   ]), mats.white);
 
   // 6 根红柱:4 角 + 入口双柱(柱身含 0.28→0.24 收分)
-  const pillarGeo = new THREE.CylinderGeometry(0.24, 0.28, 3.3, 8).translate(0, 1.65, 0);
+  const pillarGeo = new THREE.CylinderGeometry(0.30, 0.34, 3.3, 8).translate(0, 1.65, 0);
   const pillars = instanced(pillarGeo, mats.pillar, [
     [-2.6, 1.475, -2.6], [2.6, 1.475, -2.6],
     [-2.6, 1.475, 2.6], [2.6, 1.475, 2.6],
@@ -147,33 +148,50 @@ export function build(ctx) {
   group.add(main);
 
   /* ============================================================
-     小亭 ×2(草台上错落):单层飞檐简化版
+     小亭 ×6(草台上成片,对齐 ref1 的亭台群)
+     全部合批:台基 1 + 柱 1 + 顶 1 + 宝顶 1 = 4 draw call(与数量无关)
      ============================================================ */
-  function smallPavilion(x, z, ry) {
-    const g = new THREE.Group();
-    g.position.set(x, ctx.heightAt(x, z) - 0.4, z);
-    g.rotation.y = ry;
-    const slab = new THREE.Mesh(new THREE.BoxGeometry(5.4, 1.0, 5.4), mats.white);
-    slab.position.y = 0.2;
-    const pg = new THREE.CylinderGeometry(0.2, 0.24, 2.35, 8).translate(0, 1.175, 0);
-    const pil = instanced(pg, mats.pillar, [
-      [-1.85, 0.7, -1.85], [1.85, 0.7, -1.85],
-      [-1.85, 0.7, 1.85], [1.85, 0.7, 1.85],
-    ]);
-    const roof1 = roofInst([{ s: 0.55, y: 4.0 }]);
-    const tip = new THREE.Mesh(new THREE.SphereGeometry(0.24, 10, 8), mats.gold);
-    tip.position.y = 4.18;
-    g.add(slab, pil, roof1, tip);
-    return g;
+  const SMALL = [                               // [x, z, 朝向]:避开主亭半径 14 / 雕像道 x<-44
+    [-14, -18, 0.5], [-46, -16, -0.45],
+    [-8, 2, 0.9], [-22, 10, -0.3],
+    [-3, -12, 1.4], [-30, 18, 0.2],
+  ];
+  const NS = SMALL.length;
+  const slabIM = new THREE.InstancedMesh(new THREE.BoxGeometry(5.4, 1.0, 5.4), mats.white, NS);
+  const pg = new THREE.CylinderGeometry(0.26, 0.30, 2.35, 8).translate(0, 1.175, 0);
+  const pilIM = new THREE.InstancedMesh(pg, mats.pillar, NS * 4);
+  const roofIM = new THREE.InstancedMesh(panel, mats.roof, NS * 4);
+  const tipIM = new THREE.InstancedMesh(new THREE.SphereGeometry(0.24, 10, 8), mats.gold, NS);
+  const PIL_OFF = [[-1.85, -1.85], [1.85, -1.85], [-1.85, 1.85], [1.85, 1.85]];
+  for (let n = 0; n < NS; n++) {
+    const [x, z, ry] = SMALL[n];
+    const y0 = ctx.heightAt(x, z) - 0.4;
+    const cs = Math.cos(ry), sn = Math.sin(ry);
+    dummy.position.set(x, y0 + 0.2, z);                    // 台基
+    dummy.rotation.set(0, ry, 0); dummy.scale.setScalar(1); dummy.updateMatrix();
+    slabIM.setMatrixAt(n, dummy.matrix);
+    for (let k = 0; k < 4; k++) {                          // 四角柱(按朝向旋转偏移)
+      const [ox, oz] = PIL_OFF[k];
+      dummy.position.set(x + ox * cs + oz * sn, y0 + 0.7, z - ox * sn + oz * cs);
+      dummy.rotation.set(0, ry, 0); dummy.scale.setScalar(1); dummy.updateMatrix();
+      pilIM.setMatrixAt(n * 4 + k, dummy.matrix);
+    }
+    for (let k = 0; k < 4; k++) {                          // 单层飞檐 4 板拼合
+      dummy.position.set(x, y0 + 4.0, z);
+      dummy.rotation.set(0, ry + k * Math.PI / 2, 0);
+      dummy.scale.setScalar(0.55); dummy.updateMatrix();
+      roofIM.setMatrixAt(n * 4 + k, dummy.matrix);
+    }
+    dummy.position.set(x, y0 + 4.18, z);                   // 金顶珠
+    dummy.rotation.set(0, 0, 0); dummy.scale.setScalar(1); dummy.updateMatrix();
+    tipIM.setMatrixAt(n, dummy.matrix);
   }
-  group.add(smallPavilion(-14, -18, 0.5), smallPavilion(-46, -16, -0.45));
+  for (const im of [slabIM, pilIM, roofIM, tipIM]) { im.computeBoundingSphere(); group.add(im); }
 
-  /* ---------- 三座亭脚下假阴影(同材质合并,1 draw call) ---------- */
-  group.add(new THREE.Mesh(mergeGeos([
-    shadowSlab(-34, -6, 4.7),
-    shadowSlab(-14, -18, 3.1),
-    shadowSlab(-46, -16, 3.1),
-  ]), shadowMat));
+  /* ---------- 亭脚假阴影(主亭 + 全部小亭合并为 1 draw call) ---------- */
+  const shadowGeos = [shadowSlab(-34, -6, 6.2)];
+  for (const [x, z] of SMALL) shadowGeos.push(shadowSlab(x, z, 3.1));
+  group.add(new THREE.Mesh(mergeGeos(shadowGeos), shadowMat));
 
   /* 静态场景,无逐帧更新(弱核显零开销) */
   return { group };

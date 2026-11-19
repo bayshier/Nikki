@@ -32,9 +32,9 @@ export function build(ctx) {
     const cv = document.createElement("canvas"); cv.width = 64; cv.height = 256;
     const g = cv.getContext("2d");
     const gr = g.createLinearGradient(0, 0, 0, 256);
-    gr.addColorStop(0.00, "rgba(255,244,218,0.95)");   // 顶端最亮
-    gr.addColorStop(0.35, "rgba(255,236,200,0.55)");
-    gr.addColorStop(0.75, "rgba(255,228,190,0.16)");
+    gr.addColorStop(0.00, "rgba(255,244,218,0.42)");   // 顶端柔化:之前 0.95 在 additive 下成了天际白板
+    gr.addColorStop(0.35, "rgba(255,236,200,0.24)");
+    gr.addColorStop(0.75, "rgba(255,228,190,0.07)");
     gr.addColorStop(1.00, "rgba(255,224,180,0)");      // 底部全透
     g.fillStyle = gr; g.fillRect(0, 0, 64, 256);
     const gr2 = g.createLinearGradient(0, 0, 64, 0);   // 左右软边
@@ -67,13 +67,13 @@ export function build(ctx) {
   const SUN = new THREE.Vector3(120, 90, -60).normalize();
   // 锚点:草台上光带落地处 [x, z, 宽缩放, 基础透明度]
   const RAY_CFG = [
-    [3, -1, 0.80, 0.20],
-    [-5, -5, 1.05, 0.15],
-    [6, 7, 0.90, 0.22],
-    [-13, 3, 1.20, 0.17],
+    [3, -1, 0.80, 0.12],
+    [-5, -5, 1.05, 0.09],
+    [6, 7, 0.90, 0.13],
+    [-13, 3, 1.20, 0.10],
   ];
   const rayTex = makeRayTexture();
-  const rayGeo = new THREE.PlaneGeometry(4, 46);          // 共用一块细长几何
+  const rayGeo = new THREE.PlaneGeometry(3.2, 32);        // 变窄变短:只在树隙间扫,不插进天空
   const rayGroup = new THREE.Group();
   const rays = [];
   // 面片滚转角:让薄面朝向东南默认相机,build 时算一次
@@ -95,11 +95,11 @@ export function build(ctx) {
     });
     const mesh = new THREE.Mesh(rayGeo, mat);
     mesh.quaternion.copy(_qa).multiply(_qr);
-    // 中心 = 落地锚点(用 heightAt 取地面)+ 半长向量
+    // 中心 = 落地锚点(用 heightAt 取地面)+ 半长向量(几何长 32,半长 16)
     mesh.position.set(
-      cfg[0] + _u.x * 23,
-      heightAt(cfg[0], cfg[1]) + _u.y * 23,
-      cfg[1] + _u.z * 23);
+      cfg[0] + _u.x * 16,
+      heightAt(cfg[0], cfg[1]) + _u.y * 16,
+      cfg[1] + _u.z * 16);
     mesh.scale.set(cfg[2], 1, 1);
     mesh.renderOrder = 5;
     rayGroup.add(mesh);
