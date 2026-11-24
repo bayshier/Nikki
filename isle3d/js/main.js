@@ -127,6 +127,7 @@ window.__isle = {
   /* 画质钩子:0=低 1=中 2=高。走的是和"帧率自动降档"同一条 applyQuality(),
      模块的画质回调和后期管线都会被通知到(直接调 post.setQuality 会漏掉前者)。 */
   setQualityLevel(n) { qLevel = Math.max(0, Math.min(2, n | 0)); applyQuality(); return qLevel; },
+  checkViewport,                                       // 视口自检(可单独调用做测试)
   /* 确定性步进钩子:后台标签 rAF 冻结时,测试可以手动推进时间并跑一遍所有模块的 update */
   step(t) {
     ctx.G.t = t; ctx.G.dt = 1 / 60;
@@ -187,10 +188,14 @@ document.getElementById("shot").onclick = shoot;
 addEventListener("keydown", e => { if (e.key === "s" || e.key === "S") shoot(); });
 
 /* ---------- 主循环 ---------- */
+let lastW = 0, lastH = 0;                               // 上次量到的画布尺寸(视口自检用)
 function resize() {
-  renderer.setSize(innerWidth, innerHeight, false);
+  /* 以画布自己的 CSS 尺寸为准:嵌入面板 / iframe 里 innerWidth 不等于画布大小 */
+  const w = cv.clientWidth || innerWidth, h = cv.clientHeight || innerHeight;
+  lastW = w; lastH = h;
+  renderer.setSize(w, h, false);
   post.setSize();                                      // 后期缓冲跟随绘制缓冲尺寸
-  camera.aspect = innerWidth / innerHeight;
+  camera.aspect = w / h;
   camera.updateProjectionMatrix();
 }
 addEventListener("resize", resize);
@@ -210,6 +215,15 @@ setTimeout(() => {
 }, 400);
 
 let last = performance.now(), fpsAcc = 0, fpsN = 0, fpsT = 0;
+let vsTick = 0;                                       // 视口自检计数
+/* 视口自检:有些环境加载时视口是 0×0,之后变大却不触发 resize 事件,
+   不自检的话渲染缓冲会一直是 0×0 —— 用户看到一片黑。 */
+function checkViewport() {
+  const w = cv.clientWidth, h = cv.clientHeight;
+  if (w > 0 && h > 0 && (w !== lastW || h !== lastH)) resize();
+  return [w, h];
+}
+
 renderer.setAnimationLoop(() => {
   const now = performance.now();
   const dt = Math.min(0.05, (now - last) / 1000);
@@ -219,6 +233,7 @@ renderer.setAnimationLoop(() => {
   applyCam();
   ctx.G.camPos.copy(camera.position);
   for (const u of updates) { try { u(ctx.G.t, dt); } catch (e) {} }
+  if ((vsTick++ & 31) === 0) checkViewport();          // 每 32 帧量一次画布尺寸
   post.render(ctx.G.t);
   fpsAcc += dt; fpsN++; fpsT += dt;
   if (fpsT > 1) { autoQuality(fpsN / fpsAcc); fpsAcc = fpsN = fpsT = 0; }

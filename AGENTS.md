@@ -55,7 +55,7 @@
 - **本地服务用 `python3 tools/serve.py 8931`**(带 `Cache-Control: no-store`),不要用
   `python -m http.server`:后者不发缓存头,Chrome 会给"很久没改过的模块"判很长的缓存新鲜期,
   改完刷新可能还在跑旧代码(而刚改过的文件又能生效),测试结论会悄悄失真。
-- isle3d 的钩子都在 `window.__isle`:`step(t)` 确定性推进并跑一遍模块 update、
+- isle3d 的钩子都在 `window.__isle`:`step(t)` 确定性推进并跑一遍模块 update、`checkViewport()` 视口自检、
   `setQualityLevel(0|1|2)` 切画质、`post.debug(1..5)` 看预通道 / 描边掩码 / 纯场景色 / 纯泛光。
   IAB 后台标签 rAF 会暂停,相机停在原点——测试要自己摆好 `camera.position` + `lookAt` 再渲染。
 - **改过着色器必须查编译结果**:`renderer.info.programs.filter(p => p.diagnostics).length` 应为 0。
