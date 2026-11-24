@@ -143,11 +143,14 @@ export function build(ctx) {
         vec2 g = d1 * 0.42 * cos(dot(p, d1) * 0.42 + t * 1.3);
         g += d2 * 0.71 * cos(dot(p, d2) * 0.71 + t * 1.9) * 0.55;
         g += d3 * 1.5 * cos(dot(p, d3) * 1.5 + t * 2.7) * 0.22 * uDetail * nearF;
+        /* 细波:只给太阳高光用。它不能进菲涅尔——掠射角下菲涅尔对法线极敏感,
+           高频抖动会被放大成亚像素级的粉色反光,平均开来就是一层灰紫纱(踩过)。 */
         vec2 d4 = normalize(vec2(-0.87, -0.49));
-        g += d4 * 4.2 * cos(dot(p, d4) * 4.2 + t * 3.9) * 0.07 * uDetail * nearF;   // 细波:把太阳反光打散成粼粼的点
+        vec2 gf = g + d4 * 4.2 * cos(dot(p, d4) * 4.2 + t * 3.9) * 0.07 * uDetail * nearF;
         vec3 N = normalize(vec3(-g.x * 0.16, 1.0, -g.y * 0.16));
+        vec3 Ns = normalize(vec3(-gf.x * 0.16, 1.0, -gf.y * 0.16));
         vec3 V = normalize(uCam - vWorld);
-        /* 远处把法线压平:掠射角下菲涅尔对法线极敏感,不压平会出横向条纹 */
+        /* 远处把法线压平:不压平会出横向条纹 */
         vec3 Nf = normalize(mix(vec3(0.0, 1.0, 0.0), N, nearF));
 
         /* —— 菲涅尔:掠射角反射霞色天空 —— */
@@ -156,7 +159,7 @@ export function build(ctx) {
 
         /* —— 太阳碎金 —— */
         vec3 L = normalize(uSunDir);
-        float spec = pow(max(dot(N, normalize(L + V)), 0.0), 260.0) * 1.7 * uDetail;
+        float spec = pow(max(dot(Ns, normalize(L + V)), 0.0), 260.0) * 1.7 * uDetail;
         col += vec3(1.0, 0.92, 0.75) * spec;
 
         /* —— 浪线:低频噪声场的等值线(有机的曲线),再被掩膜切成段 —— */

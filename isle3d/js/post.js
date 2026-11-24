@@ -305,6 +305,10 @@ export function createPost({ renderer, THREE: T, scene, camera, sun }) {
       // 开关投影会改着色器变体,通知 three 重编译
       scene.traverse((o) => { const m = o.material; if (m) (Array.isArray(m) ? m : [m]).forEach((x) => { x.needsUpdate = true; }); });
     },
+    /** 合成通道的全部 uniform(只读视图,调试/测试用) */
+    get uniforms() { return compMat.uniforms; },
+    /** 提亮 / 模糊通道的 uniform */
+    get brightUniforms() { return brightMat.uniforms; },
     /** 调试视图:0=正常 1=深度 2=法线 3=描边掩码 */
     debug(v) { compMat.uniforms.uDebug.value = v; },
     render(time) {
