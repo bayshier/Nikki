@@ -6,6 +6,7 @@
 import * as THREE from "three";
 import { initRenderer } from "../../shared/three-kit.js";
 import { buildAtmosphere } from "./atmosphere.js";
+import { createPost, applyToon, applyShadows } from "./post.js";
 
 /* ---------- 世界常量(与 CONTRACT.md 一致,专员不许改) ---------- */
 export const LAYOUT = {
@@ -38,6 +39,7 @@ export function heightAt(x, z) {
 /* ---------- 渲染器 / 场景 / 相机 ---------- */
 const cv = document.getElementById("cv");
 const renderer = initRenderer(cv, { shadows: false, exposure: 1.06, maxPixelRatio: 1.75 });
+renderer.shadowMap.type = THREE.PCFShadowMap;
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(50, 1, 0.5, 1200);
 scene.add(camera);
@@ -106,7 +108,32 @@ for (const [name, path] of MODULES) {
     console.error("❌ 模块装载失败:", name, e);
   }
 }
-window.__isle = { ctx, loaded, THREE, scene, camera, renderer, heightAt };
+/* ---------- 画面升级层(post.js):卡通着色 / 实时投影 / 后期 ----------
+   放在模块全部装完之后:材质这时才齐,一次遍历就能全部注入。 */
+const toonMaterials = applyToon(scene, true);          // 全场标准材质 → 三阶色阶 + 边缘光
+const shadowCasters = applyShadows(scene, true);       // 标记谁能投影/接影(实际开关由画质阶梯控制)
+if (ctx.sun) {                                         // 太阳的阴影相机:罩住整座岛
+  ctx.sun.castShadow = true;
+  ctx.sun.shadow.mapSize.set(2048, 2048);
+  const sc = ctx.sun.shadow.camera;
+  sc.left = -110; sc.right = 110; sc.top = 110; sc.bottom = -110; sc.near = 10; sc.far = 400;
+  sc.updateProjectionMatrix();
+  ctx.sun.shadow.bias = -0.0004;
+  ctx.sun.shadow.normalBias = 0.6;
+}
+const post = createPost({ renderer, THREE, scene, camera, sun: ctx.sun });
+window.__isle = {
+  ctx, loaded, THREE, scene, camera, renderer, heightAt, post, toonMaterials, shadowCasters,
+  /* 画质钩子:0=低 1=中 2=高。走的是和"帧率自动降档"同一条 applyQuality(),
+     模块的画质回调和后期管线都会被通知到(直接调 post.setQuality 会漏掉前者)。 */
+  setQualityLevel(n) { qLevel = Math.max(0, Math.min(2, n | 0)); applyQuality(); return qLevel; },
+  /* 确定性步进钩子:后台标签 rAF 冻结时,测试可以手动推进时间并跑一遍所有模块的 update */
+  step(t) {
+    ctx.G.t = t; ctx.G.dt = 1 / 60;
+    for (const u of updates) { try { u(ctx.G.t, ctx.G.dt); } catch (e) {} }
+    return ctx.G.t;
+  },
+};
 
 /* ---------- 相机:自动环绕 + 拖动/缩放 ---------- */
 const cam = LAYOUT.CAMERA;
@@ -137,6 +164,8 @@ const QNAMES = ["低(省电)", "中", "高"];
 function applyQuality() {
   renderer.setPixelRatio(qLevel === 2 ? Math.min(devicePixelRatio || 1, 1.75) : qLevel === 1 ? 1 : 0.75);
   ctx.G.quality = qLevel === 2 ? "high" : qLevel === 1 ? "mid" : "low";
+  post.setSize();
+  post.setQuality(ctx.G.quality);                      // high=描边+投影 / mid=仅泛光 / low=直出
   for (const f of qualityFns) { try { f(ctx.G.quality); } catch (e) {} }
   qEl.textContent = `画质:${QNAMES[qLevel]} · 模块 ${loaded.length}/12`;
 }
@@ -148,7 +177,7 @@ function autoQuality(fps) {
 
 /* ---------- 截图(S 键 / 按钮):对照参考图打磨用 ---------- */
 function shoot() {
-  renderer.render(scene, camera);
+  post.render(ctx.G.t);
   const a = document.createElement("a");
   a.download = `isle-${Date.now()}.png`;
   a.href = renderer.domElement.toDataURL("image/png");
@@ -160,12 +189,25 @@ addEventListener("keydown", e => { if (e.key === "s" || e.key === "S") shoot(); 
 /* ---------- 主循环 ---------- */
 function resize() {
   renderer.setSize(innerWidth, innerHeight, false);
+  post.setSize();                                      // 后期缓冲跟随绘制缓冲尺寸
   camera.aspect = innerWidth / innerHeight;
   camera.updateProjectionMatrix();
 }
 addEventListener("resize", resize);
 resize();
 applyQuality();
+
+/* ---------- 预热:把三档画质的着色器变体都先编一遍 ----------
+   开关投影会改变着色器变体,等帧率掉下来才现编会卡一下。
+   这里在首帧之后偷偷各渲染一帧,把三档的程序都放进缓存。 */
+let warm = 0;
+setTimeout(() => {
+  for (const q of [0, 1, 2]) {
+    window.__isle.setQualityLevel(q);
+    post.render(0);
+  }
+  window.__isle.setQualityLevel(2);
+}, 400);
 
 let last = performance.now(), fpsAcc = 0, fpsN = 0, fpsT = 0;
 renderer.setAnimationLoop(() => {
@@ -177,7 +219,7 @@ renderer.setAnimationLoop(() => {
   applyCam();
   ctx.G.camPos.copy(camera.position);
   for (const u of updates) { try { u(ctx.G.t, dt); } catch (e) {} }
-  renderer.render(scene, camera);
+  post.render(ctx.G.t);
   fpsAcc += dt; fpsN++; fpsT += dt;
   if (fpsT > 1) { autoQuality(fpsN / fpsAcc); fpsAcc = fpsN = fpsT = 0; }
 });

@@ -22,16 +22,16 @@ function vn(x, z) {
   return (a + (b - a) * ux + (c - a) * uz + (a - b - c + d) * ux * uz) * 2 - 1;
 }
 
-/* ---------- 色板(取自 ref1 / CONTRACT)---------- */
-const GRASS_L = 0x8ed07a, GRASS_D = 0x5da052;   // 草亮 / 草暗
-const CLIFF_L = 0x9b8f9c, CLIFF_D = 0x7c6f80;   // 崖壁紫灰亮 / 暗
-const CLIFF_BOT = 0x6b5f70;                      // 崖脚压暗
-const STRATA = 0xa5828a;                         // 地层淡玫瑰(ref1 崖上红纹)
-const LIP = 0x4e8a48;                            // 崖缘深绿草唇
-const BEACH_L = 0xccc8d4, BEACH_D = 0xaaa6b4;    // 碎石滩浅灰
-const WET = 0x8f8b9e;                            // 水线湿沙
-const SEABED = 0x6f8a88;                         // 水下偏青
-const DIRT = 0xc9a878;                           // 土路
+/* ---------- 色板(取自 ref1:蓝天一样的崖、玫瑰色地层、明黄的草)---------- */
+const GRASS_L = 0xa8e070, GRASS_D = 0x5cb552;   // 草亮 / 草暗
+const CLIFF_L = 0x9aa2d4, CLIFF_D = 0x6c78b6;   // 崖壁蓝紫亮 / 暗
+const CLIFF_BOT = 0x5566a8;                      // 崖脚压暗(蓝)
+const STRATA = 0xec8aa4;                         // 地层玫瑰(ref1 崖上红纹)
+const LIP = 0x3f9a52;                            // 崖缘深绿草唇
+const BEACH_L = 0xf4e4c6, BEACH_D = 0xdcbf98;    // 碎石滩:暖沙色
+const WET = 0xb9a8d4;                            // 水线湿痕(偏紫)
+const SEABED = 0x5fc8b6;                         // 水下偏青
+const DIRT = 0xe2b678;                           // 土路
 
 /* ---------- 土路折线:拱桥 → 主亭 → 雕像道 ---------- */
 const PATH = [[16, -2], [8, 2], [-6, -2], [-20, -4], [-34, -6], [-40, 6], [-52, 14]];
@@ -105,8 +105,8 @@ export function build(ctx) {
     /* --- 崖壁:褶皱明暗 + 地层淡玫瑰 + 崖脚压暗 --- */
     cCliff.setHex(CLIFF_L).lerp(cTmp.setHex(CLIFF_D),
       Math.max(0, Math.min(1, 0.42 + fold * 0.28 - (h - 8) * 0.02)));
-    const strata = Math.sin(h * 0.55 + vn(x * 0.3 + 1.1, z * 0.3 + 6.6) * 2.4);
-    if (strata > 0.55) cCliff.lerp(cTmp.setHex(STRATA), 0.3 * smooth(0.55, 0.85, strata));
+    const strata = Math.sin(h * 1.15 + vn(x * 0.3 + 1.1, z * 0.3 + 6.6) * 1.1);
+    if (strata > 0.50) cCliff.lerp(cTmp.setHex(STRATA), 0.50 * smooth(0.50, 0.88, strata));   // 细横条带(ref1 崖上红纹)
     cCliff.lerp(cTmp.setHex(CLIFF_BOT), 0.45 * smooth(12, 3, h));
 
     /* --- 碎石滩:砾石斑 + 水线湿痕 --- */
