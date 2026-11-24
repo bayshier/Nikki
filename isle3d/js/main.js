@@ -165,7 +165,8 @@ const QNAMES = ["低(省电)", "中", "高"];
 function applyQuality() {
   renderer.setPixelRatio(qLevel === 2 ? Math.min(devicePixelRatio || 1, 1.75) : qLevel === 1 ? 1 : 0.75);
   ctx.G.quality = qLevel === 2 ? "high" : qLevel === 1 ? "mid" : "low";
-  post.setSize();
+  checkViewport();                                   // 切画质前先对一次画布尺寸:启动预热(+400ms)时视口通常已就位,
+  post.setSize();                                    // "加载时视口为 0"的问题会在用户看到画面之前就被修掉
   post.setQuality(ctx.G.quality);                      // high=描边+投影 / mid=仅泛光 / low=直出
   for (const f of qualityFns) { try { f(ctx.G.quality); } catch (e) {} }
   qEl.textContent = `画质:${QNAMES[qLevel]} · 模块 ${loaded.length}/12`;
