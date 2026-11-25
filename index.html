@@ -921,13 +921,14 @@ cv.addEventListener("pointerup", e => {
 /* 自适应 + 可见性暂停(滚出视口就不再渲染) */
 function resize() {
   const w = cv.clientWidth, h = cv.clientHeight;
-  if (!w || !h) return;                                  // 嵌入环境里视口可能暂时为 0
+  if (!w || !h) { setTimeout(resize, 250); return; }     // 嵌入环境里视口可能暂时为 0:稍后重试,别把错误尺寸定死
   renderer.setSize(w, h, false);
   camera.aspect = w / h;
   camera.updateProjectionMatrix();
 }
 addEventListener("resize", resize);
 resize();
+new ResizeObserver(resize).observe(cv);              // 容器尺寸一变就重设(嵌入环境里加载瞬间容器可能很小或不规则)
 let inView = true;
 new IntersectionObserver(en => { inView = en[0].isIntersecting; }).observe(cv);
 function frame(t) {
