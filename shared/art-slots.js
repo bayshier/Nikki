@@ -9,15 +9,19 @@
 const ArtSlots = (() => {
   const defs = {};        // game -> { slot: { file, size:[w,h] } }
   const imgs = {};        // game -> { slot: HTMLImageElement|null }
-  let nseed = 1;
+  const loading = {};     // game -> 还没加载完的槽位数
+  const waiters = [];     // [{ game, cb }] 某个游戏的槽位全部落定后回调
 
   function define(game, slots) {
     defs[game] = slots;
     imgs[game] = {};
+    loading[game] = Object.keys(slots).length;
+    const settle = () => { if (--loading[game] > 0) return;                  // 全部落定(成功或失败)
+      for (let i = waiters.length - 1; i >= 0; i--) if (waiters[i].game === game) waiters.splice(i, 1)[0].cb(); };
     for (const key in slots) {
       const im = new Image();
-      im.onload = () => { imgs[game][key] = im; };
-      im.onerror = () => { imgs[game][key] = null; };   // 没放图 = 用代码画的
+      im.onload = () => { imgs[game][key] = im; settle(); };
+      im.onerror = () => { imgs[game][key] = null; settle(); };   // 没放图 = 用代码画的
       im.src = slots[key].file;
     }
   }
@@ -45,5 +49,9 @@ const ArtSlots = (() => {
     return null;
   }
 
-  return { define, img, draw, drawFirst, has: (g, k) => !!img(g, k) };
+  /* 某个游戏声明的槽位图全部加载完(或确认缺图)后回调一次:要把贴图放进页面 DOM 时用它,
+     不要自己轮询。 */
+  function whenSettled(game, cb) { if (!loading[game]) cb(); else waiters.push({ game, cb }); }
+
+  return { define, img, draw, drawFirst, whenSettled, has: (g, k) => !!img(g, k) };
 })();

@@ -2,11 +2,12 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>🐱 猫咪 2048 · Nikki 游戏合集</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='0.9em' font-size='90'%3E%F0%9F%8E%80%3C/text%3E%3C/svg%3E">
 <style>
-  :root { --hk-pink: #ff9ec4; --hk-deep: #ff6b9d; --hk-red: #e94560; --hk-muted: #c98ba0; }
+    /* 文字色加深:原来的 #ff6b9d 当文字色对白底只有 2.68:1、#c98ba0 约 3:1,都不到 4.5:1 */
+  :root { --hk-pink: #ff9ec4; --hk-deep: #c2185b; --hk-red: #e94560; --hk-muted: #8f5267; }
   * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; touch-action: manipulation; }
   body {
     font-family: "Nunito", -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
@@ -22,7 +23,7 @@
     border-radius: 14px; padding: 5px 16px; text-align: center;
     box-shadow: 0 3px 0 -1px #f3b7cc;
   }
-  .hud .l { font-size: 10px; color: var(--hk-muted); font-weight: 800; }
+  .hud .l { font-size: 12px; color: var(--hk-muted); font-weight: 800; }
   .hud .v { font-size: 18px; font-weight: 800; color: var(--hk-deep); }
   .home {
     text-decoration: none; font-size: 13px; font-weight: 800; color: var(--hk-deep);
@@ -32,7 +33,7 @@
   .rebtn {
     border: none; cursor: pointer; font-family: inherit;
     font-size: 13px; font-weight: 800; color: #fff;
-    background: linear-gradient(135deg, var(--hk-deep), var(--hk-pink));
+    background: linear-gradient(135deg, #c2185b, #d6306f);   /* 白字要 4.5:1,渐变两端都得够深 */
     border-radius: 12px; padding: 8px 14px;
     box-shadow: 0 3px 0 -1px #d15683;
   }
@@ -65,8 +66,10 @@
     display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
     font-size: 26px; line-height: 1;
   }
-  .inner span { font-size: 11px; font-weight: 800; line-height: 1; }
-  @media (max-width: 380px) { .inner { font-size: 22px; } .inner span { font-size: 10px; } }
+  .inner span { font-size: 12px; font-weight: 800; line-height: 1; color: #4a1f33; background: rgba(255,255,255,.78);
+                 padding: 1px 7px; border-radius: 99px; }   /* 数字用白底药丸:高等级的深粉底上白字不够 4.5:1 */
+  .inner .tico { width: 54%; height: 54%; object-fit: contain; display: block; filter: drop-shadow(0 2px 1px rgba(120,30,60,.18)); }
+  @media (max-width: 380px) { .inner { font-size: 22px; } .inner span { font-size: 12px; } }
   /* 新 tile 弹出 */
   .inner.new { animation: spawn 0.18s cubic-bezier(.34,1.56,.64,1); }
   @keyframes spawn { from { transform: scale(0); } }
@@ -105,19 +108,21 @@
   @keyframes pop { from { transform: scale(0.7); } }
   .modal .e { font-size: 52px; }
   .modal h2 { color: var(--hk-deep); margin: 6px 0; }
-  .modal p { color: var(--hk-muted); font-size: 14px; margin-bottom: 16px; }
+  .modal p { color: var(--hk-muted); font-size: 14px; margin-bottom: 16px; line-height: 1.5; }
   .btn {
     border: none; cursor: pointer; font-family: inherit;
     font-size: 14px; font-weight: 800; color: #fff;
-    background: linear-gradient(135deg, var(--hk-deep), var(--hk-pink));
+    background: linear-gradient(135deg, #c2185b, #d6306f);   /* 白字要 4.5:1,渐变两端都得够深 */
     padding: 10px 26px; border-radius: 99px; margin: 0 5px;
-    box-shadow: 0 4px 0 -1px #d15683;
+    box-shadow: 0 4px 0 -1px #8e0f44;
   }
   .btn.sec { background: #fff; color: var(--hk-deep); border: 2px solid var(--hk-pink); box-shadow: 0 3px 0 -1px #f3b7cc; text-decoration: none; display: inline-block; }
+  /* 尊重系统的「减少动态效果」:装饰性的循环动画与过渡停掉,状态变化本身仍然可见 */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: .001s !important; animation-iteration-count: 1 !important; transition-duration: .001s !important; }
+  }
 </style>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Nunito:wght@400;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../shared/fonts.css">
 </head>
 <body>
   <div class="top">
@@ -148,6 +153,24 @@
 <script>
 // ===== 猫咪 2048 =====
 const EMOJI = { 2: "🐱", 4: "🐾", 8: "🐟", 16: "🥛", 32: "🧶", 64: "🎈", 128: "🏠", 256: "🌈", 512: "⭐", 1024: "🏰", 2048: "👑" };
+/* 方块图标:能加载到图片就用图片(各平台长得一致,也更精致),缺图退回上面的 emoji。
+   一半是仓库里现成的道具图,另一半在 assets/art/2048/(tools/artgen.py 生成) */
+const ICON_SRC = {
+  2: "../assets/art/2048/kitten.png", 4: "../assets/art/2048/paw.png", 8: "../assets/icons/fish_snack.png",
+  16: "../assets/icons/milk_bottle.png", 32: "../assets/icons/yarn_ball.png", 64: "../assets/art/2048/balloon.png",
+  128: "../assets/icons/cardboard_box.png", 256: "../assets/art/2048/rainbow.png", 512: "../assets/items/star.png",
+  1024: "../assets/art/2048/castle.png", 2048: "../assets/icons/cat_crown.png",
+};
+const ICON = {};                       // 数值 -> 已加载好的 <img>,失败为 null
+let iconPending = 0;
+for (const [v, src] of Object.entries(ICON_SRC)) {
+  iconPending++;
+  const im = new Image();
+  im.onload = () => { ICON[v] = im; iconDone(); };
+  im.onerror = () => { ICON[v] = null; iconDone(); };
+  im.src = src;
+}
+function iconDone() { if (--iconPending === 0) render(); }    // 全部落定后重画一次,把迟到的图换上去
 const tilesLayer = document.getElementById("tiles");
 const tileEls = new Map();                    // tile.id -> DOM 节点(复用以产生滑动动画)
 let grid, score, idSeq, won, dead, locked, settled;
@@ -252,7 +275,9 @@ function render() {
     el.style.setProperty("--c", c);
     el.style.zIndex = (t.merged || t.fresh) ? 3 : 2;
     const cls = t.val <= 2048 ? "t" + t.val : "tsuper";
-    const html = `<div class="inner ${cls}${t.merged ? " merged" : ""}${t.fresh ? " new" : ""}">${EMOJI[t.val] || "💖"}<span>${t.val}</span></div>`;
+    const pic = ICON[t.val];
+    const face = pic ? `<img class="tico" src="${pic.src}" alt="">` : (EMOJI[t.val] || "💖");
+    const html = `<div class="inner ${cls}${t.merged ? " merged" : ""}${t.fresh ? " new" : ""}">${face}<span>${t.val}</span></div>`;
     if (el._h !== html) { el.innerHTML = html; el._h = html; }
   }
   tileEls.forEach((el, id) => { if (!seen.has(id)) { el.remove(); tileEls.delete(id); } });

@@ -291,6 +291,8 @@ const AM = (() => {
   function stop() { playing = false; if (timer) { clearInterval(timer); timer = null; } }
   function setMuted(m) { muted = m; }
   function duck(on) { if (master) master.gain.value = on ? 0.35 : 0.9; }
+  /* 整体音量:小游戏拿它当背景乐时要压得比音效轻(shared/bgm.js) */
+  function setLevel(v) { if (master) master.gain.value = v; }
 
-  return { attach, start, setEra, stop, setMuted, duck, SONGS };
+  return { attach, start, setEra, stop, setMuted, duck, setLevel, SONGS };
 })();

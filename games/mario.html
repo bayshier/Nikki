@@ -2,13 +2,13 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>🐱🍄 猫猫马里奥 · Nikki 游戏合集</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='0.9em' font-size='90'%3E🐱%3C/text%3E%3C/svg%3E">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Nunito:wght@400;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../shared/fonts.css">
 <style>
-  :root { --hk-deep: #ff6b9d; --hk-muted: #c98ba0; --hk-red: #e94560; }
+    /* 文字色加深:原来的 #ff6b9d 当文字色对白底只有 2.68:1、#c98ba0 约 3:1,都不到 4.5:1 */
+  :root { --hk-deep: #c2185b; --hk-muted: #8f5267; --hk-red: #e94560; }
   * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
   body {
     font-family: "Nunito", -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
@@ -16,7 +16,7 @@
     background: linear-gradient(135deg, #ffd6e8 0%, #ffeef4 40%, #fff9fb 100%) fixed;
     min-height: 100dvh;
     display: flex; flex-direction: column; align-items: center;
-    padding: 12px;
+    padding: 16px;
   }
   .top { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; flex-wrap: wrap; justify-content: center; }
   .hud {
@@ -24,7 +24,7 @@
     border-radius: 12px; padding: 4px 14px; text-align: center;
     box-shadow: 0 3px 0 -1px #f3b7cc;
   }
-  .hud .l { font-size: 10px; color: var(--hk-muted); font-weight: 800; }
+  .hud .l { font-size: 12px; color: var(--hk-muted); font-weight: 800; }
   .hud .v { font-size: 17px; font-weight: 800; color: var(--hk-deep); }
   .hud .v.warn { color: var(--hk-red); }
   .home {
@@ -50,7 +50,7 @@
   .pad button:active { transform: translateY(4px); box-shadow: none; }
   .pad .jump { width: 96px; background: linear-gradient(135deg, #ffd56b, #ffb937); box-shadow: 0 5px 0 -1px #d99a1f; }
   .pad .run { width: 64px; font-size: 22px; background: linear-gradient(135deg, #9b6bd6, #c9a6f2); box-shadow: 0 5px 0 -1px #6a3fa0; }
-  .tip { margin-top: 10px; font-size: 12px; font-weight: 800; color: var(--hk-muted); text-align: center; }
+  .tip { margin-top: 10px; font-size: 12px; line-height: 1.5; font-weight: 800; color: var(--hk-muted); text-align: center; }
   .overlay {
     position: fixed; inset: 0; z-index: 50;
     background: rgba(255,158,196,0.45); backdrop-filter: blur(6px);
@@ -67,15 +67,19 @@
   @keyframes pop { from { transform: scale(0.7); } }
   .modal .e { font-size: 54px; }
   .modal h2 { color: var(--hk-deep); margin: 6px 0; }
-  .modal p { color: #c98ba0; font-size: 14px; margin-bottom: 16px; line-height: 1.7; }
+  .modal p { color: var(--hk-muted); font-size: 14px; margin-bottom: 16px; line-height: 1.7; }
   .btn {
     border: none; cursor: pointer; font-family: inherit;
     font-size: 14px; font-weight: 800; color: #fff;
-    background: linear-gradient(135deg, var(--hk-deep), #ff9ec4);
+    background: linear-gradient(135deg, #c2185b, #d6306f);   /* 白字要 4.5:1,渐变两端都得够深 */
     padding: 10px 26px; border-radius: 99px; margin: 0 5px;
-    box-shadow: 0 4px 0 -1px #d15683;
+    box-shadow: 0 4px 0 -1px #8e0f44;
   }
   .btn.sec { background: #fff; color: var(--hk-deep); border: 2px solid #ff9ec4; box-shadow: 0 3px 0 -1px #f3b7cc; text-decoration: none; display: inline-block; }
+  /* 尊重系统的「减少动态效果」:装饰性的循环动画与过渡停掉,状态变化本身仍然可见 */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: .001s !important; animation-iteration-count: 1 !important; transition-duration: .001s !important; }
+  }
 </style>
 </head>
 <body>
@@ -1404,9 +1408,11 @@ function drawCat({ o, ix, iy }) {
 
 // ---------- 吸尘器(追击型敌人:优先用用户提供的贴图,缺图画灰盒子兜底) ----------
 function drawVacuum(ix, iy, e) {
+  // 追击标志对两条分支都要用 —— 之前它定义在 if 块里,兜底画法那一支拿不到,
+  // 贴图还没加载完的头几帧每帧抛 ReferenceError,整个绘制函数被打断
+  const chase = e.spd > 1.5;
   if (SPR.vacuum) {
     // 追击时轻微抖动 + 朝向翻转
-    const chase = e.spd > 1.5;
     const jit = chase ? Math.sin(Date.now() / 40) * 1.5 : 0;
     ctx.save();
     ctx.translate(ix + 15, iy + 17);

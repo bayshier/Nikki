@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>⛳ 猫猫高尔夫 · Nikki 游戏合集</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='0.9em' font-size='90'%E2%9B%B3%3C/text%3E%3C/svg%3E">
 <!-- ═══════════════════════════════════════════════════════════════
@@ -15,7 +15,8 @@
        · 洞口有吸力,慢球路过会被吸进去
      ═══════════════════════════════════════════════════════════════ -->
 <style>
-  :root { --hk-deep: #ff6b9d; --hk-muted: #c98ba0; }
+    /* 文字色加深:原来的 #ff6b9d 当文字色对白底只有 2.68:1、#c98ba0 约 3:1,都不到 4.5:1 */
+  :root { --hk-deep: #c2185b; --hk-muted: #8f5267; }
   * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
   body {
     font-family: "Nunito", -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
@@ -39,7 +40,7 @@
   #overlay h2 { font-size: 28px; margin-bottom: 10px; text-shadow: 0 2px 6px rgba(0,0,0,.4); }
   #overlay p { font-size: 14px; line-height: 1.9; margin-bottom: 16px; }
   #overlay button {
-    border: none; background: var(--hk-deep); color: #fff; font-size: 17px; font-weight: 800;
+    border: none; background: var(--hk-deep); color: #fff; font-size: 17px; font-weight: 800; line-height: 1.4;
     padding: 11px 30px; border-radius: 999px; cursor: pointer; box-shadow: 0 4px 0 #d94f83; font-family: inherit;
   }
   #overlay button:active { transform: translateY(3px); box-shadow: 0 1px 0 #d94f83; }
@@ -68,7 +69,10 @@
 <div class="home"><a href="../index.html">🏠 回游戏合集</a></div>
 
 <script src="../shared/common.js"></script>
+<link rel="stylesheet" href="../shared/fonts.css">      /* Fredoka / Nunito 自托管(原来 CSS 里写了却从没加载过) */
 <script src="../shared/art-slots.js"></script>
+<script src="../shared/art-music.js"></script>
+<script src="../shared/bgm.js"></script>
 <script>
 /* ═══════════════════════════════════════════════════════════
    一、画布与常量
@@ -544,6 +548,7 @@ document.getElementById("btn-start").onclick = () => {
 };
 reset();
 frame();
+BGM.use(5, "#overlay", "header");        // 生成式 BGM:遮罩隐藏(对局中)时播,显示时停
 </script>
 </body>
 </html>

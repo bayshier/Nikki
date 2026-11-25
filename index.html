@@ -242,7 +242,6 @@ p { margin: 0; }
 <!-- ══ SVG 资产:小猫头 / 爪印 / 小鱼 / 星形 会被多个封面复用 ══ -->
 <svg class="sprite" aria-hidden="true" focusable="false">
 <defs>
-  <symbol id="s-spark" viewBox="-8 -8 16 16"><path d="M0-7 1.8-1.8 7 0 1.8 1.8 0 7-1.8 1.8-7 0-1.8-1.8Z"/></symbol>
   <symbol id="s-paw" viewBox="0 0 24 24"><ellipse cx="12" cy="15.8" rx="6.6" ry="5.4"/><circle cx="4.2" cy="9" r="2.8"/><circle cx="9.6" cy="4.8" r="2.8"/><circle cx="14.4" cy="4.8" r="2.8"/><circle cx="19.8" cy="9" r="2.8"/></symbol>
   <!-- 小猫头:身体色取 currentColor,眼睛鼻子嘴是墨线 -->
   <symbol id="s-cat" viewBox="0 0 64 60">
@@ -253,168 +252,11 @@ p { margin: 0; }
     <path d="M32 43q-2 4-6 2M32 43q2 4 6 2" fill="none" stroke-width="1.8"/>
     <path d="M6 34h9M7 40l8-2M58 34h-9M57 40l-8-2" fill="none" stroke-width="1.6"/>
   </symbol>
-  <symbol id="s-fish" viewBox="0 0 32 16"><path d="M3 8C3 3 8 1 13 1c5 0 9 3 9 7 0 4-4 7-9 7C8 15 3 13 3 8Z"/><path d="M21 8 30 2 28 8 30 14Z"/><circle cx="8" cy="6.5" r="1.3" fill="#2a2420" stroke="none"/></symbol>
   <symbol id="i-star" viewBox="0 0 24 24"><path d="M12 2.5 14.9 8.6 21.5 9.5 16.7 14.1 17.9 20.7 12 17.5 6.1 20.7 7.3 14.1 2.5 9.5 9.1 8.6Z"/></symbol>
   <symbol id="i-flag" viewBox="0 0 24 24"><path d="M6 22V3M6 4h12l-3 4 3 4H6"/></symbol>
 
-  <!-- ══ 封面插画:统一 160×120(4:3),墨线 3px + 平涂,底色取 var(--bg) ══ -->
-  <symbol id="c-mario" viewBox="0 0 160 120">
-    <rect width="160" height="120" style="fill:var(--bg)"/>
-    <rect x="-2" y="98" width="164" height="24" fill="#c9a56e"/>
-    <rect x="92" y="36" width="28" height="28" rx="3" fill="#f2c14e"/>
-    <g fill="#2a2420" stroke="none"><circle cx="97" cy="41" r="1.3"/><circle cx="115" cy="41" r="1.3"/><circle cx="97" cy="59" r="1.3"/><circle cx="115" cy="59" r="1.3"/></g>
-    <text x="106" y="58" text-anchor="middle" font-family="Kevin Sans, sans-serif" font-size="21" font-weight="700" fill="#2a2420" stroke="none">?</text>
-    <rect x="124" y="36" width="28" height="28" fill="#c2412d"/>
-    <path d="M124 50h28M138 36v14M131 50v14M145 50v14" fill="none" stroke-width="1.6"/>
-    <rect x="46" y="84" width="22" height="14" rx="4" fill="#fbf6e9"/>
-    <path d="M32 86c0-26 50-26 50 0Z" fill="#c2412d"/>
-    <g fill="#fbf6e9" stroke-width="1.6"><circle cx="45" cy="77" r="5"/><circle cx="69" cy="77" r="5"/><circle cx="57" cy="71" r="4"/></g>
-    <g fill="#2a2420" stroke="none"><circle cx="52" cy="91" r="1.6"/><circle cx="62" cy="91" r="1.6"/></g>
-    <path d="M12 54c0-28 48-28 48 0Z" fill="#c2412d"/>
-    <path d="M6 56q27 10 60 0l-2-5H8Z" fill="#c2412d"/>
-    <circle cx="36" cy="38" r="6" fill="#fbf6e9" stroke-width="1.6"/>
-    <text x="36" y="41.5" text-anchor="middle" font-family="Kevin Sans, sans-serif" font-size="9" font-weight="700" fill="#c2412d" stroke="none">N</text>
-  </symbol>
-  <symbol id="c-flappy" viewBox="0 0 160 120">
-    <rect width="160" height="120" style="fill:var(--bg)"/>
-    <path d="M14 34a8 8 0 0 1 14-5 7 7 0 0 1 12 2 6 6 0 0 1 2 11H22a6 6 0 0 1-8-8Z" fill="#fffdf6"/>
-    <path d="M62 18a6 6 0 0 1 10-4 5 5 0 0 1 9 1.5 4.5 4.5 0 0 1 1.5 8.5H68a4.5 4.5 0 0 1-6-6Z" fill="#fffdf6"/>
-    <rect x="104" y="8" width="24" height="30" fill="#5aa04a"/><rect x="100" y="32" width="32" height="12" rx="2" fill="#7fb04a"/>
-    <rect x="104" y="82" width="24" height="30" fill="#5aa04a"/><rect x="100" y="76" width="32" height="12" rx="2" fill="#7fb04a"/>
-    <path d="M34 61c-10-6-18-2-20 8 8 2 16 0 20-4Z" fill="#fffdf6"/>
-    <path d="M74 61c10-6 18-2 20 8-8 2-16 0-20-4Z" fill="#fffdf6"/>
-    <use href="#s-cat" x="34" y="40" width="40" height="37.5" style="color:#fbf6e9"/>
-    <path d="M48 90h14M46 98h10" fill="none" stroke-width="2"/>
-  </symbol>
-  <symbol id="c-snake" viewBox="0 0 160 120">
-    <rect width="160" height="120" style="fill:var(--bg)"/>
-    <path d="M106 76C78 76 86 46 58 46 36 46 32 76 22 94" stroke-width="21" fill="none"/>
-    <path d="M106 76C78 76 86 46 58 46 36 46 32 76 22 94" stroke-width="15" fill="none" stroke="#f2a03d"/>
-    <use href="#s-fish" x="8" y="22" width="26" height="13" fill="#f2c14e"/>
-    <use href="#s-fish" x="38" y="10" width="22" height="11" fill="#f2c14e"/>
-    <use href="#s-fish" x="64" y="96" width="24" height="12" fill="#f2c14e"/>
-    <use href="#s-cat" x="102" y="44" width="48" height="45" style="color:#f2a03d"/>
-  </symbol>
-  <symbol id="c-shmup" viewBox="0 0 160 120">
-    <rect width="160" height="120" style="fill:var(--bg)"/>
-    <path d="M34 18l9 11H25Z M80 12l9 11H71Z M126 18l9 11h-18Z" fill="#4a423b"/>
-    <g fill="#f2a03d" stroke-width="1.8"><circle cx="52" cy="54" r="3.2"/><circle cx="72" cy="48" r="3.2"/><circle cx="92" cy="52" r="3.2"/><circle cx="110" cy="46" r="3.2"/><circle cx="62" cy="34" r="3.2"/><circle cx="98" cy="34" r="3.2"/><circle cx="80" cy="62" r="3.2"/></g>
-    <path d="M80 106 46 66 80 76 114 66Z" fill="#fffdf6"/>
-    <path d="M80 76v30" fill="none" stroke-width="1.6"/>
-    <use href="#s-spark" x="-8" y="-8" width="16" height="16" fill="#fffdf6" stroke-width="2" transform="translate(122 26)"/>
-  </symbol>
-  <symbol id="c-breakout" viewBox="0 0 160 120">
-    <rect width="160" height="120" style="fill:var(--bg)"/>
-    <g fill="#c2412d"><rect x="12" y="14" width="25" height="11" rx="1.5"/><rect x="40" y="14" width="25" height="11" rx="1.5"/><rect x="68" y="14" width="25" height="11" rx="1.5"/><rect x="96" y="14" width="25" height="11" rx="1.5"/><rect x="124" y="14" width="25" height="11" rx="1.5"/></g>
-    <g fill="#f2a03d"><rect x="12" y="28" width="25" height="11" rx="1.5"/><rect x="40" y="28" width="25" height="11" rx="1.5"/><rect x="96" y="28" width="25" height="11" rx="1.5"/><rect x="124" y="28" width="25" height="11" rx="1.5"/></g>
-    <g fill="#4a90d9"><rect x="12" y="42" width="25" height="11" rx="1.5"/><rect x="40" y="42" width="25" height="11" rx="1.5"/><rect x="68" y="42" width="25" height="11" rx="1.5"/><rect x="96" y="42" width="25" height="11" rx="1.5"/><rect x="124" y="42" width="25" height="11" rx="1.5"/></g>
-    <circle cx="80" cy="33" r="6" fill="#fbf6e9"/>
-    <path d="M88 27l6-5M90 37h7M86 22v-6" fill="none" stroke-width="2"/>
-    <g fill="#2a2420" stroke="none"><circle cx="76" cy="58" r="1.7"/><circle cx="72" cy="68" r="1.7"/><circle cx="69" cy="78" r="1.7"/></g>
-    <rect x="58" y="96" width="44" height="9" rx="4.5" fill="#2a2420"/>
-  </symbol>
-  <symbol id="c-2048" viewBox="0 0 160 120">
-    <rect width="160" height="120" style="fill:var(--bg)"/>
-    <g fill="#fbf6e9"><rect x="26" y="10" width="24" height="20" rx="3"/><rect x="54" y="10" width="24" height="20" rx="3"/><rect x="82" y="10" width="24" height="20" rx="3"/><rect x="110" y="10" width="24" height="20" rx="3"/></g>
-    <g font-family="Kevin Sans, sans-serif" font-size="13" font-weight="700" fill="#2a2420" stroke="none" text-anchor="middle"><text x="38" y="25">2</text><text x="66" y="25">4</text><text x="94" y="25">8</text><text x="122" y="25">16</text></g>
-    <rect x="26" y="40" width="108" height="42" rx="5" fill="#f2a03d"/>
-    <text x="80" y="70" text-anchor="middle" font-family="Kevin Sans, sans-serif" font-size="27" font-weight="700" fill="#fbf6e9" stroke="none">2048</text>
-    <g fill="#f6b8b0"><rect x="26" y="92" width="24" height="20" rx="3"/><rect x="54" y="92" width="24" height="20" rx="3"/><rect x="82" y="92" width="24" height="20" rx="3"/><rect x="110" y="92" width="24" height="20" rx="3"/></g>
-    <g font-family="Kevin Sans, sans-serif" font-size="12" font-weight="700" fill="#2a2420" stroke="none" text-anchor="middle"><text x="38" y="106">32</text><text x="66" y="106">64</text><text x="94" y="106">128</text><text x="122" y="106">256</text></g>
-  </symbol>
-  <symbol id="c-tetris" viewBox="0 0 160 120">
-    <rect width="160" height="120" style="fill:var(--bg)"/>
-    <g fill="#4a90d9"><rect x="24" y="102" width="18" height="18"/><rect x="42" y="102" width="18" height="18"/><rect x="60" y="102" width="18" height="18"/><rect x="60" y="84" width="18" height="18"/></g>
-    <g fill="#7fb04a"><rect x="78" y="102" width="18" height="18"/><rect x="96" y="102" width="18" height="18"/><rect x="114" y="102" width="18" height="18"/><rect x="96" y="84" width="18" height="18"/></g>
-    <g fill="#f2a03d"><rect x="33" y="84" width="18" height="18"/><rect x="51" y="84" width="18" height="18"/><rect x="51" y="66" width="18" height="18"/><rect x="69" y="66" width="18" height="18"/></g>
-    <g fill="#f2c14e"><rect x="98" y="14" width="18" height="18"/><rect x="116" y="14" width="18" height="18"/><rect x="134" y="14" width="18" height="18"/><rect x="134" y="32" width="18" height="18"/></g>
-    <rect x="134" y="102" width="18" height="18" fill="none" stroke-dasharray="3 3" stroke-width="1.6"/>
-    <use href="#s-cat" x="6" y="18" width="38" height="35.6" style="color:#fbf6e9"/>
-  </symbol>
-  <symbol id="c-golf" viewBox="0 0 160 120">
-    <rect width="160" height="120" style="fill:var(--bg)"/>
-    <ellipse cx="86" cy="82" rx="60" ry="26" fill="#7fb04a"/>
-    <path d="M52 92Q74 64 98 73" fill="none" stroke-width="2" stroke-dasharray="3 5"/>
-    <ellipse cx="104" cy="74" rx="9" ry="4" fill="#2a2420"/>
-    <path d="M104 74V28" fill="none"/>
-    <path d="M104 28 130 36 104 44Z" fill="#c2412d"/>
-    <circle cx="46" cy="96" r="10" fill="#fffdf6"/>
-    <path d="M38 94c4-4 10-4 14 0M40 101c3-3 9-3 12 0" fill="none" stroke="#f6b8b0" stroke-width="2"/>
-    <path d="M46 106v6" fill="none"/>
-  </symbol>
-  <symbol id="c-td" viewBox="0 0 160 120">
-    <rect width="160" height="120" style="fill:var(--bg)"/>
-    <rect x="14" y="102" width="132" height="18" fill="#c9a56e"/>
-    <path d="M81 28V6" fill="none"/>
-    <path d="M81 6 106 12 81 18Z" fill="#c2412d"/>
-    <rect x="64" y="28" width="8" height="12" fill="#9aa7b8"/><rect x="77" y="28" width="8" height="12" fill="#9aa7b8"/><rect x="90" y="28" width="8" height="12" fill="#9aa7b8"/>
-    <rect x="64" y="38" width="34" height="64" fill="#9aa7b8"/>
-    <path d="M74 102V86a7 7 0 0 1 14 0v16Z" fill="#2a2420"/>
-    <rect x="76" y="50" width="10" height="10" rx="2" fill="#fbf6e9"/>
-    <path d="M64 66h34M64 82h34M72 66v16M88 82v16" fill="none" stroke-width="1.2"/>
-    <rect x="12" y="76" width="30" height="20" rx="6" fill="#b8c0cc"/>
-    <path d="M27 76V66" fill="none"/><circle cx="27" cy="63" r="2.6" fill="#c2412d"/>
-    <circle cx="21" cy="85" r="3" fill="#c2412d"/>
-    <circle cx="21" cy="98" r="5" fill="#2a2420"/><circle cx="33" cy="98" r="5" fill="#2a2420"/>
-    <use href="#s-paw" x="48" y="42" width="20" height="20" fill="#f2c14e"/>
-    <path d="M46 46l-6-4M44 54h-8" fill="none" stroke-width="2"/>
-  </symbol>
-  <symbol id="c-dopa" viewBox="0 0 160 120">
-    <rect width="160" height="120" style="fill:var(--bg)"/>
-    <g fill="#5aa04a"><rect x="16" y="86" width="9" height="18" rx="1"/><rect x="28" y="74" width="9" height="30" rx="1"/><rect x="40" y="60" width="9" height="44" rx="1"/></g>
-    <rect x="60" y="26" width="66" height="80" rx="8" fill="#fbf6e9"/>
-    <rect x="68" y="34" width="50" height="18" rx="3" fill="#2a2420"/>
-    <text x="93" y="48" text-anchor="middle" font-family="Kevin Sans, monospace" font-size="13" font-weight="700" fill="#fbf6e9" stroke="none">7+2</text>
-    <circle cx="73" cy="65" r="5" fill="#c2412d"/><circle cx="93" cy="65" r="5" fill="#4a90d9"/><circle cx="113" cy="65" r="5" fill="#f2c14e"/>
-    <circle cx="73" cy="84" r="5" fill="#7fb04a"/><circle cx="93" cy="84" r="5" fill="#f6b8b0"/><circle cx="113" cy="84" r="5" fill="#9aa7b8"/>
-    <path d="M136 24v16M128 32h16" fill="none" stroke="#c2412d" stroke-width="4"/>
-    <path d="M132 92l12 12M144 92l-12 12" fill="none" stroke="#4a90d9" stroke-width="4"/>
-    <use href="#s-spark" x="-8" y="-8" width="16" height="16" fill="#fffdf6" stroke-width="2" transform="translate(30 28)"/>
-  </symbol>
-  <symbol id="c-destroy" viewBox="0 0 160 120">
-    <rect width="160" height="120" style="fill:var(--bg)"/>
-    <rect x="22" y="22" width="92" height="76" rx="7" fill="#fffdf6"/>
-    <path d="M22 40v-11a7 7 0 0 1 7-7h78a7 7 0 0 1 7 7v11Z" fill="#bcd8f0"/>
-    <g fill="#2a2420" stroke="none"><circle cx="32" cy="31" r="2.2"/><circle cx="41" cy="31" r="2.2"/><circle cx="50" cy="31" r="2.2"/></g>
-    <rect x="60" y="27" width="46" height="8" rx="4" fill="#fffdf6" stroke-width="1.4"/>
-    <path d="M108 48 94 58 100 68 84 78 90 92" fill="none"/>
-    <rect x="122" y="50" width="8" height="8" fill="#c2412d"/><rect x="134" y="66" width="8" height="8" fill="#4a90d9"/><rect x="124" y="82" width="8" height="8" fill="#5aa04a"/><rect x="140" y="96" width="8" height="8" fill="#f2c14e"/><rect x="116" y="102" width="8" height="8" fill="#e8735a"/>
-    <use href="#s-spark" x="-8" y="-8" width="16" height="16" fill="#fffdf6" stroke-width="2" transform="translate(106 50)"/>
-  </symbol>
-  <symbol id="c-floorplan" viewBox="0 0 160 120">
-    <rect width="160" height="120" style="fill:var(--bg)"/>
-    <path d="M98 100H30V24h100v76H116" fill="#fffdf6" stroke-width="4"/>
-    <path d="M116 100V82a18 18 0 0 0-18 18" fill="none" stroke-width="1.4" stroke-dasharray="3 3"/>
-    <rect x="38" y="34" width="42" height="12" rx="5" fill="#e8735a"/>
-    <rect x="34" y="40" width="8" height="18" rx="3" fill="#e8735a"/><rect x="76" y="40" width="8" height="18" rx="3" fill="#e8735a"/>
-    <rect x="38" y="44" width="42" height="14" rx="5" fill="#e8735a"/>
-    <path d="M59 46v12" fill="none" stroke-width="1.6"/>
-    <rect x="98" y="34" width="26" height="34" rx="3" fill="#fbf6e9"/>
-    <rect x="101" y="37" width="20" height="9" rx="3" fill="#bcd8f0"/>
-    <path d="M98 52h26v13a3 3 0 0 1-3 3h-20a3 3 0 0 1-3-3Z" fill="#f6b8b0"/>
-    <ellipse cx="68" cy="82" rx="18" ry="9" fill="#f7e38a"/>
-    <use href="#s-cat" x="56" y="64" width="24" height="22.5" style="color:#fbf6e9"/>
-    <g fill="#5aa04a"><ellipse cx="43" cy="82" rx="4" ry="8" transform="rotate(-28 43 82)"/><ellipse cx="47" cy="79" rx="4" ry="8"/><ellipse cx="51" cy="82" rx="4" ry="8" transform="rotate(28 51 82)"/></g>
-    <path d="M40 92h14l-2 9H42Z" fill="#c2412d"/>
-  </symbol>
-  <symbol id="c-list" viewBox="0 0 160 120">
-    <rect width="160" height="120" style="fill:var(--bg)"/>
-    <g fill="#2a2420" stroke="none"><rect x="34" y="12" width="8" height="8" rx="1.5"/><rect x="34" y="24" width="8" height="8" rx="1.5"/><rect x="34" y="36" width="8" height="8" rx="1.5"/></g>
-    <g fill="#fbf6e9"><rect x="48" y="13" width="60" height="6" rx="3"/><rect x="48" y="25" width="72" height="6" rx="3"/><rect x="48" y="37" width="52" height="6" rx="3"/></g>
-    <path d="M46 62h68a14 14 0 0 1 13.6 10.6l6 20A9 9 0 0 1 117 103L108 92H52l-9 11a9 9 0 0 1-16.6-10.4l6-20A14 14 0 0 1 46 62Z" fill="#fffdf6"/>
-    <path d="M56 72h8v-8h8v8h8v8h-8v8h-8v-8h-8Z" fill="#2a2420"/>
-    <circle cx="108" cy="70" r="3.4" fill="#c2412d"/><circle cx="120" cy="76" r="3.4" fill="#f2c14e"/><circle cx="108" cy="82" r="3.4" fill="#7fb04a"/><circle cx="96" cy="76" r="3.4" fill="#4a90d9"/>
-  </symbol>
-  <symbol id="c-dex" viewBox="0 0 160 120">
-    <rect width="160" height="120" style="fill:var(--bg)"/>
-    <path d="M26 34v62c19-4 37-3 54 5 17-8 35-9 54-5V34" fill="#c2412d"/>
-    <path d="M80 36C66 28 48 27 30 31v61c18-4 36-3 50 5Z" fill="#fffdf6"/>
-    <path d="M80 36c14-8 32-9 50-5v61c-18-4-36-3-50 5Z" fill="#fffdf6"/>
-    <path d="M40 46h28M40 56h28M40 66h20" fill="none" stroke-width="1.8"/>
-    <use href="#s-paw" x="42" y="68" width="16" height="16" fill="#f6b8b0" stroke-width="1.8"/>
-    <use href="#s-cat" x="92" y="44" width="28" height="26.25" style="color:#f2a03d"/>
-    <path d="M104 31v22l6-5 6 5V34" fill="#f2c14e"/>
-  </symbol>
+  <!-- 封面插画已全部换成 AI 出的 Key Art(assets/covers/key/,由 tools/artgen.py 生成);
+       这里只剩仍被页面用到的:标志的小猫头、配对封面的爪印、便签的星星和旗帜 -->
 </defs>
 </svg>
 
@@ -552,31 +394,31 @@ p { margin: 0; }
         <span class="card-best">纯代码绘制,灵感来自 huashu-art-motion</span>
       </a>
       <a class="paper card" data-cat="action" href="games/mario.html">
-        <span class="cover art" style="--bg:#f6b8b0"><svg viewBox="0 0 160 120" aria-hidden="true"><use href="#c-mario"/></svg></span>
+        <span class="cover"><img src="assets/covers/key/mario.jpg" alt="" width="960" height="720" loading="lazy"></span>
         <span class="card-kind">动作</span><h3>猫猫马里奥</h3>
         <span class="card-desc">戴红帽的猫猫跑酷闯关,踩捣蛋猫,抵达旗帜</span>
         <span class="card-best" id="best-mario">尚无纪录</span>
       </a>
       <a class="paper card" data-cat="action" href="games/flappy.html">
-        <span class="cover art" style="--bg:#bcd8f0"><svg viewBox="0 0 160 120" aria-hidden="true"><use href="#c-flappy"/></svg></span>
+        <span class="cover"><img src="assets/covers/key/flappy.jpg" alt="" width="960" height="720" loading="lazy"></span>
         <span class="card-kind">动作</span><h3>飞飞猫</h3>
         <span class="card-desc">点一下振翅,穿过一根根管道</span>
         <span class="card-best" id="best-flappy">尚无纪录</span>
       </a>
       <a class="paper card" data-cat="action" href="games/snake.html">
-        <span class="cover art" style="--bg:#cfe6c0"><svg viewBox="0 0 160 120" aria-hidden="true"><use href="#c-snake"/></svg></span>
+        <span class="cover"><img src="assets/covers/key/snake.jpg" alt="" width="960" height="720" loading="lazy"></span>
         <span class="card-kind">动作</span><h3>猫吃小鱼</h3>
         <span class="card-desc">操控小猫吃小鱼不断变长,别撞到墙和自己</span>
         <span class="card-best" id="best-snake">尚无纪录</span>
       </a>
       <a class="paper card" data-cat="action" href="games/shmup.html">
-        <span class="cover art" style="--bg:#c9b6e4"><svg viewBox="0 0 160 120" aria-hidden="true"><use href="#c-shmup"/></svg></span>
+        <span class="cover"><img src="assets/covers/key/shmup.jpg" alt="" width="960" height="720" loading="lazy"></span>
         <span class="card-kind">动作</span><h3>猫猫弹幕</h3>
         <span class="card-desc">纸飞机猫猫大战老鼠空军,自动开火,打爆母舰</span>
         <span class="card-best" id="best-shmup">尚无纪录</span>
       </a>
       <a class="paper card" data-cat="action" href="games/breakout.html">
-        <span class="cover art" style="--bg:#f7e38a"><svg viewBox="0 0 160 120" aria-hidden="true"><use href="#c-breakout"/></svg></span>
+        <span class="cover"><img src="assets/covers/key/breakout.jpg" alt="" width="960" height="720" loading="lazy"></span>
         <span class="card-kind">动作</span><h3>猫咪打砖块</h3>
         <span class="card-desc">猫爪板弹毛线球砸鱼干砖,三条命,无限关</span>
         <span class="card-best" id="best-breakout">尚无纪录</span>
@@ -606,55 +448,55 @@ p { margin: 0; }
         <span class="card-best" id="best-memory">尚无纪录</span>
       </a>
       <a class="paper card" data-cat="puzzle" href="games/2048.html">
-        <span class="cover art" style="--bg:#bcd8f0"><svg viewBox="0 0 160 120" aria-hidden="true"><use href="#c-2048"/></svg></span>
+        <span class="cover"><img src="assets/covers/key/2048.jpg" alt="" width="960" height="720" loading="lazy"></span>
         <span class="card-kind">益智</span><h3>猫咪 2048</h3>
         <span class="card-desc">滑动合并同款猫咪,从一只小猫一路合出猫王</span>
         <span class="card-best" id="best-2048">尚无纪录</span>
       </a>
       <a class="paper card" data-cat="puzzle" href="games/tetris.html">
-        <span class="cover art" style="--bg:#f6b8b0"><svg viewBox="0 0 160 120" aria-hidden="true"><use href="#c-tetris"/></svg></span>
+        <span class="cover"><img src="assets/covers/key/tetris.jpg" alt="" width="960" height="720" loading="lazy"></span>
         <span class="card-kind">益智</span><h3>猫咪俄罗斯方块</h3>
         <span class="card-desc">粉彩方块,踢墙旋转,消四行 800 分</span>
         <span class="card-best" id="best-tetris">尚无纪录</span>
       </a>
       <a class="paper card" data-cat="puzzle" href="games/golf.html">
-        <span class="cover art" style="--bg:#cfe6c0"><svg viewBox="0 0 160 120" aria-hidden="true"><use href="#c-golf"/></svg></span>
+        <span class="cover"><img src="assets/covers/key/golf.jpg" alt="" width="960" height="720" loading="lazy"></span>
         <span class="card-kind">益智</span><h3>猫猫高尔夫</h3>
         <span class="card-desc">把毛线球打进猫碗,弹弓瞄准,九洞</span>
         <span class="card-best" id="best-golf">尚无纪录</span>
       </a>
       <a class="paper card" data-cat="think" href="games/td.html">
-        <span class="cover art" style="--bg:#c9b6e4"><svg viewBox="0 0 160 120" aria-hidden="true"><use href="#c-td"/></svg></span>
+        <span class="cover"><img src="assets/covers/key/td.jpg" alt="" width="960" height="720" loading="lazy"></span>
         <span class="card-kind">策略与学习</span><h3>猫猫守塔</h3>
         <span class="card-desc">机器人老鼠冲着猫窝来了,建猫猫塔守住十五波</span>
         <span class="card-best" id="best-td">尚无纪录</span>
       </a>
       <a class="paper card" data-cat="think" href="games/dopa/index.html">
-        <span class="cover art" style="--bg:#f7e38a"><svg viewBox="0 0 160 120" aria-hidden="true"><use href="#c-dopa"/></svg></span>
+        <span class="cover"><img src="assets/covers/key/dopa.jpg" alt="" width="960" height="720" loading="lazy"></span>
         <span class="card-kind">策略与学习</span><h3>多巴算术祭</h3>
         <span class="card-desc">答对一题嗨一层,多巴值冲上亿的算术祭典</span>
         <span class="card-best">边玩边练算术</span>
       </a>
       <a class="paper card" data-cat="link" href="https://bayshier.github.io/destroy/" target="_blank" rel="noopener">
-        <span class="cover art" style="--bg:#bcd8f0"><svg viewBox="0 0 160 120" aria-hidden="true"><use href="#c-destroy"/></svg></span>
+        <span class="cover"><img src="assets/covers/key/destroy.jpg" alt="" width="960" height="720" loading="lazy"></span>
         <span class="card-kind">外链</span><h3>粉碎任意网页</h3>
         <span class="card-desc">输入网址变成像素关卡,全方位射击,可破坏地形</span>
         <span class="card-best">在新的标签页打开</span>
       </a>
       <a class="paper card" data-cat="link" href="https://bayshier.github.io/floorplan-3d/" target="_blank" rel="noopener">
-        <span class="cover art" style="--bg:#cfe6c0"><svg viewBox="0 0 160 120" aria-hidden="true"><use href="#c-floorplan"/></svg></span>
+        <span class="cover"><img src="assets/covers/key/floorplan.jpg" alt="" width="960" height="720" loading="lazy"></span>
         <span class="card-kind">外链</span><h3>户型装修设计</h3>
         <span class="card-desc">平面图上摆家具,再走进 3D 房间漫游,猫咪可以上床睡觉</span>
         <span class="card-best">在新的标签页打开</span>
       </a>
       <a class="paper card" data-cat="link" href="https://github.com/bayshier/open-source-games-zh" target="_blank" rel="noopener">
-        <span class="cover art" style="--bg:#f6b8b0"><svg viewBox="0 0 160 120" aria-hidden="true"><use href="#c-list"/></svg></span>
+        <span class="cover"><img src="assets/covers/key/list.jpg" alt="" width="960" height="720" loading="lazy"></span>
         <span class="card-kind">外链</span><h3>更多开源游戏</h3>
         <span class="card-desc">250 多款开源游戏的中文清单:动作、益智、Roguelike、塔防</span>
         <span class="card-best">在新的标签页打开</span>
       </a>
       <a class="paper card" data-cat="link" href="dex.html">
-        <span class="cover art" style="--bg:#c9b6e4"><svg viewBox="0 0 160 120" aria-hidden="true"><use href="#c-dex"/></svg></span>
+        <span class="cover"><img src="assets/covers/key/dex.jpg" alt="" width="960" height="720" loading="lazy"></span>
         <span class="card-kind">图鉴</span><h3>猫咪图鉴</h3>
         <span class="card-desc">收集你的八只猫咪伙伴,达成各游戏的成就逐一解锁</span>
         <span class="card-best" id="best-dex">尚无纪录</span>

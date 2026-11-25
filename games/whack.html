@@ -6,7 +6,8 @@
 <title>🐾 猫咪打地鼠 · Nikki 游戏合集</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='0.9em' font-size='90'%3E%F0%9F%8E%80%3C/text%3E%3C/svg%3E">
 <style>
-  :root { --hk-deep: #ff6b9d; --hk-red: #e94560; --hk-muted: #c98ba0; --hk-yellow: #ffd56b; }
+    /* 文字色加深:原来的 #ff6b9d 当文字色对白底只有 2.68:1、#c98ba0 约 3:1,都不到 4.5:1 */
+  :root { --hk-deep: #c2185b; --hk-red: #e94560; --hk-muted: #8f5267; --hk-yellow: #ffd56b; }
   * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
   body {
     font-family: "Nunito", -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
@@ -22,7 +23,7 @@
     border-radius: 14px; padding: 5px 16px; text-align: center;
     box-shadow: 0 3px 0 -1px #f3b7cc;
   }
-  .hud .l { font-size: 10px; color: var(--hk-muted); font-weight: 800; }
+  .hud .l { font-size: 12px; color: var(--hk-muted); font-weight: 800; }
   .hud .v { font-size: 18px; font-weight: 800; color: var(--hk-deep); }
   .hud .v.warn { color: var(--hk-red); animation: pulse 0.6s infinite alternate; }
   @keyframes pulse { to { transform: scale(1.15); } }
@@ -99,19 +100,21 @@
   @keyframes pop { from { transform: scale(0.7); } }
   .modal .e { font-size: 52px; }
   .modal h2 { color: var(--hk-deep); margin: 6px 0; }
-  .modal p { color: var(--hk-muted); font-size: 14px; margin-bottom: 16px; }
+  .modal p { color: var(--hk-muted); font-size: 14px; margin-bottom: 16px; line-height: 1.5; }
   .btn {
     border: none; cursor: pointer; font-family: inherit;
     font-size: 14px; font-weight: 800; color: #fff;
-    background: linear-gradient(135deg, var(--hk-deep), #ff9ec4);
+    background: linear-gradient(135deg, #c2185b, #d6306f);   /* 白字要 4.5:1,渐变两端都得够深 */
     padding: 10px 26px; border-radius: 99px; margin: 0 5px;
-    box-shadow: 0 4px 0 -1px #d15683;
+    box-shadow: 0 4px 0 -1px #8e0f44;
   }
   .btn.sec { background: #fff; color: var(--hk-deep); border: 2px solid #ff9ec4; box-shadow: 0 3px 0 -1px #f3b7cc; text-decoration: none; display: inline-block; }
+  /* 尊重系统的「减少动态效果」:装饰性的循环动画与过渡停掉,状态变化本身仍然可见 */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: .001s !important; animation-iteration-count: 1 !important; transition-duration: .001s !important; }
+  }
 </style>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Nunito:wght@400;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../shared/fonts.css">
 </head>
 <body>
   <div class="top">

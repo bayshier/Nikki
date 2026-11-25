@@ -2,13 +2,11 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>👑 Nikki 猫大王</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='0.9em' font-size='90'%3E%F0%9F%8E%80%3C/text%3E%3C/svg%3E">
 <!-- 引入圆润可爱字体: Fredoka(标题) + Nunito(正文) -->
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Nunito:wght@400;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../shared/fonts.css">
 <style>
   /* ============ 全局重置与变量 ============ */
   /* Hello Kitty 主题配色:
@@ -23,13 +21,13 @@
     --board-cols: 8;
     --board-rows: 8;
     --hk-pink:   #ff9ec4;   /* 樱花粉 主色 */
-    --hk-deep:   #ff6b9d;   /* 草莓粉 深色 */
+    --hk-deep:   #c2185b;   /* 草莓粉 深色(文字用:原来的 #ff6b9d 对白底只有 2.68:1) */
     --hk-light:  #ffeef4;   /* 婴儿粉 浅背景 */
     --hk-cream:  #fff5f8;   /* 奶油白 */
     --hk-red:    #e94560;   /* 蝴蝶结红 强调 */
     --hk-yellow: #ffd56b;   /* 鹅黄点缀 */
     --hk-text:   #8b4a5e;   /* 深棕粉 文字 */
-    --hk-muted:  #c98ba0;   /* 暗粉 次要文字 */
+    --hk-muted:  #8f5267;   /* 暗粉 次要文字(要够 4.5:1) */
     --good:      #6ee7a8;   /* 进度条绿 */
     --gap: 2px;                   /* 间隙缩小 4→2,格子更紧凑 */
     /* 兼容旧代码引用 */
@@ -184,7 +182,7 @@
       drop-shadow(0 4px 0 rgba(209,86,131,0.5))
       drop-shadow(0 8px 12px rgba(255,107,157,0.4));
   }
-  .subtitle { font-size: 11px; color: var(--hk-muted); font-weight: 600; }
+  .subtitle { font-size: 12px; color: var(--hk-muted); font-weight: 600; }
   /* 标题蝴蝶结摇摆动画 */
   .title .bow {
     display: inline-block;
@@ -213,7 +211,7 @@
     backdrop-filter: blur(8px);
     box-shadow: 0 4px 0 -1px #f3b7cc, 0 8px 16px rgba(255,158,196,0.25);
   }
-  .hud-label { font-size: 10px; color: var(--hk-muted); letter-spacing: 1px; font-weight: 700; }
+  .hud-label { font-size: 12px; color: var(--hk-muted); letter-spacing: 1px; font-weight: 700; }
   .hud-value { font-size: 18px; font-weight: 800; margin-top: 1px; color: var(--hk-deep); }
   .hud-value.warn { color: var(--hk-red); animation: pulse 0.6s ease-in-out infinite alternate; }
   @keyframes pulse { to { transform: scale(1.12);} }
@@ -490,7 +488,7 @@
     font-size: 14px; font-weight: 700;
     color: #fff;
     /* 粉色渐变按钮 */
-    background: linear-gradient(135deg, var(--hk-deep), var(--hk-pink));
+    background: linear-gradient(135deg, #c2185b, #d6306f);   /* 白字要 4.5:1,渐变两端都得够深 */
     cursor: pointer;
     transition: transform 0.1s, box-shadow 0.1s;
     /* 拟物 3D:底部硬厚度(像糖果按键)+ 柔和投影 */
@@ -883,7 +881,7 @@
     transform: translateY(-50%);
     display: grid;
     grid-template-columns: repeat(2, 48px);  /* 两列竖排,容纳 11 个道具 */
-    gap: 10px 8px;
+    gap: 21px 10px;                      /* 行距要放得下按钮下方的 12px 标签 */
     justify-items: center;
     align-content: center;
     z-index: 6;
@@ -914,7 +912,6 @@
   .item-btn .item-count {
     position: absolute; top: -5px; right: -5px;
     min-width: 19px; height: 19px;
-    font-size: 11px;
     font-size: 12px; font-weight: 800;
     color: var(--hk-deep); background: #fff;
     border: 2px solid var(--hk-pink);
@@ -932,7 +929,7 @@
     position: absolute;
     left: 50%; top: calc(100% + 1px);      /* 竖排:文字在按钮下方 */
     transform: translateX(-50%);
-    font-size: 9px; font-weight: 800; color: var(--hk-muted);
+    font-size: 12px; font-weight: 800; color: var(--hk-muted);
     white-space: nowrap;
   }
   /* 窄屏(<1080px):两侧没空间,道具栏回退为棋盘下方横排 */
@@ -1236,6 +1233,10 @@
   .start-tip { font-size: 12px; color: var(--hk-muted); margin-top: 12px; line-height: 1.6; }
   .start-btns { display: flex; flex-direction: column; gap: 10px; }
   .start-btns .btn { width: 100%; max-width: none; }
+  /* 尊重系统的「减少动态效果」:装饰性的循环动画与过渡停掉,状态变化本身仍然可见 */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: .001s !important; animation-iteration-count: 1 !important; transition-duration: .001s !important; }
+  }
 </style>
 </head>
 <body>
@@ -1340,7 +1341,7 @@
     <p id="unlock-desc">今天是肯德基疯狂星期四,V 我 50 获得密码助力通关 😼</p>
     <!-- 主视觉:疯四海报 + 收款码并排 -->
     <div class="kfc-imgs">
-      <img class="kfc-img" src="assets/kfc-crazy-thursday.jpg" alt="肯德基疯狂星期四 V50">
+      <img class="kfc-img" src="../../assets/kfc-crazy-thursday.jpg" alt="肯德基疯狂星期四 V50">   <!-- 页面在 games/match3/ 下,图在仓库根的 assets/(原来少了两级 ../,一直是坏图) -->
       <div class="qr-side">
         <img class="qr-img small" src="../../assets/cats/erweima.jpg" alt="收款二维码">
         <p class="qr-side-tip">👈 点击放大<br>扫这个就对了!</p>

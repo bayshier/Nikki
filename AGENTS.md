@@ -45,12 +45,49 @@
 - 主页是「纸上游戏架」:精选舞台 → 猫窝大厅(3D 猫窝 + 今日挑战票券 + 资产便签 + 图鉴进度)→
   带分类筛选的游戏架。皮肤(纸 / 墨线 / 胶带 / 便利贴)直接写在 `index.html` 里,
   **不再引用 `shared/sketch.css`**(那个文件现在只给 `dex.html` 用)。
-- **封面用真图,不用 emoji 当图标**:3D 游戏放真实游戏截图到 `assets/covers/`(960×540 JPEG);
-  其余游戏画成墨线贴纸插画,统一写在页面顶部的 `<symbol id="c-*">` 里(160×120,线宽 / 墨色由
-  外层 svg 继承,底色取 `--bg`)。新增游戏 = 加一个 symbol + 一张 `.card`。
+- **封面用真图,不用 emoji 当图标**:3D 游戏放真实游戏截图到 `assets/covers/*.jpg`(960×540);
+  其余游戏用 AI 出的 Key Art `assets/covers/key/<游戏>.jpg`(960×720,`tools/artgen.py covers` 生成,
+  提示词就是配方,写在脚本的 `COVERS` 里);配对 / 打地鼠两张用的是猫咪真实照片。
+  新增游戏 = 在 `COVERS` 里加一条提示词 → 出图 → 加一张 `.card`。
 - 卡片是静态 HTML(不依赖 JS 也能看到全部游戏),JS 只负责成绩、每日挑战和筛选。
 - 改版后跑设计审计(两种屏宽必须修的应为 0):
   `node <design 技能目录>/scripts/audit.mjs "http://127.0.0.1:8931/index.html" --project`。
+
+## 美术:出图管线与槽位
+
+- **出图渠道**:内网中转的 qwen-image-3.0-pro(2026-11-25 重测已恢复)。统一走
+  `python3 tools/artgen.py list|slots|covers|all [--only a,b] [--force]`:串行、每张间隔 ≥20 秒
+  (并发 3 路就 429)、断点续跑、白底抠图、按规格落盘。**提示词和游戏一起进仓库**,
+  想重出某张图就改 `SLOTS` / `COVERS` 再跑。密钥由 `qwen-image` 技能的 `imggen.py` 从
+  `~/.zcode/v2/provider_config.json` 读,换机器要保证这个文件在。
+- **游戏内精灵走美术槽位**(`shared/art-slots.js`):游戏声明
+  `ArtSlots.define("<game>", { 槽位: { file, size:[w,h] } })`,绘制处写
+  `if (!ArtSlots.draw(ctx, "<game>", "槽位", x, y, 尺寸, 旋转)) { …代码兜底画法… }`。
+  图在就用图,没图自动退回代码绘制,零依赖不受影响;`whenSettled(game, cb)` 等所有槽位图落定后回调
+  (要把贴图放进页面 DOM 时用)。已接:守塔(老鼠 / Boss / 三座炮塔)、弹幕(主机 / 三种敌机 / 母舰)、
+  高尔夫(毛线球)、飞飞猫(猫咪)、猫吃小鱼(猫头);2048 的方块图标走它自己的 `ICON_SRC` 表。
+  **出图时主体必须被完整描边包住**,否则白色部分会连到背景被一起抠掉;带朝向的槽位
+  (弹幕主机机头朝上)出图后一定在游戏里看一眼。
+- **仓库里现成可复用的道具图**:`assets/icons/`(24 张猫咪道具)和 `assets/items/`(12 张)都是
+  256² 透明底,新游戏先翻一遍再决定要不要出图。
+
+## 页面规范(2026-11-25 全站体检后统一)
+
+- **不外链 Google Fonts**:拉丁字体自托管在 `shared/fonts.css`(Fredoka / Nunito 可变字体,SIL OFL),
+  中文走系统字体栈。国内访客多半连不上 Google,外链会阻塞首屏。
+- **不禁缩放**:viewport 只写 `width=device-width, initial-scale=1.0`;玩法区靠 canvas 的
+  `touch-action: none` 防误触,不靠全局 `user-scalable=no`。
+- **文字对比度 ≥ 4.5:1**:粉色主题里当文字色用的两个变量统一加深为 `--hk-deep: #c2185b`、
+  `--hk-muted: #8f5267`(原来的 #ff6b9d 对白底只有 2.68:1);白字按钮的渐变两端都得够深。
+- **最小字号 12px**(HUD 标签、道具名、说明文字都算);多行中文行高 ≥ 1.5。
+- 每个页面都加「减少动态效果」规则:
+  `@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .001s !important; animation-iteration-count: 1 !important; transition-duration: .001s !important; } }`。
+- **体检命令**(任何页面都可以,约 20 秒):
+  `node <design 技能目录>/scripts/audit.mjs "http://127.0.0.1:8931/<路径>" --project --all`。
+  注意它会把守塔 / 高尔夫 / 消消乐误判成"幻灯片",报出的文字重叠 / 超出画布 / 打印样式是假阳性
+  (坐标里出现负数就是这类),这几款直接看截图。
+- **小游戏接 BGM**:`shared/bgm.js` 复用艺术长卷的曲库(`shared/art-music.js`),一行
+  `BGM.use(曲目号, "#overlay", "放开关的容器")`;遮罩显示时停、对局中播、切后台停。
 
 ## isle3d 渲染约定
 

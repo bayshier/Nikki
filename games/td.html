@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>🏰 猫猫守塔 · Nikki 游戏合集</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='0.9em' font-size='90'%F0%9F%8F%B0%3C/text%3E%3C/svg%3E">
 <!-- ═══════════════════════════════════════════════════════════════
@@ -16,7 +16,8 @@
      共 15 波,每 5 波来一只 Boss 轰炸鼠!守住猫窝!
      ═══════════════════════════════════════════════════════════════ -->
 <style>
-  :root { --hk-deep: #ff6b9d; --hk-muted: #c98ba0; }
+    /* 文字色加深:原来的 #ff6b9d 当文字色对白底只有 2.68:1、#c98ba0 约 3:1,都不到 4.5:1 */
+  :root { --hk-deep: #c2185b; --hk-muted: #8f5267; }
   * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
   body {
     font-family: "Nunito", -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
@@ -40,7 +41,8 @@
     border: 2px solid var(--hk-deep); background: #fff; color: #5a3a48; border-radius: 14px;
     padding: 8px 12px; font-size: 14px; font-weight: 700; cursor: pointer; font-family: inherit;
   }
-  .tbtn small { display: block; font-size: 11px; color: var(--hk-muted); font-weight: 600; }
+  .tbtn small { display: block; font-size: 12px; color: var(--hk-muted); font-weight: 600; }
+  .tbtn .ticon { width: 26px; height: 26px; vertical-align: -8px; margin-right: 2px; }
   .tbtn.on { background: var(--hk-deep); color: #fff; }
   .tbtn.on small { color: #ffd7e6; }
   .tbtn:disabled { opacity: .45; cursor: not-allowed; }
@@ -53,7 +55,7 @@
   #overlay h2 { font-size: 30px; margin-bottom: 10px; text-shadow: 0 2px 6px rgba(0,0,0,.4); }
   #overlay p { font-size: 14px; line-height: 1.9; margin-bottom: 16px; }
   #overlay button {
-    border: none; background: var(--hk-deep); color: #fff; font-size: 18px; font-weight: 800;
+    border: none; background: var(--hk-deep); color: #fff; font-size: 18px; font-weight: 800; line-height: 1.4;
     padding: 12px 34px; border-radius: 999px; cursor: pointer; box-shadow: 0 4px 0 #d94f83; font-family: inherit;
   }
   #overlay button:active { transform: translateY(3px); box-shadow: 0 1px 0 #d94f83; }
@@ -81,16 +83,19 @@
 </div>
 
 <div id="bar">
-  <button class="tbtn" id="sel-orange">🍊 橘炮猫<small>💰50 · 高伤</small></button>
-  <button class="tbtn" id="sel-ice">🍦 冰淇淋猫<small>💰80 · 减速</small></button>
-  <button class="tbtn" id="sel-elec">⚡ 电电猫<small>💰130 · 速射</small></button>
+  <button class="tbtn" id="sel-orange" data-sub="50 金币 · 高伤">🍊 橘炮猫<small>💰50 · 高伤</small></button>
+  <button class="tbtn" id="sel-ice" data-sub="80 金币 · 减速">🍦 冰淇淋猫<small>💰80 · 减速</small></button>
+  <button class="tbtn" id="sel-elec" data-sub="130 金币 · 速射">⚡ 电电猫<small>💰130 · 速射</small></button>
   <button class="tbtn" id="btn-speed">▶️ 1x</button>
   <span id="tip" style="font-size:12px;color:var(--hk-muted);max-width:150px;">选塔后点空地放置</span>
 </div>
 <div class="home"><a href="../index.html">🏠 回游戏合集</a></div>
 
 <script src="../shared/common.js"></script>
+<link rel="stylesheet" href="../shared/fonts.css">      /* Fredoka / Nunito 自托管(原来 CSS 里写了却从没加载过) */
 <script src="../shared/art-slots.js"></script>
+<script src="../shared/art-music.js"></script>
+<script src="../shared/bgm.js"></script>
 <script>
 /* ═══════════════════════════════════════════════════════════
    一、基础常量:格子地图与路径
@@ -105,6 +110,21 @@ const W = CV.width, H = CV.height;
 ArtSlots.define("td", {
   mouse: { file: "../assets/art/td/mouse.png", size: [256, 256] },
   boss:  { file: "../assets/art/td/boss.png",  size: [256, 256] },
+  "tower-orange": { file: "../assets/art/td/tower-orange.png", size: [256, 256] },
+  "tower-ice":    { file: "../assets/art/td/tower-ice.png",    size: [256, 256] },
+  "tower-elec":   { file: "../assets/art/td/tower-elec.png",   size: [256, 256] },
+});
+/* 底部三个选塔按钮:有贴图就把开头的 emoji 换成小图 */
+ArtSlots.whenSettled("td", () => {
+  for (const k of ["orange", "ice", "elec"]) {
+    const b = document.getElementById("sel-" + k), im = ArtSlots.img("td", "tower-" + k);
+    if (!b || !im) continue;
+    b.textContent = "";
+    const pic = document.createElement("img"); pic.src = im.src; pic.alt = ""; pic.className = "ticon";
+    const txt = document.createElement("span"); txt.textContent = TOWERS[k].name;
+    const small = document.createElement("small"); small.textContent = b.dataset.sub || "";
+    b.append(pic, txt, small);
+  }
 });
 
 /* 路径拐点(格子坐标):入口在 (-1,4) 界外,出口 (13,4) 界外进猫窝。
@@ -391,31 +411,71 @@ function showOverlay(title, html, btnTxt) {
    ═══════════════════════════════════════════════════════════ */
 function render() {
   const [shx, shy] = Nikki.Feel.offset(9, 7);       // 屏震:平移整个画面
-  CTX.save(); CTX.translate(shx, shy);
-  CTX.fillStyle = "#84c463"; CTX.fillRect(-14, -14, W + 28, H + 28);   // 底色垫底,震时不露边
-  /* —— 草地:双色棋盘格,波光粼粼的院子 —— */
+/* 沿当前路线的路点连一条折线(配合粗线宽 + 圆角连接 = 连续的沙路) */
+function roadLine() {
+  CTX.beginPath();
+  WAYPOINTS.forEach(([x, y], i) => i ? CTX.lineTo(x, y) : CTX.moveTo(x, y));
+}
+/* 草地层:双色棋盘格,每格按确定性的哈希撒两三撮草、偶尔一朵小花 */
+const GRASS = document.createElement("canvas");
+GRASS.width = W; GRASS.height = H;
+{
+  const g = GRASS.getContext("2d");
+  const hash = (x, y) => { const v = Math.sin(x * 127.1 + y * 311.7) * 43758.5453; return v - Math.floor(v); };
   for (let cy = 0; cy < ROWS; cy++)
     for (let cx = 0; cx < COLS; cx++) {
-      CTX.fillStyle = (cx + cy) % 2 ? "#8fce6e" : "#84c463";
-      CTX.fillRect(cx*CELL, HUD + cy*CELL, CELL, CELL);
+      const x0 = cx * CELL, y0 = cy *CELL;
+      g.fillStyle = (cx + cy) % 2 ? "#8fce6e" : "#84c463";
+      g.fillRect(x0, y0, CELL, CELL);
+      for (let k = 0; k < 3; k++) {                          // 草丛:三根短线
+        const tx = x0 + 6 + hash(cx * 3 + k, cy) * (CELL - 12), ty = y0 + 8 + hash(cx, cy * 3 + k) * (CELL - 14);
+        g.strokeStyle = k % 2 ? "#6fb252" : "#79bb5b"; g.lineWidth = 2; g.lineCap = "round";
+        g.beginPath(); g.moveTo(tx, ty + 5); g.lineTo(tx, ty - 2);
+        g.moveTo(tx - 3, ty + 5); g.lineTo(tx - 4, ty + 1);
+        g.moveTo(tx + 3, ty + 5); g.lineTo(tx + 4, ty + 1); g.stroke();
+      }
+      if (hash(cx + 7, cy + 5) > 0.9) {                      // 小花:五瓣
+        const fx = x0 + 10 + hash(cx + 1, cy + 2) * (CELL - 20), fy = y0 + 10 + hash(cx + 3, cy + 4) * (CELL - 20);
+        g.fillStyle = hash(cx + 9, cy) > 0.5 ? "#fff6fa" : "#ffd9ea";
+        for (let p = 0; p < 5; p++) { const a = p / 5 * 6.283; g.beginPath(); g.arc(fx + Math.cos(a) * 3.2, fy + Math.sin(a) * 3.2, 2.6, 0, 6.28); g.fill(); }
+        g.fillStyle = "#ffd93c"; g.beginPath(); g.arc(fx, fy, 2.2, 0, 6.28); g.fill();
+      }
     }
-  /* —— 沙路:先整格连成路面,再画浅色步行道中线,看起来是一条完整的路 —— */
+}
+/* 出口的猫窝小屋(原来是一个 emoji 篮子) */
+function drawCatHome(hx, hy) {
+  CTX.save();
+  CTX.lineJoin = "round"; CTX.strokeStyle = "#2a2420"; CTX.lineWidth = 2.5;
+  CTX.fillStyle = "#f0d9a8";                                 // 墙
+  CTX.beginPath(); CTX.roundRect(hx - 19, hy - 8, 38, 30, 4); CTX.fill(); CTX.stroke();
+  CTX.fillStyle = "#c2412d";                                 // 屋顶
+  CTX.beginPath(); CTX.moveTo(hx - 26, hy - 6); CTX.lineTo(hx, hy - 30); CTX.lineTo(hx + 26, hy - 6); CTX.closePath(); CTX.fill(); CTX.stroke();
+  CTX.fillStyle = "#3a2a20";                                 // 门洞
+  CTX.beginPath(); CTX.moveTo(hx - 9, hy + 22); CTX.lineTo(hx - 9, hy + 8); CTX.arc(hx, hy + 8, 9, Math.PI, 0); CTX.lineTo(hx + 9, hy + 22); CTX.closePath(); CTX.fill();
+  CTX.restore();
+}
+  CTX.save(); CTX.translate(shx, shy);
+  CTX.fillStyle = "#84c463"; CTX.fillRect(-14, -14, W + 28, H + 28);   // 底色垫底,震时不露边
+  /* —— 草地:棋盘格 + 草丛 + 零星小花。整层只画一次,缓存在离屏画布上 —— */
+  CTX.drawImage(GRASS, 0, HUD);
+  /* —— 沙路:整格垫底当路肩,再沿路点描两条圆角粗线 —— 一条连续的路,不是一格一格的方块 —— */
   CTX.fillStyle = "#e5c98f";
   for (const key of pathCells) {
     const [cx, cy] = key.split(",").map(Number);
     CTX.fillRect(cx*CELL, HUD + cy*CELL, CELL, CELL);
   }
-  CTX.fillStyle = "#f2ddab";                                // 中线亮色,增添层次
-  for (const key of pathCells) {
-    const [cx, cy] = key.split(",").map(Number);
-    CTX.fillRect(cx*CELL + 10, HUD + cy*CELL + 10, CELL - 20, CELL - 20);
-  }
+  CTX.lineJoin = "round"; CTX.lineCap = "round";
+  CTX.strokeStyle = "#d2ad70"; CTX.lineWidth = CELL - 12;   // 路肩:深一档
+  roadLine(); CTX.stroke();
+  CTX.strokeStyle = "#f4e0ae"; CTX.lineWidth = CELL - 28;   // 路面
+  roadLine(); CTX.stroke();
   /* —— 入口黑洞 & 出口猫窝(跟着当前路线走,换线时才不会错位) —— */
   const inY = WAYPOINTS[0][1], outY = WAYPOINTS[WAYPOINTS.length - 1][1];
   CTX.fillStyle = "#3a3a4a";
   CTX.beginPath(); CTX.ellipse(8, inY, 16, 20, 0, 0, 6.28); CTX.fill();
-  CTX.font = "38px serif"; CTX.textAlign = "center"; CTX.textBaseline = "middle";
-  CTX.fillText("🧺", W - 26, outY);
+  CTX.strokeStyle = "#2a2420"; CTX.lineWidth = 2;
+  CTX.beginPath(); CTX.ellipse(8, inY, 16, 20, 0, -1.2, 1.2); CTX.stroke();
+  drawCatHome(W - 26, outY);
 
   /* —— 建塔预览:选中建造类型时,鼠标格高亮 + 显示射程圈 —— */
   if (G.buildSel && G.hoverCell) {
@@ -445,9 +505,14 @@ function render() {
     CTX.beginPath(); CTX.arc(t.x, t.y + 4, 19, 0, 6.28); CTX.fill();
     CTX.fillStyle = def.color;
     CTX.beginPath(); CTX.arc(t.x, t.y, 17, 0, 6.28); CTX.fill();
-    CTX.font = "20px serif"; CTX.fillText(def.emoji, t.x, t.y);
-    CTX.font = "10px sans-serif"; CTX.fillStyle = "#fff";
-    CTX.fillText("⭐".repeat(t.lv), t.x, t.y + 24);
+    if (!ArtSlots.draw(CTX, "td", "tower-" + t.type, t.x, t.y - 3, 48)) {
+      CTX.font = "20px serif"; CTX.fillText(def.emoji, t.x, t.y);      // 没图:emoji 兜底
+    }
+    for (let i = 0; i < t.lv; i++) {                                     // 等级:画小圆点,不用 emoji 星
+      const lx = t.x + (i - (t.lv - 1) / 2) * 9;
+      CTX.fillStyle = "#2a2420"; CTX.beginPath(); CTX.arc(lx, t.y + 24, 3.6, 0, 6.28); CTX.fill();
+      CTX.fillStyle = "#ffd93c"; CTX.beginPath(); CTX.arc(lx, t.y + 24, 2.5, 0, 6.28); CTX.fill();
+    }
   }
 
   /* —— 敌人:机器人老鼠。有自定义美术用图,没图走代码画。血条两者都画 —— */
@@ -617,6 +682,7 @@ document.getElementById("btn-start").onclick = () => {
 };
 reset();          // 先 reset 一次,菜单背后也能看到空地图
 frame();
+BGM.use(6, "#overlay", "#bar");        // 生成式 BGM:遮罩隐藏(对局中)时播,显示时停
 </script>
 </body>
 </html>

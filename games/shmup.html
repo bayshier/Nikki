@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>✈️ 猫猫弹幕 · Nikki 游戏合集</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='0.9em' font-size='90'%E2%9C%88%EF%B8%8F%3C/text%3E%3C/svg%3E">
 <!-- ═══════════════════════════════════════════════════════════════
@@ -16,13 +16,14 @@
      操作:方向键/WASD 或 手指拖动(擦弹是不存在的,安全第一)
      ═══════════════════════════════════════════════════════════════ -->
 <style>
-  :root { --hk-deep: #ff6b9d; --hk-muted: #c98ba0; }
+    /* 文字色加深:原来的 #ff6b9d 当文字色对白底只有 2.68:1、#c98ba0 约 3:1,都不到 4.5:1 */
+  :root { --hk-deep: #c2185b; --hk-muted: #8f5267; }
   * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
-  body {
+  body { line-height: 1.5;
     font-family: "Nunito", -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
     background: linear-gradient(160deg, #ffe3ee 0%, #ffd0e2 50%, #ffc3da 100%);
     min-height: 100vh; display: flex; flex-direction: column; align-items: center;
-    padding: 10px; color: #5a3a48;
+    padding: 16px; color: #5a3a48;
   }
   header { text-align: center; margin-bottom: 6px; }
   header h1 { font-size: 24px; color: var(--hk-deep); text-shadow: 0 2px 0 #fff; }
@@ -31,14 +32,15 @@
   canvas {
     display: block; border-radius: 18px; box-shadow: 0 8px 24px rgba(255, 107, 157, .35);
     background: #1a1a3e; touch-action: none; max-height: 78vh;
-  }
+   max-width: 100%; height: auto;   /* 窄屏:画布不许超出视口(原来 420px 定宽会把页面撑出横向滚动) */}
   #overlay {
     position: absolute; inset: 0; border-radius: 18px; background: rgba(30, 20, 50, .6);
     backdrop-filter: blur(3px); display: flex; flex-direction: column; align-items: center; justify-content: center;
     color: #fff; text-align: center; padding: 20px;
   }
   #overlay h2 { font-size: 28px; margin-bottom: 10px; text-shadow: 0 2px 6px rgba(0,0,0,.4); }
-  #overlay p { font-size: 13px; line-height: 1.9; margin-bottom: 16px; }
+  #overlay p { font-size: 14px; line-height: 1.9; margin-bottom: 16px; }
+  #overlay small { font-size: 12px; }
   #overlay button {
     border: none; background: var(--hk-deep); color: #fff; font-size: 17px; font-weight: 800;
     padding: 11px 30px; border-radius: 999px; cursor: pointer; box-shadow: 0 4px 0 #d94f83; font-family: inherit;
@@ -69,7 +71,10 @@
 <div class="home"><a href="../index.html">🏠 回游戏合集</a></div>
 
 <script src="../shared/common.js"></script>
+<link rel="stylesheet" href="../shared/fonts.css">      /* Fredoka / Nunito 自托管(原来 CSS 里写了却从没加载过) */
 <script src="../shared/art-slots.js"></script>
+<script src="../shared/art-music.js"></script>
+<script src="../shared/bgm.js"></script>
 <script>
 /* ═══════════════════════════════════════════════════════════
    一、画布与工具
@@ -517,6 +522,7 @@ document.getElementById("btn-start").onclick = () => {
 };
 reset();
 frame();
+BGM.use(7, "#overlay", "header");        // 生成式 BGM:遮罩隐藏(对局中)时播,显示时停
 </script>
 </body>
 </html>

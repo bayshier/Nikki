@@ -344,7 +344,8 @@ body::after {
   font-style: italic;
   line-height: 1.45;
 }
-.cat-card.locked { opacity: .82; }
+.cat-card.locked { opacity: 1; }                      /* 别整卡降透明:会把文字对比度拖到 3.8:1,锁定感交给照片变灰 */
 .cat-card.locked .pic { filter: grayscale(1) contrast(.9) opacity(.55); }
-.cat-card.locked .nm { color: var(--sk-pencil) !important; }
+.cat-card.locked .nm { color: #5f5952 !important; }
+.cat-card.locked .how { color: #5f5952 !important; }
 .cat-card.fresh { border-color: var(--sk-red) !important; }

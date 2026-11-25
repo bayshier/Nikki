@@ -6,12 +6,13 @@
 <title>🃏 猫咪配对 · Nikki 游戏合集</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='0.9em' font-size='90'%3E%F0%9F%8E%80%3C/text%3E%3C/svg%3E">
 <style>
+    /* 文字色加深:原来的 #ff6b9d 当文字色对白底只有 2.68:1、#c98ba0 约 3:1,都不到 4.5:1 */
   :root {
-    --hk-pink: #ff9ec4; --hk-deep: #ff6b9d; --hk-light: #ffeef4;
-    --hk-cream: #fff5f8; --hk-red: #e94560; --hk-yellow: #ffd56b; --hk-muted: #c98ba0;
+    --hk-pink: #ff9ec4; --hk-deep: #c2185b; --hk-light: #ffeef4;
+    --hk-cream: #fff5f8; --hk-red: #e94560; --hk-yellow: #ffd56b; --hk-muted: #8f5267;
   }
   * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
-  body {
+  body { line-height: 1.5;
     font-family: "Nunito", -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
     color: #8b4a5e;
     background: linear-gradient(135deg, #ffd6e8 0%, #ffeef4 40%, #fff9fb 100%) fixed;
@@ -32,7 +33,7 @@
     border-radius: 14px; padding: 6px 16px; text-align: center;
     box-shadow: 0 3px 0 -1px #f3b7cc;
   }
-  .hud .l { font-size: 10px; color: var(--hk-muted); font-weight: 800; }
+  .hud .l { font-size: 12px; color: var(--hk-muted); font-weight: 800; }
   .hud .v { font-size: 18px; font-weight: 800; color: var(--hk-deep); }
   .home {
     text-decoration: none; font-size: 13px; font-weight: 800; color: var(--hk-deep);
@@ -78,8 +79,8 @@
   .front img { width: 100%; height: 100%; object-fit: cover; }
   .front .nm {
     position: absolute; bottom: 0; left: 0; right: 0;
-    font-size: 10px; font-weight: 800; color: #fff;
-    background: rgba(255,107,157,0.75);
+    font-size: 12px; font-weight: 800; color: #fff;
+    background: rgba(170,35,85,.86);       /* 白字要 4.5:1:粉色条得够深 */
     padding: 2px 0;
   }
   .card.done .front { border-color: var(--hk-yellow); box-shadow: 0 0 12px rgba(255,213,107,0.7); }
@@ -112,11 +113,15 @@
   .btn {
     border: none; cursor: pointer;
     font-size: 14px; font-weight: 800; color: #fff; font-family: inherit;
-    background: linear-gradient(135deg, var(--hk-deep), var(--hk-pink));
+    background: linear-gradient(135deg, #c2185b, #d6306f);   /* 白字要 4.5:1,渐变两端都得够深 */
     padding: 10px 26px; border-radius: 99px; margin: 0 5px;
-    box-shadow: 0 4px 0 -1px #d15683;
+    box-shadow: 0 4px 0 -1px #8e0f44;
   }
   .btn.sec { background: #fff; color: var(--hk-deep); border: 2px solid var(--hk-pink); box-shadow: 0 3px 0 -1px #f3b7cc; text-decoration: none; display: inline-block; }
+  /* 尊重系统的「减少动态效果」:装饰性的循环动画与过渡停掉,状态变化本身仍然可见 */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: .001s !important; animation-iteration-count: 1 !important; transition-duration: .001s !important; }
+  }
 </style>
 </head>
 <body>
@@ -141,6 +146,7 @@
   </div>
 
 <script src="../shared/common.js"></script>
+<link rel="stylesheet" href="../shared/fonts.css">      /* Fredoka / Nunito 自托管(原来 CSS 里写了却从没加载过) */
 <script>
 // 8 只猫咪 × 2 = 16 张牌
 const CATS = [

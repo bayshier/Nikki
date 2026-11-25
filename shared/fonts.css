@@ -1,0 +1,17 @@
+/* ============================================================
+   fonts.css · 合集自托管的拉丁字体(SIL OFL 1.1 开源授权)
+   Fredoka(标题)/ Nunito(正文),都是可变字体,一个文件覆盖全部字重。
+   只有拉丁字形,中文走页面自己声明的系统字体栈。
+   许可证原文:assets/fonts/web/OFL-Fredoka.txt、OFL-Nunito.txt
+
+   为什么自托管:原先 8 个页面各自外链 fonts.googleapis.com ——
+   与本项目「零依赖」相悖,而且国内访客多半连不上,会阻塞首屏渲染。
+   ============================================================ */
+@font-face {
+  font-family: "Fredoka"; font-style: normal; font-weight: 300 700; font-display: swap;
+  src: url("../assets/fonts/web/Fredoka-var.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Nunito"; font-style: normal; font-weight: 200 1000; font-display: swap;
+  src: url("../assets/fonts/web/Nunito-var.woff2") format("woff2");
+}

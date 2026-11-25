@@ -5,10 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>🐱 猫咪图鉴 · Nikki 游戏合集</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='0.9em' font-size='90'%3E🎀%3C/text%3E%3C/svg%3E">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Nunito:wght@400;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared/fonts.css">
 <style>
-  :root { --hk-deep: #ff6b9d; --hk-muted: #c98ba0; --hk-yellow: #ffd56b; }
+    /* 文字色加深:原来的 #ff6b9d 当文字色对白底只有 2.68:1、#c98ba0 约 3:1,都不到 4.5:1 */
+  :root { --hk-deep: #c2185b; --hk-muted: #8f5267; --hk-yellow: #ffd56b; }
   * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; }
   body {
     font-family: "Nunito", -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
@@ -47,7 +47,7 @@
   }
   .cat-card .pic img { width: 100%; height: 100%; object-fit: cover; }
   .cat-card .nm { font-weight: 800; font-size: 15px; color: var(--hk-deep); }
-  .cat-card .how { font-size: 10.5px; color: var(--hk-muted); margin-top: 3px; line-height: 1.45; }
+  .cat-card .how { font-size: 12px; color: var(--hk-muted); margin-top: 3px; line-height: 1.45; }
   /* 未解锁:灰度剪影 + 问号 */
   .cat-card.locked { background: #f5f0f2; border-color: #d9c8cf; box-shadow: none; }
   .cat-card.locked .pic { border-color: #cbb8c1; filter: grayscale(1) brightness(0.75); position: relative; }
@@ -57,8 +57,8 @@
     font-size: 38px; font-weight: 900; color: rgba(255,255,255,0.85);
     text-shadow: 0 2px 6px rgba(0,0,0,0.35);
   }
-  .cat-card.locked .nm { color: #b39aa6; }
-  .cat-card.locked .how { color: #b8a3ad; }
+  .cat-card.locked .nm { color: #7d6a73; }
+  .cat-card.locked .how { color: #7d6a73; }      /* 未解锁的说明也要读得清:原来 3.79:1 */
   .cat-card.fresh { animation: freshPop 0.5s cubic-bezier(.34,1.56,.64,1); border-color: var(--hk-yellow); }
   @keyframes freshPop { 40% { transform: scale(1.1) rotate(3deg); } }
 </style>
