@@ -2,7 +2,7 @@
 
 以家里八只猫为主角的浏览器游戏合集——十六款自研小游戏与 3D 世界（外加一部可交互艺术长卷和一个算术练习），再加三款外链新作。**纯原生 HTML/CSS/JS，零依赖、零构建**，打开网页即玩，手机竖屏与桌面端均已适配。
 
-**🎮 开始游玩**：<https://nikki.us.ci/>（备用地址 <https://bayshier.github.io/Nikki/>）
+**🎮 开始游玩**：<https://bayshier.github.io/Nikki/>（会跳转到自定义域名 nikki.us.ci；该域名的 HTTPS 证书还在等 DNS 补齐两条 A 记录，见下方「域名备忘」）
 
 ## 🎮 游戏列表
 
