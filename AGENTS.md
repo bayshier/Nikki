@@ -12,6 +12,11 @@
 - 公共系统层 `shared/common.js`(命名空间 `Nikki`):统一钱包 Wallet、每日挑战 Daily、
   猫咪图鉴 Dex、存档读写 jget/jset(带 `{v}` schema 版本包裹)、手感系统 Feel。
   所有游戏共用金币与图鉴,新游戏必须接这套而不是自己开新的 localStorage 键。
+- **有独立上游的游戏不要手改副本**:`games/pelican-isle/`(鹈鹕环岛记)来自独立仓库
+  [bayshier/pelican-isle](https://github.com/bayshier/pelican-isle)。改游戏请改上游,
+  再跑 `python3 tools/sync_pelican.py` 同步进合集(脚本只做三件事:复制 `js/`、改写 index.html
+  的 importmap 并挂上 `common.js`、把用到的 addons 补到 `vendor/three/addons/`)。
+  上游里所有合集相关代码都用 `typeof Nikki !== 'undefined'` 守卫,独立运行时自动跳过。
 
 ## 游戏循环约定(重要)
 
@@ -29,6 +34,23 @@
 
 - 经 `Nikki.jget/jset` 读写,自动带 schema 版本;读取端兼容无版本的旧格式。
 - 跨游戏数据(金币/图鉴/每日挑战)只走 Wallet/Daily/Dex,键名 `nikki_*`。
+- **`Nikki` 是顶层 `const`(词法绑定),不是 `window` 的属性**——判断"是否在合集里"要写
+  `typeof Nikki !== 'undefined'`,写成 `window.Nikki` 永远是 undefined(踩过:并入了却没发金币)。
+- 新游戏接入三件套:最佳成绩键 `nikki_<game>_best`、`DAILY_POOL` 加一条、主页卡片加一行。
+- 子目录里的游戏在 `common.js` / 主页里没有统一的路径表,每日挑战横幅靠主页里的 `PATHS` 查表——
+  新增子目录游戏记得补。
+
+## 主页(index.html)约定
+
+- 主页是「纸上游戏架」:精选舞台 → 猫窝大厅(3D 猫窝 + 今日挑战票券 + 资产便签 + 图鉴进度)→
+  带分类筛选的游戏架。皮肤(纸 / 墨线 / 胶带 / 便利贴)直接写在 `index.html` 里,
+  **不再引用 `shared/sketch.css`**(那个文件现在只给 `dex.html` 用)。
+- **封面用真图,不用 emoji 当图标**:3D 游戏放真实游戏截图到 `assets/covers/`(960×540 JPEG);
+  其余游戏画成墨线贴纸插画,统一写在页面顶部的 `<symbol id="c-*">` 里(160×120,线宽 / 墨色由
+  外层 svg 继承,底色取 `--bg`)。新增游戏 = 加一个 symbol + 一张 `.card`。
+- 卡片是静态 HTML(不依赖 JS 也能看到全部游戏),JS 只负责成绩、每日挑战和筛选。
+- 改版后跑设计审计(两种屏宽必须修的应为 0):
+  `node <design 技能目录>/scripts/audit.mjs "http://127.0.0.1:8931/index.html" --project`。
 
 ## isle3d 渲染约定
 
