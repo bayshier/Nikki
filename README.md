@@ -160,6 +160,20 @@ Nikki/
 
 ---
 
+## 🌐 域名备忘
+
+自定义域名 `nikki.us.ci` 已绑定 GitHub Pages(仓库根目录的 `CNAME`),但截至 2026-11-25 **只能明文 HTTP 访问**:
+`http://nikki.us.ci` 正常,`https://nikki.us.ci` 返回的是 GitHub 默认的 `*.github.io` 证书,浏览器会报证书错误。
+
+- **原因**:根域名只配了两条 A 记录(`185.199.108.153`、`185.199.109.153`),GitHub 给根域名签发证书要求四条齐全。
+- **待办**(需要登录域名服务商的面板,代码仓库里做不了):
+  1. 补两条 A 记录:`185.199.110.153`、`185.199.111.153`;
+  2. 等 GitHub 自动签发证书(几分钟到 24 小时不等);`gh api repos/bayshier/Nikki/pages` 的返回里出现 `certs` 就是成功了;
+  3. 证书到位后再开强制 HTTPS:`gh api -X PUT repos/bayshier/Nikki/pages -f cname=nikki.us.ci -F https_enforced=true`
+     (证书没签下来之前千万别开,否则整站会被重定向到报错的 HTTPS);
+  4. 可选:加 `www` 的 CNAME 指向 `bayshier.github.io`。
+- 在此之前,对外的地址一律用 `https://bayshier.github.io/Nikki/`(它会跳到 `http://nikki.us.ci`)。
+
 ## 🔖 复盘与升级计划
 
 对当前产出效果不满意的部分、全部第三方引用、已知短板与升级路线,已固化在
